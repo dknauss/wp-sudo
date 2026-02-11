@@ -1,5 +1,5 @@
 === Sudo ===
-Contributors:      danknauss
+Contributors:      dpknauss
 Donate link:       https://dan.knauss.ca
 Tags:              sudo, security, user roles, capabilities, access control
 Requires at least: 6.2
@@ -13,18 +13,18 @@ Sudo mode for WordPress. Designated roles can temporarily escalate their privile
 
 == Description ==
 
-**Sudo** gives designated roles a safe, time-limited way to perform administrative tasks without permanently granting them the Administrator role.
+**Sudo** gives trusted WordPress users a safe, time-limited way to perform administrative tasks without making them Administrators.
 
-Features:
+**Features:**
 
-* Adds a **Site Manager** user role with Editor capabilities plus curated admin powers (no self-escalation capabilities).
-* **Sudo mode** — eligible users can temporarily escalate to full Administrator privileges via a one-click admin-bar button.
+* Adds a **Site Manager** user role with Editor capabilities.
+* **Sudo mode** — eligible users can temporarily escalate to full Administrator privileges by reauthenticating via a one-click admin-bar button.
 * **Reauthentication required** — users must enter their password before escalation is granted.
 * **`unfiltered_html` restricted** — the `unfiltered_html` capability is stripped from Editors and Site Managers outside of sudo. This prevents arbitrary HTML/JS injection without an active, reauthenticated session.
 * **Scoped escalation** — escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, Application Password, and Cron requests are explicitly blocked.
 * **Session binding** — sudo sessions are cryptographically bound to the browser that activated them via a secure cookie token.
 * **Rate limiting** — 5 failed password attempts trigger a 5-minute lockout.
-* Configurable session duration (1–15 minutes, default 15).
+* Configurable sudo session duration. (1–15 minutes, default 15.)
 * Choose which roles are allowed to activate sudo mode.
 * **Two-factor authentication** — if the Two Factor plugin is active and the user has 2FA configured, a second verification step is required. Third-party 2FA plugins can integrate via the `wp_sudo_requires_two_factor`, `wp_sudo_validate_two_factor`, and `wp_sudo_render_two_factor_fields` hooks.
 * **Admin bar countdown** — a live M:SS timer in the admin bar shows remaining session time. The bar turns red in the final 60 seconds.
