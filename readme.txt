@@ -17,22 +17,33 @@ Sudo mode for WordPress. Designated roles can temporarily escalate their privile
 
 **Features:**
 
+*Core*
+
 * Adds a **Site Manager** user role with Editor capabilities.
 * **Sudo mode** — eligible users can temporarily escalate to full Administrator privileges by reauthenticating via a one-click admin-bar button.
-* **Reauthentication required** — users must enter their password before escalation is granted.
-* **`unfiltered_html` restricted** — the `unfiltered_html` capability is stripped from Editors and Site Managers outside of sudo. This prevents arbitrary HTML/JS injection without an active, reauthenticated session.
-* **Scoped escalation** — escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, Application Password, and Cron requests are explicitly blocked.
-* **Session binding** — sudo sessions are cryptographically bound to the browser that activated them via a secure cookie token.
-* **Rate limiting** — 5 failed password attempts trigger a 5-minute lockout.
 * Configurable sudo session duration. (1–15 minutes, default 15.)
 * Choose which roles are allowed to activate sudo mode.
+
+*Security*
+
+* **Reauthentication required** — users must enter their password before escalation is granted.
 * **Two-factor authentication** — if the Two Factor plugin is active and the user has 2FA configured, a second verification step is required. Third-party 2FA plugins can integrate via the `wp_sudo_requires_two_factor`, `wp_sudo_validate_two_factor`, and `wp_sudo_render_two_factor_fields` hooks.
+* **Scoped escalation** — escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, Application Password, and Cron requests are explicitly blocked.
+* **Session binding** — sudo sessions are cryptographically bound to the browser that activated them via a secure cookie token.
+* **`unfiltered_html` restricted** — the `unfiltered_html` capability is stripped from Editors and Site Managers outside of sudo. This prevents arbitrary HTML/JS injection without an active, reauthenticated session.
+* **Rate limiting** — 5 failed password attempts trigger a 5-minute lockout.
+
+*User experience*
+
 * **Admin bar countdown** — a live M:SS timer in the admin bar shows remaining session time. The bar turns red in the final 60 seconds.
 * **Accessible** — screen-reader announcements for session state, `role="alert"` on errors, and a polite warning before session expiry.
+* **Contextual help** — a Help tab on the settings page provides quick documentation for session duration, allowed roles, and developer hooks.
+
+*Developer & operations*
+
 * **Audit log hooks** — fires `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, and `wp_sudo_lockout` actions for compatibility with Stream, WP Activity Log, and similar plugins.
 * **Multisite safe** — per-site roles and options are cleaned on uninstall; shared user meta is only removed when no remaining site has the plugin active.
 * Role capabilities stay in sync automatically when the plugin is updated.
-* **Contextual help** — a Help tab on the settings page provides quick documentation for session duration, allowed roles, and developer hooks.
 
 == Installation ==
 
