@@ -1,0 +1,34 @@
+/**
+ * WP Sudo – Admin bar styles.
+ *
+ * @package WP_Sudo
+ */
+
+/* Active state — green highlight */
+#wpadminbar .wp-sudo-active .ab-item {
+	background: #2e7d32 !important;
+	color: #fff !important;
+}
+
+#wpadminbar .wp-sudo-active:hover .ab-item {
+	background: #1b5e20 !important;
+	color: #fff !important;
+}
+
+/* Inactive state — subtle */
+#wpadminbar .wp-sudo-inactive .ab-item {
+	color: #a0a5aa !important;
+}
+
+#wpadminbar .wp-sudo-inactive:hover .ab-item {
+	color: #00b9eb !important;
+}
+
+/* Admin notice */
+.wp-sudo-notice {
+	border-left-color: #ff9800 !important;
+}
+
+.wp-sudo-notice a {
+	font-weight: 600;
+}

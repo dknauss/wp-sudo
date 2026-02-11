@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+vendor/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Build artifacts
+*.zip

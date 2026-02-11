@@ -1,0 +1,17 @@
+/**
+ * WP Sudo – Admin styles.
+ *
+ * @package WP_Sudo
+ */
+
+.wrap h1 {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.wrap h1::before {
+	content: "\f332"; /* dashicons-shield */
+	font-family: dashicons;
+	font-size: 1.2em;
+}
