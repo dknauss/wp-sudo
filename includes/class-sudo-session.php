@@ -121,6 +121,9 @@ class Sudo_Session {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_bar_assets' ] );
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_admin_bar_assets' ] );
 
+		// Enqueue reauth page styles.
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_reauth_assets' ] );
+
 		// Show an admin notice while sudo is active (or just expired).
 		add_action( 'admin_notices', [ $this, 'sudo_active_notice' ] );
 		add_action( 'admin_notices', [ $this, 'sudo_expired_notice' ] );
@@ -478,18 +481,22 @@ class Sudo_Session {
 		if ( $is_active ) {
 			$remaining = self::time_remaining( $user_id );
 			$minutes   = (int) ceil( $remaining / MINUTE_IN_SECONDS );
-			$title     = sprintf(
-				/* translators: %d: minutes remaining */
-				__( '🔓 Sudo Active (%d min)', 'wp-sudo' ),
-				$minutes
-			);
+			$title     = '<span class="ab-icon dashicons dashicons-unlock"></span><span class="ab-label">'
+				. sprintf(
+					/* translators: %d: minutes remaining */
+					esc_html__( 'Sudo Active (%d min)', 'wp-sudo' ),
+					$minutes
+				)
+				. '</span>';
 			$href  = wp_nonce_url(
 				add_query_arg( self::QUERY_PARAM, 'deactivate' ),
 				self::NONCE_ACTION
 			);
 			$class = 'wp-sudo-active';
 		} else {
-			$title = __( '🔒 Activate Sudo', 'wp-sudo' );
+			$title = '<span class="ab-icon dashicons dashicons-lock"></span><span class="ab-label">'
+				. esc_html__( 'Activate Sudo', 'wp-sudo' )
+				. '</span>';
 			// Link to the reauth page via an intermediary that saves the
 			// return URL in a transient (avoids URL-encoding issues).
 			$href  = wp_nonce_url(
@@ -712,14 +719,6 @@ class Sudo_Session {
 			}
 		}
 
-		// Enqueue the reauth page styles.
-		wp_enqueue_style(
-			'wp-sudo-reauth',
-			WP_SUDO_PLUGIN_URL . 'admin/css/wp-sudo-reauth.css',
-			[],
-			WP_SUDO_VERSION
-		);
-
 		// If the password step is complete and 2FA is needed, show the 2FA form.
 		if ( $is_2fa_step && $user ) {
 			$this->render_two_factor_step( $user, $redirect_to, $error );
@@ -729,7 +728,7 @@ class Sudo_Session {
 		?>
 		<div class="wrap">
 			<div class="wp-sudo-reauth-card">
-				<h1><?php esc_html_e( '🔐 Confirm Your Identity', 'wp-sudo' ); ?></h1>
+				<h1><span class="dashicons dashicons-shield"></span> <?php esc_html_e( 'Confirm Your Identity', 'wp-sudo' ); ?></h1>
 				<p class="description">
 					<?php esc_html_e( 'To activate sudo mode and gain temporary Administrator privileges, please enter your password.', 'wp-sudo' ); ?>
 				</p>
@@ -884,7 +883,7 @@ class Sudo_Session {
 		?>
 		<div class="wrap">
 			<div class="wp-sudo-reauth-card">
-				<h1><?php esc_html_e( '🔐 Two-Factor Verification', 'wp-sudo' ); ?></h1>
+				<h1><span class="dashicons dashicons-shield"></span> <?php esc_html_e( 'Two-Factor Verification', 'wp-sudo' ); ?></h1>
 				<p class="description">
 					<?php esc_html_e( 'Your password has been verified. Please complete two-factor authentication to activate sudo mode.', 'wp-sudo' ); ?>
 				</p>
@@ -965,6 +964,26 @@ class Sudo_Session {
 	}
 
 	/**
+	 * Enqueue reauthentication page styles.
+	 *
+	 * @return void
+	 */
+	public function enqueue_reauth_assets(): void {
+		$current_page = $_GET['page'] ?? '';
+
+		if ( 'wp-sudo-reauth' !== $current_page ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'wp-sudo-reauth',
+			WP_SUDO_PLUGIN_URL . 'admin/css/wp-sudo-reauth.css',
+			[],
+			WP_SUDO_VERSION
+		);
+	}
+
+	/**
 	 * Show an admin notice while sudo is active, with a live countdown.
 	 *
 	 * Also enqueues inline JavaScript that:
@@ -1009,7 +1028,7 @@ class Sudo_Session {
 			'<div class="notice notice-warning wp-sudo-notice"><p>%s <a href="%s">%s</a></p></div>',
 			sprintf(
 				/* translators: %s: time remaining placeholder updated by JS */
-				esc_html__( '⚡ Sudo mode is active. You have Administrator privileges for %s.', 'wp-sudo' ),
+				esc_html__( 'Sudo mode is active. You have Administrator privileges for %s.', 'wp-sudo' ),
 				'<strong id="wp-sudo-countdown">' . esc_html( $initial_display ) . '</strong>'
 			),
 			esc_url( $deactivate_url ),
@@ -1025,7 +1044,7 @@ class Sudo_Session {
 			var expiresAt = <?php echo (int) $expires; ?>;
 			var dashboardUrl = <?php echo wp_json_encode( $dashboard_url ); ?>;
 			var countdownEl = document.getElementById( 'wp-sudo-countdown' );
-			var barItem = document.querySelector( '#wp-ab-all-admin-bar-wp-sudo-toggle .ab-item, #wpadminbar #wp-admin-bar-wp-sudo-toggle .ab-item' );
+			var barLabel = document.querySelector( '#wp-ab-all-admin-bar-wp-sudo-toggle .ab-label, #wpadminbar #wp-admin-bar-wp-sudo-toggle .ab-label' );
 			var warningShown = false;
 
 			// Calculate the offset between server time and client time once,
@@ -1060,10 +1079,10 @@ class Sudo_Session {
 					countdownEl.textContent = formatTime( remaining );
 				}
 
-				// Update admin bar button text.
-				if ( barItem ) {
+				// Update admin bar button label.
+				if ( barLabel ) {
 					var mins = Math.ceil( remaining / 60 );
-					barItem.textContent = '\uD83D\uDD13 Sudo Active (' + mins + ' min)';
+					barLabel.textContent = 'Sudo Active (' + mins + ' min)';
 				}
 
 				// Visual warning 60 seconds before expiry.
@@ -1114,24 +1133,10 @@ class Sudo_Session {
 
 		printf(
 			'<div class="notice notice-info is-dismissible wp-sudo-notice"><p>%s <a href="%s">%s</a></p></div>',
-			esc_html__( '🔒 Your sudo session has expired and you have been returned to regular privileges.', 'wp-sudo' ),
+			esc_html__( 'Your sudo session has expired and you have been returned to regular privileges.', 'wp-sudo' ),
 			esc_url( $reauth_url ),
 			esc_html__( 'Reactivate sudo', 'wp-sudo' )
 		);
-	}
-
-	// -------------------------------------------------------------------------
-	// Utility
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Get the current request URL.
-	 *
-	 * @return string
-	 */
-	private static function current_url(): string {
-		$scheme = is_ssl() ? 'https' : 'http';
-		return $scheme . '://' . ( $_SERVER['HTTP_HOST'] ?? 'localhost' ) . ( $_SERVER['REQUEST_URI'] ?? '/' );
 	}
 
 	// -------------------------------------------------------------------------

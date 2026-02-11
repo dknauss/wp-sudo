@@ -43,6 +43,7 @@ class Admin {
 		add_action( 'admin_init', [ $this, 'register_settings' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_filter( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME, [ $this, 'add_action_links' ] );
+		add_action( 'admin_notices', [ $this, 'activation_notice' ] );
 	}
 
 	/**
@@ -109,7 +110,7 @@ class Admin {
 	public static function defaults(): array {
 		return [
 			'session_duration' => 15,
-			'allowed_roles'   => [ 'editor' ],
+			'allowed_roles'   => [ 'editor', 'webmaster' ],
 		];
 	}
 
@@ -162,14 +163,6 @@ class Admin {
 			[],
 			WP_SUDO_VERSION
 		);
-
-		wp_enqueue_script(
-			'wp-sudo-admin',
-			WP_SUDO_PLUGIN_URL . 'admin/js/wp-sudo-admin.js',
-			[],
-			WP_SUDO_VERSION,
-			true
-		);
 	}
 
 	/**
@@ -181,13 +174,37 @@ class Admin {
 	public function add_action_links( array $links ): array {
 		$settings_link = sprintf(
 			'<a href="%s">%s</a>',
-			admin_url( 'options-general.php?page=' . self::PAGE_SLUG ),
+			esc_url( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ) ),
 			__( 'Settings', 'wp-sudo' )
 		);
 
 		array_unshift( $links, $settings_link );
 
 		return $links;
+	}
+
+	/**
+	 * Show a one-time notice after plugin activation.
+	 *
+	 * @return void
+	 */
+	public function activation_notice(): void {
+		if ( ! get_option( 'wp_sudo_activated' ) ) {
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		delete_option( 'wp_sudo_activated' );
+
+		printf(
+			'<div class="notice notice-success is-dismissible"><p>%s <a href="%s">%s</a></p></div>',
+			esc_html__( 'Sudo is active. A new Webmaster role has been created.', 'wp-sudo' ),
+			esc_url( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ) ),
+			esc_html__( 'Configure sudo settings', 'wp-sudo' )
+		);
 	}
 
 	// -------------------------------------------------------------------------

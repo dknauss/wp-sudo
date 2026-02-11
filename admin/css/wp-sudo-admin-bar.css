@@ -4,6 +4,16 @@
  * @package WP_Sudo
  */
 
+/* Dashicon in admin bar */
+#wpadminbar #wp-admin-bar-wp-sudo-toggle .ab-icon::before {
+	content: "\f160"; /* dashicons-lock */
+	top: 2px;
+}
+
+#wpadminbar #wp-admin-bar-wp-sudo-toggle.wp-sudo-active .ab-icon::before {
+	content: "\f528"; /* dashicons-unlock */
+}
+
 /* Active state — green highlight */
 #wpadminbar .wp-sudo-active .ab-item {
 	background: #2e7d32 !important;

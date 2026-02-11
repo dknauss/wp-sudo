@@ -1,5 +1,5 @@
 === Sudo ===
-Contributors:      yourname
+Contributors:      danknauss
 Tags:              sudo, privileges, roles, escalation, security
 Requires at least: 6.2
 Tested up to:      6.7
