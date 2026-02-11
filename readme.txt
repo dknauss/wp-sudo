@@ -4,11 +4,11 @@ Tags:              sudo, privileges, roles, escalation, security
 Requires at least: 6.2
 Tested up to:      6.7
 Requires PHP:      8.0
-Stable tag:        1.1.0
+Stable tag:        1.2.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
-Sudo mode for WordPress! Site Managers with Editor capabilities can temporarily escalate their privileges to the Administrator level.
+Sudo mode for WordPress. Designated roles can temporarily escalate their privileges to the Administrator level.
 
 == Description ==
 
@@ -25,9 +25,12 @@ Features:
 * Configurable session duration (1–15 minutes, default 15).
 * Choose which roles are allowed to activate sudo mode.
 * **Two-factor authentication** — if the Two Factor plugin is active and the user has 2FA configured, a second verification step is required. Third-party 2FA plugins can integrate via the `wp_sudo_requires_two_factor`, `wp_sudo_validate_two_factor`, and `wp_sudo_render_two_factor_fields` hooks.
-* Visual indicators: green admin bar and a warning notice while sudo is active.
+* **Admin bar countdown** — a live M:SS timer in the admin bar shows remaining session time. The bar turns red in the final 60 seconds.
+* **Accessible** — screen-reader announcements for session state, `role="alert"` on errors, and a polite warning before session expiry.
 * **Audit log hooks** — fires `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, and `wp_sudo_lockout` actions for compatibility with Stream, WP Activity Log, and similar plugins.
+* **Multisite safe** — per-site roles and options are cleaned on uninstall; shared user meta is only removed when no remaining site has the plugin active.
 * Role capabilities stay in sync automatically when the plugin is updated.
+* **Contextual help** — a Help tab on the settings page provides quick documentation for session duration, allowed roles, and developer hooks.
 
 == Installation ==
 
@@ -43,7 +46,7 @@ A Webmaster has all Editor capabilities plus: switch themes, edit theme options,
 
 = How does sudo mode work? =
 
-Eligible users see a **"🔒 Activate Sudo"** button in the admin bar. Clicking it redirects to a reauthentication page where they must enter their password. On success, the session activates and they are redirected back to where they started. The admin bar button turns green and shows a countdown. Clicking it again (or waiting for it to expire) reverts the user to their normal capabilities.
+Eligible users see an **Activate Sudo** button in the admin bar. Clicking it redirects to a reauthentication page where they must enter their password. On success, the session activates and they are redirected back to where they started. The admin bar button turns green and shows a live countdown. Clicking it again (or waiting for it to expire) reverts the user to their normal capabilities.
 
 = Is sudo mode active on REST API or XML-RPC? =
 
@@ -70,21 +73,41 @@ Reporting plugins like **Stream** and **WP Activity Log** automatically capture 
 
 = Which roles can activate sudo? =
 
-By default only the **Editor** role is allowed. You can change this under **Settings → Sudo**.
+By default the **Editor** and **Webmaster** roles are allowed. You can change this under **Settings → Sudo**.
 
 = Does it support two-factor authentication? =
 
 Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is installed and the user has 2FA enabled, sudo reauthentication becomes a two-step process: password first, then the configured 2FA method (TOTP, email code, backup codes, etc.). Other 2FA plugins can integrate via the `wp_sudo_requires_two_factor`, `wp_sudo_validate_two_factor`, and `wp_sudo_render_two_factor_fields` hooks.
 
+= Does it work on multisite? =
+
+Yes. The Webmaster role, settings, and version data are stored per-site. Sudo session data (user meta) is stored in the shared users table. On uninstall, per-site data is cleaned for each site, and user meta is only removed when no remaining site in the network still has the plugin active.
+
 = What happens if I deactivate the plugin? =
 
 The Webmaster role remains until you uninstall the plugin, so existing Webmaster users are not disrupted by a temporary deactivation. Any active sudo sessions expire naturally.
 
+= What happens if my role changes during an active session? =
+
+Sudo immediately deactivates. Every request re-verifies that the user's role is still on the allowed list. If an admin changes your role mid-session, your escalated privileges end on the next page load.
+
 == Screenshots ==
 
-1. Settings page.
+1. Settings page with contextual Help tab.
 
 == Changelog ==
+
+= 1.2.0 =
+* Admin bar countdown now uses a numeric M:SS timer instead of a text-based countdown.
+* Removed the active-session admin notice banner — the admin bar provides the countdown and expiry warning.
+* Admin bar turns red in the final 60 seconds with a screen-reader announcement.
+* Improved accessibility: `role="alert"` on reauth errors, `aria-describedby` on the password field, and a polite screen-reader warning near session expiry.
+* Inline JS now uses `wp_print_inline_script_tag()` for Content Security Policy nonce support.
+* Tooltip strings use `esc_attr__()` for defensive escaping.
+* Role eligibility is re-verified on every request — if a user's role is changed mid-session, sudo deactivates immediately.
+* Multisite-safe uninstall: per-site data is cleaned per-site, and shared user meta is only removed when no other site has the plugin active.
+* Added contextual Help tab on the Settings page.
+* Settings page notes that duration changes apply to new sessions only.
 
 = 1.1.0 =
 * Maximum session duration capped at 15 minutes (matching standard Linux sudo behavior).
@@ -96,6 +119,9 @@ The Webmaster role remains until you uninstall the plugin, so existing Webmaster
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+Multisite-safe uninstall. Improved admin bar countdown and accessibility. Role changes now immediately revoke sudo.
 
 = 1.1.0 =
 Session max capped at 15 minutes. Two-factor authentication support added. `unfiltered_html` capability now requires sudo.

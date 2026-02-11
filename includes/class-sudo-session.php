@@ -124,8 +124,11 @@ class Sudo_Session {
 		// Enqueue reauth page styles.
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_reauth_assets' ] );
 
-		// Show an admin notice while sudo is active (or just expired).
-		add_action( 'admin_notices', [ $this, 'sudo_active_notice' ] );
+		// Live countdown + auto-redirect script (runs after admin bar is rendered).
+		add_action( 'admin_footer', [ $this, 'sudo_countdown_script' ] );
+		add_action( 'wp_footer', [ $this, 'sudo_countdown_script' ] );
+
+		// Show a one-time notice when a sudo session has just expired.
 		add_action( 'admin_notices', [ $this, 'sudo_expired_notice' ] );
 	}
 
@@ -155,6 +158,13 @@ class Sudo_Session {
 
 		// Verify the session is bound to this browser via cookie token.
 		if ( ! self::verify_token( $user_id ) ) {
+			return false;
+		}
+
+		// Verify the user's role is still eligible (e.g., an admin may
+		// have changed their role while the session was active).
+		if ( ! self::user_is_allowed( $user_id ) ) {
+			self::clear_session_data( $user_id );
 			return false;
 		}
 
@@ -480,14 +490,18 @@ class Sudo_Session {
 
 		if ( $is_active ) {
 			$remaining = self::time_remaining( $user_id );
-			$minutes   = (int) ceil( $remaining / MINUTE_IN_SECONDS );
-			$title     = '<span class="ab-icon dashicons dashicons-unlock"></span><span class="ab-label">'
-				. sprintf(
-					/* translators: %d: minutes remaining */
-					esc_html__( 'Sudo Active (%d min)', 'wp-sudo' ),
-					$minutes
-				)
-				. '</span>';
+			$mins      = (int) floor( $remaining / MINUTE_IN_SECONDS );
+			$secs      = $remaining % MINUTE_IN_SECONDS;
+			$numeric   = sprintf( '%d:%02d', $mins, $secs );
+
+			/* translators: %s: time remaining as M:SS */
+			$sr_text = sprintf( __( 'Sudo active, %s remaining', 'wp-sudo' ), $numeric );
+
+			$title = '<span class="ab-icon dashicons dashicons-unlock"></span>'
+				. '<span class="ab-label">'
+				. esc_html__( 'Sudo', 'wp-sudo' ) . ' ' . esc_html( $numeric )
+				. '</span>'
+				. '<span class="screen-reader-text">' . esc_html( $sr_text ) . '</span>';
 			$href  = wp_nonce_url(
 				add_query_arg( self::QUERY_PARAM, 'deactivate' ),
 				self::NONCE_ACTION
@@ -506,15 +520,17 @@ class Sudo_Session {
 			$class = 'wp-sudo-inactive';
 		}
 
+		$tooltip = $is_active
+			? esc_attr__( 'Click to deactivate sudo mode', 'wp-sudo' )
+			: esc_attr__( 'Click to reauthenticate and activate sudo mode', 'wp-sudo' );
+
 		$wp_admin_bar->add_node( [
 			'id'    => 'wp-sudo-toggle',
 			'title' => $title,
 			'href'  => $href,
 			'meta'  => [
 				'class' => $class,
-				'title' => $is_active
-					? __( 'Click to deactivate sudo mode', 'wp-sudo' )
-					: __( 'Click to reauthenticate and activate sudo mode', 'wp-sudo' ),
+				'title' => $tooltip,
 			],
 		] );
 	}
@@ -734,7 +750,7 @@ class Sudo_Session {
 				</p>
 
 				<?php if ( $error ) : ?>
-					<div class="notice notice-error inline"><p><?php echo esc_html( $error ); ?></p></div>
+					<div class="notice notice-error inline" id="wp-sudo-reauth-error" role="alert"><p><?php echo esc_html( $error ); ?></p></div>
 				<?php endif; ?>
 
 				<form method="post">
@@ -749,6 +765,7 @@ class Sudo_Session {
 							class="regular-text"
 							autocomplete="current-password"
 							required
+							<?php echo $error ? 'aria-describedby="wp-sudo-reauth-error"' : ''; ?>
 							<?php echo $is_locked_out ? 'disabled' : 'autofocus'; ?>
 						/>
 					</p>
@@ -889,7 +906,7 @@ class Sudo_Session {
 				</p>
 
 				<?php if ( $error ) : ?>
-					<div class="notice notice-error inline"><p><?php echo esc_html( $error ); ?></p></div>
+					<div class="notice notice-error inline" role="alert"><p><?php echo esc_html( $error ); ?></p></div>
 				<?php endif; ?>
 
 				<form method="post">
@@ -984,113 +1001,90 @@ class Sudo_Session {
 	}
 
 	/**
-	 * Show an admin notice while sudo is active, with a live countdown.
+	 * Output inline JS that keeps the admin-bar countdown ticking
+	 * and auto-redirects to the dashboard when the session expires.
 	 *
-	 * Also enqueues inline JavaScript that:
-	 * - Updates the countdown every second in the notice and admin bar.
-	 * - Automatically redirects to the dashboard when time runs out,
-	 *   so the user never lands on a capability-denied page.
+	 * Hooked to `admin_footer` and `wp_footer` so it runs after the
+	 * admin bar markup has been rendered.
 	 *
 	 * @return void
 	 */
-	public function sudo_active_notice(): void {
+	public function sudo_countdown_script(): void {
 		$user_id = get_current_user_id();
 
 		if ( ! self::is_active( $user_id ) ) {
 			return;
 		}
 
-		$remaining = self::time_remaining( $user_id );
-		$expires   = (int) get_user_meta( $user_id, self::META_KEY, true );
-
-		// Format the initial display to match the JS format exactly,
-		// avoiding a visible jump when the JS countdown takes over.
-		$mins = (int) floor( $remaining / MINUTE_IN_SECONDS );
-		$secs = $remaining % MINUTE_IN_SECONDS;
-
-		if ( $mins > 0 && $secs > 0 ) {
-			/* translators: 1: minutes, 2: seconds */
-			$initial_display = sprintf( _n( '%1$d minute %2$ds', '%1$d minutes %2$ds', $mins, 'wp-sudo' ), $mins, $secs );
-		} elseif ( $mins > 0 ) {
-			$initial_display = sprintf( _n( '%d minute', '%d minutes', $mins, 'wp-sudo' ), $mins );
-		} else {
-			$initial_display = sprintf( _n( '%d second', '%d seconds', $secs, 'wp-sudo' ), $secs );
-		}
-
-		$deactivate_url = wp_nonce_url(
-			add_query_arg( self::QUERY_PARAM, 'deactivate' ),
-			self::NONCE_ACTION
-		);
-
+		$expires       = (int) get_user_meta( $user_id, self::META_KEY, true );
 		$dashboard_url = admin_url();
 
-		printf(
-			'<div class="notice notice-warning wp-sudo-notice"><p>%s <a href="%s">%s</a></p></div>',
-			sprintf(
-				/* translators: %s: time remaining placeholder updated by JS */
-				esc_html__( 'Sudo mode is active. You have Administrator privileges for %s.', 'wp-sudo' ),
-				'<strong id="wp-sudo-countdown">' . esc_html( $initial_display ) . '</strong>'
-			),
-			esc_url( $deactivate_url ),
-			esc_html__( 'Deactivate now', 'wp-sudo' )
-		);
+		$js_data = wp_json_encode( [
+			'expiresAt'    => $expires,
+			'serverNow'    => (int) time(),
+			'dashboardUrl' => $dashboard_url,
+			'i18n'         => [
+				'sudo'          => __( 'Sudo', 'wp-sudo' ),
+				/* translators: %s: time remaining as M:SS */
+				'expiryWarning' => __( 'Sudo session expires in %s.', 'wp-sudo' ),
+			],
+		] );
 
-		// Inline JS for the live countdown + auto-redirect.
-		?>
-		<script>
+		$js = <<<JS
 		( function() {
-			// Use the absolute expiry timestamp so the countdown is correct
-			// regardless of page caching or server-side timing quirks.
-			var expiresAt = <?php echo (int) $expires; ?>;
-			var dashboardUrl = <?php echo wp_json_encode( $dashboard_url ); ?>;
-			var countdownEl = document.getElementById( 'wp-sudo-countdown' );
-			var barLabel = document.querySelector( '#wp-ab-all-admin-bar-wp-sudo-toggle .ab-label, #wpadminbar #wp-admin-bar-wp-sudo-toggle .ab-label' );
+			var data = {$js_data};
+			var expiresAt = data.expiresAt;
+			var dashboardUrl = data.dashboardUrl;
+			var i18n = data.i18n;
+			var barNode  = document.getElementById( 'wp-admin-bar-wp-sudo-toggle' );
+			var barLabel = barNode ? barNode.querySelector( '.ab-label' ) : null;
+			var barItem  = barNode ? barNode.querySelector( '.ab-item' ) : null;
 			var warningShown = false;
 
-			// Calculate the offset between server time and client time once,
-			// so we always count down to the server's expiry boundary.
-			var serverNow = <?php echo (int) time(); ?>;
-			var offset = serverNow - Math.floor( Date.now() / 1000 );
+			var offset = data.serverNow - Math.floor( Date.now() / 1000 );
 
 			function getRemaining() {
 				return expiresAt - Math.floor( Date.now() / 1000 ) - offset;
 			}
 
-			function formatTime( seconds ) {
-				if ( seconds <= 0 ) return '0 seconds';
+			function formatNumeric( seconds ) {
+				if ( seconds <= 0 ) return '0:00';
 				var m = Math.floor( seconds / 60 );
 				var s = seconds % 60;
-				if ( m > 0 && s > 0 ) return m + ( m === 1 ? ' minute ' : ' minutes ' ) + s + 's';
-				if ( m > 0 ) return m + ( m === 1 ? ' minute' : ' minutes' );
-				return s + ( s === 1 ? ' second' : ' seconds' );
+				return m + ':' + ( s < 10 ? '0' : '' ) + s;
 			}
 
 			function tick() {
 				var remaining = getRemaining();
 
 				if ( remaining <= 0 ) {
-					// Session expired — redirect to dashboard.
 					window.location.href = dashboardUrl;
 					return;
 				}
 
-				// Update the notice countdown.
-				if ( countdownEl ) {
-					countdownEl.textContent = formatTime( remaining );
-				}
+				var numeric = formatNumeric( remaining );
 
 				// Update admin bar button label.
 				if ( barLabel ) {
-					var mins = Math.ceil( remaining / 60 );
-					barLabel.textContent = 'Sudo Active (' + mins + ' min)';
+					barLabel.textContent = i18n.sudo + ' ' + numeric;
 				}
 
-				// Visual warning 60 seconds before expiry.
+				// Visual + audible warning 60 seconds before expiry.
 				if ( remaining <= 60 && ! warningShown ) {
 					warningShown = true;
-					if ( countdownEl ) {
-						countdownEl.style.color = '#d63638';
+
+					// Switch admin bar from green to red.
+					if ( barItem ) {
+						barItem.style.setProperty( 'background', '#d63638', 'important' );
 					}
+
+					// Announce to screen readers via a one-time aria-live region.
+					var srAlert = document.createElement( 'div' );
+					srAlert.setAttribute( 'role', 'status' );
+					srAlert.setAttribute( 'aria-live', 'polite' );
+					srAlert.className = 'screen-reader-text';
+					srAlert.textContent = i18n.expiryWarning.replace( '%s', numeric );
+					document.body.appendChild( srAlert );
 				}
 
 				setTimeout( tick, 1000 );
@@ -1098,8 +1092,9 @@ class Sudo_Session {
 
 			setTimeout( tick, 1000 );
 		} )();
-		</script>
-		<?php
+JS;
+
+		wp_print_inline_script_tag( $js );
 	}
 
 	/**

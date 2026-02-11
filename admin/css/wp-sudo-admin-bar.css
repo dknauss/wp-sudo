@@ -14,10 +14,11 @@
 	content: "\f528"; /* dashicons-unlock */
 }
 
-/* Active state — green highlight */
+/* Active state — green highlight, smooth transition for expiry warning */
 #wpadminbar .wp-sudo-active .ab-item {
 	background: #2e7d32 !important;
 	color: #fff !important;
+	transition: background 0.3s ease;
 }
 
 #wpadminbar .wp-sudo-active:hover .ab-item {
@@ -32,13 +33,4 @@
 
 #wpadminbar .wp-sudo-inactive:hover .ab-item {
 	color: #00b9eb !important;
-}
-
-/* Admin notice */
-.wp-sudo-notice {
-	border-left-color: #ff9800 !important;
-}
-
-.wp-sudo-notice a {
-	font-weight: 600;
 }

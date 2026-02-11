@@ -44,6 +44,7 @@ class Admin {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 		add_filter( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME, [ $this, 'add_action_links' ] );
 		add_action( 'admin_notices', [ $this, 'activation_notice' ] );
+		add_action( 'admin_head', [ $this, 'add_help_tabs' ] );
 	}
 
 	/**
@@ -207,6 +208,67 @@ class Admin {
 		);
 	}
 
+	/**
+	 * Add contextual help tabs to the plugin settings screen.
+	 *
+	 * @return void
+	 */
+	public function add_help_tabs(): void {
+		$screen = get_current_screen();
+
+		if ( ! $screen || 'settings_page_' . self::PAGE_SLUG !== $screen->id ) {
+			return;
+		}
+
+		$screen->add_help_tab( [
+			'id'      => 'wp-sudo-overview',
+			'title'   => __( 'Overview', 'wp-sudo' ),
+			'content' => '<p>' . __( 'Sudo gives designated roles a safe, time-limited way to perform administrative tasks without permanently granting them the Administrator role.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'Eligible users see an <strong>Activate Sudo</strong> button in the admin bar. Clicking it requires reauthentication (password and optional two-factor), after which the user receives full Administrator capabilities for the configured session duration.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'Escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, and Cron requests are never escalated.', 'wp-sudo' ) . '</p>',
+		] );
+
+		$screen->add_help_tab( [
+			'id'      => 'wp-sudo-session-duration',
+			'title'   => __( 'Session Duration', 'wp-sudo' ),
+			'content' => '<p>' . __( '<strong>Session Duration</strong> controls how long a sudo session lasts before it automatically expires. The maximum is 15 minutes, matching the default Linux sudo timeout.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'When a session expires, the user is redirected to the dashboard and sees a one-time notice with a link to reactivate. Changes to this setting apply to new sessions only — active sessions expire at their original duration.', 'wp-sudo' ) . '</p>',
+		] );
+
+		$screen->add_help_tab( [
+			'id'      => 'wp-sudo-allowed-roles',
+			'title'   => __( 'Allowed Roles', 'wp-sudo' ),
+			'content' => '<p>' . __( '<strong>Allowed Roles</strong> determines which user roles may activate sudo mode. Administrators are excluded because they already have full privileges.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'By default, the <strong>Editor</strong> and <strong>Webmaster</strong> roles are allowed. The Webmaster role is a custom role created by this plugin — it has all Editor capabilities plus theme switching, plugin activation, updates, and import/export.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'If a user\'s role is removed from the allowed list while they have an active sudo session, their escalated privileges are revoked on the next page load.', 'wp-sudo' ) . '</p>',
+		] );
+
+		$screen->add_help_tab( [
+			'id'      => 'wp-sudo-developer-hooks',
+			'title'   => __( 'Developer Hooks', 'wp-sudo' ),
+			'content' => '<p>' . __( 'Sudo fires the following action hooks for audit logging and integration:', 'wp-sudo' ) . '</p>'
+				. '<ul>'
+				. '<li><code>wp_sudo_activated( $user_id, $expires, $duration, $role )</code></li>'
+				. '<li><code>wp_sudo_deactivated( $user_id, $role )</code></li>'
+				. '<li><code>wp_sudo_reauth_failed( $user_id, $attempts )</code></li>'
+				. '<li><code>wp_sudo_lockout( $user_id, $attempts )</code></li>'
+				. '</ul>'
+				. '<p>' . __( 'These are compatible with Stream, WP Activity Log, and similar plugins that listen on <code>do_action()</code> calls.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'For two-factor integration, these filters are available:', 'wp-sudo' ) . '</p>'
+				. '<ul>'
+				. '<li><code>wp_sudo_requires_two_factor( $needs, $user_id )</code></li>'
+				. '<li><code>wp_sudo_validate_two_factor( $valid, $user )</code></li>'
+				. '<li><code>wp_sudo_render_two_factor_fields( $user )</code> — action hook</li>'
+				. '</ul>',
+		] );
+
+		$screen->set_help_sidebar(
+			'<p><strong>' . __( 'For more information:', 'wp-sudo' ) . '</strong></p>'
+			. '<p><a href="https://wordpress.org/plugins/two-factor/">' . __( 'Two Factor plugin', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://developer.wordpress.org/plugins/users/roles-and-capabilities/">' . __( 'Roles and Capabilities', 'wp-sudo' ) . '</a></p>'
+		);
+	}
+
 	// -------------------------------------------------------------------------
 	// Render callbacks
 	// -------------------------------------------------------------------------
@@ -256,6 +318,7 @@ class Admin {
 			absint( $value )
 		);
 		echo '<p class="description">' . esc_html__( 'How long a sudo session lasts before automatically expiring (maximum 15 minutes).', 'wp-sudo' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Changes apply to new sessions only. Active sessions expire at their original duration.', 'wp-sudo' ) . '</p>';
 	}
 
 	/**
