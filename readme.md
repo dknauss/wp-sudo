@@ -105,7 +105,21 @@ Sudo immediately deactivates. Every request re-verifies that the user's role is 
 
 ## Screenshots
 
-1. Settings page with contextual Help tab.
+1. Dashboard view for a Site Manager — the "Activate Sudo" button appears in the admin bar.
+
+   ![Dashboard with Activate Sudo button](assets/screenshot-1.png)
+
+2. Reauthentication page — password confirmation with the classic sudo lecture.
+
+   ![Reauthentication page](assets/screenshot-2.png)
+
+3. Active sudo session — the admin bar turns green with a live M:SS countdown and the full admin menu is available.
+
+   ![Active sudo session](assets/screenshot-3.png)
+
+4. Sudo Settings page — configure session duration and choose which roles may activate sudo.
+
+   ![Sudo Settings page](assets/screenshot-4.png)
 
 ## Changelog
 
