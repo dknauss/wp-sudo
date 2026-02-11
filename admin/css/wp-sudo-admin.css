@@ -15,3 +15,7 @@
 	font-family: dashicons;
 	font-size: 1.2em;
 }
+
+.wp-sudo-role-disabled {
+	color: #a7aaad;
+}

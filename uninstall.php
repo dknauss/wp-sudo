@@ -3,7 +3,7 @@
  * Runs when the plugin is uninstalled via the WordPress admin.
  *
  * On a standard single-site install, all plugin data is removed:
- * the Webmaster role, plugin options, and user-meta session data.
+ * the Site Manager role, plugin options, and user-meta session data.
  *
  * On multisite, per-site data (role, options) is cleaned for every
  * site that had the plugin active. Network-wide user meta is only
@@ -23,11 +23,12 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
  * @return void
  */
 function wp_sudo_cleanup_site(): void {
-	remove_role( 'webmaster' );
+	remove_role( 'site_manager' );
 
 	delete_option( 'wp_sudo_settings' );
 	delete_option( 'wp_sudo_activated' );
 	delete_option( 'wp_sudo_role_version' );
+	delete_option( 'wp_sudo_db_version' );
 }
 
 /**

@@ -1,6 +1,7 @@
 === Sudo ===
 Contributors:      danknauss
-Tags:              sudo, privileges, roles, escalation, security
+Donate link:       https://dan.knauss.ca
+Tags:              sudo, security, user roles, capabilities, access control
 Requires at least: 6.2
 Tested up to:      6.7
 Requires PHP:      8.0
@@ -16,9 +17,10 @@ Sudo mode for WordPress. Designated roles can temporarily escalate their privile
 
 Features:
 
-* Adds a **Webmaster** user role with Editor capabilities plus curated admin powers (no self-escalation capabilities).
+* Adds a **Site Manager** user role with Editor capabilities plus curated admin powers (no self-escalation capabilities).
 * **Sudo mode** — eligible users can temporarily escalate to full Administrator privileges via a one-click admin-bar button.
 * **Reauthentication required** — users must enter their password before escalation is granted.
+* **`unfiltered_html` restricted** — the `unfiltered_html` capability is stripped from Editors and Site Managers outside of sudo. This prevents arbitrary HTML/JS injection without an active, reauthenticated session.
 * **Scoped escalation** — escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, Application Password, and Cron requests are explicitly blocked.
 * **Session binding** — sudo sessions are cryptographically bound to the browser that activated them via a secure cookie token.
 * **Rate limiting** — 5 failed password attempts trigger a 5-minute lockout.
@@ -40,9 +42,9 @@ Features:
 
 == Frequently Asked Questions ==
 
-= What can a Webmaster do? =
+= What can a Site Manager do? =
 
-A Webmaster has all Editor capabilities plus: switch themes, edit theme options, activate plugins, list users, update core/plugins/themes, and import/export. Dangerous capabilities like `edit_users`, `promote_users`, and `manage_options` are only available during an active sudo session.
+A Site Manager has all Editor capabilities plus: switch themes, edit theme options, activate plugins, list users, update core/plugins/themes, and import/export. Dangerous capabilities like `edit_users`, `promote_users`, and `manage_options` are only available during an active sudo session.
 
 = How does sudo mode work? =
 
@@ -73,7 +75,11 @@ Reporting plugins like **Stream** and **WP Activity Log** automatically capture 
 
 = Which roles can activate sudo? =
 
-By default the **Editor** and **Webmaster** roles are allowed. You can change this under **Settings → Sudo**.
+By default the **Editor** and **Site Manager** roles are allowed. You can change this under **Settings → Sudo**. Roles below the Editor trust level (Author, Contributor, Subscriber) are not eligible — they lack the `edit_others_posts` capability, and the privilege gap between these roles and full Administrator is too large for safe escalation.
+
+= Why is `unfiltered_html` restricted? =
+
+WordPress grants the `unfiltered_html` capability to Editors on single-site installs by default. This allows inserting arbitrary HTML and JavaScript into posts and pages, which is a cross-site scripting (XSS) risk. Sudo strips this capability from all non-Administrator users unless they have an active sudo session. This means Editors and Site Managers must reauthenticate before they can use unfiltered HTML, adding an intentional friction point that reduces the risk of compromised accounts injecting malicious scripts.
 
 = Does it support two-factor authentication? =
 
@@ -81,11 +87,11 @@ Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is in
 
 = Does it work on multisite? =
 
-Yes. The Webmaster role, settings, and version data are stored per-site. Sudo session data (user meta) is stored in the shared users table. On uninstall, per-site data is cleaned for each site, and user meta is only removed when no remaining site in the network still has the plugin active.
+Yes. The Site Manager role, settings, and version data are stored per-site. Sudo session data (user meta) is stored in the shared users table. On uninstall, per-site data is cleaned for each site, and user meta is only removed when no remaining site in the network still has the plugin active.
 
 = What happens if I deactivate the plugin? =
 
-The Webmaster role remains until you uninstall the plugin, so existing Webmaster users are not disrupted by a temporary deactivation. Any active sudo sessions expire naturally.
+The Site Manager role remains until you uninstall the plugin, so existing Site Manager users are not disrupted by a temporary deactivation. Any active sudo sessions expire naturally.
 
 = What happens if my role changes during an active session? =
 
@@ -112,7 +118,7 @@ Sudo immediately deactivates. Every request re-verifies that the user's role is 
 = 1.1.0 =
 * Maximum session duration capped at 15 minutes (matching standard Linux sudo behavior).
 * Two-factor authentication support: integrates with the Two Factor plugin for an additional verification step.
-* Removed `unfiltered_html` from default Editor and Webmaster capabilities — only available during sudo.
+* Removed `unfiltered_html` from default Editor and Site Manager capabilities — only available during sudo.
 * Added filter hooks for third-party 2FA plugin integration.
 
 = 1.0.0 =

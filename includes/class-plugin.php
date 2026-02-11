@@ -27,11 +27,11 @@ class Plugin {
 	private ?Admin $admin = null;
 
 	/**
-	 * Webmaster role instance.
+	 * Site Manager role instance.
 	 *
-	 * @var Webmaster_Role|null
+	 * @var Site_Manager_Role|null
 	 */
-	private ?Webmaster_Role $role = null;
+	private ?Site_Manager_Role $role = null;
 
 	/**
 	 * Sudo session instance.
@@ -39,6 +39,13 @@ class Plugin {
 	 * @var Sudo_Session|null
 	 */
 	private ?Sudo_Session $sudo = null;
+
+	/**
+	 * Upgrader instance.
+	 *
+	 * @var Upgrader|null
+	 */
+	private ?Upgrader $upgrader = null;
 
 	/**
 	 * Initialize the plugin and register hooks.
@@ -49,8 +56,12 @@ class Plugin {
 		// Load translations.
 		load_plugin_textdomain( 'wp-sudo', false, dirname( WP_SUDO_PLUGIN_BASENAME ) . '/languages' );
 
-		// Initialize the Webmaster role.
-		$this->role = new Webmaster_Role();
+		// Run any pending upgrade routines (must run before other components).
+		$this->upgrader = new Upgrader();
+		$this->upgrader->maybe_upgrade();
+
+		// Initialize the Site Manager role.
+		$this->role = new Site_Manager_Role();
 		$this->role->register();
 
 		// Initialize sudo session handling (runs on front-end and admin).
@@ -70,8 +81,8 @@ class Plugin {
 	 * @return void
 	 */
 	public function activate(): void {
-		// Add the Webmaster role.
-		$role = new Webmaster_Role();
+		// Add the Site Manager role.
+		$role = new Site_Manager_Role();
 		$role->add_role();
 
 		// Set a flag so we know the plugin has been activated.
@@ -97,11 +108,11 @@ class Plugin {
 	}
 
 	/**
-	 * Get the Webmaster_Role instance.
+	 * Get the Site_Manager_Role instance.
 	 *
-	 * @return Webmaster_Role|null
+	 * @return Site_Manager_Role|null
 	 */
-	public function role(): ?Webmaster_Role {
+	public function role(): ?Site_Manager_Role {
 		return $this->role;
 	}
 

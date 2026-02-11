@@ -1,6 +1,6 @@
 <?php
 /**
- * Webmaster custom role.
+ * Site Manager custom role.
  *
  * @package WP_Sudo
  */
@@ -13,28 +13,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Class Webmaster_Role
+ * Class Site_Manager_Role
  *
- * Registers and manages the "Webmaster" custom user role. The Webmaster role
- * inherits all Editor capabilities and adds a curated set of administrative
+ * Registers and manages the "Site Manager" custom user role. The Site Manager
+ * role inherits all Editor capabilities and adds a curated set of administrative
  * capabilities so the user can manage most day-to-day site operations without
  * having the full Administrator role.
  */
-class Webmaster_Role {
+class Site_Manager_Role {
 
 	/**
 	 * Role slug.
 	 *
 	 * @var string
 	 */
-	public const ROLE_SLUG = 'webmaster';
+	public const ROLE_SLUG = 'site_manager';
 
 	/**
 	 * Role display name.
 	 *
 	 * @var string
 	 */
-	public const ROLE_NAME = 'Webmaster';
+	public const ROLE_NAME = 'Site Manager';
 
 	/**
 	 * Register hooks.
@@ -48,7 +48,7 @@ class Webmaster_Role {
 	}
 
 	/**
-	 * Add the Webmaster role to WordPress.
+	 * Add the Site Manager role to WordPress.
 	 *
 	 * Should be called on plugin activation.
 	 *
@@ -59,7 +59,7 @@ class Webmaster_Role {
 	}
 
 	/**
-	 * Remove the Webmaster role from WordPress.
+	 * Remove the Site Manager role from WordPress.
 	 *
 	 * Should be called on plugin deactivation / uninstall.
 	 *
@@ -92,7 +92,7 @@ class Webmaster_Role {
 	}
 
 	/**
-	 * Return the full set of capabilities for the Webmaster role.
+	 * Return the full set of capabilities for the Site Manager role.
 	 *
 	 * Starts with all Editor capabilities and layers on additional
 	 * administrative capabilities.
@@ -108,7 +108,7 @@ class Webmaster_Role {
 		// and should only be available during an active sudo session.
 		$caps['unfiltered_html'] = false;
 
-		// Additional administrative capabilities for the Webmaster.
+		// Additional administrative capabilities for the Site Manager.
 		// NOTE: Dangerous capabilities like edit_users, promote_users, and
 		// manage_options are intentionally omitted. They are only available
 		// during an active sudo session to prevent permanent self-escalation.

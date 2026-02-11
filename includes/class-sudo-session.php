@@ -86,6 +86,18 @@ class Sudo_Session {
 	public const REAUTH_NONCE = 'wp_sudo_reauth';
 
 	/**
+	 * Minimum capability a role must possess to be eligible for sudo.
+	 *
+	 * Roles without this capability (Author, Contributor, Subscriber)
+	 * are never allowed, even if an admin selects them in settings.
+	 * This maps to the WordPress trust boundary between Editors
+	 * (who manage all content) and Authors (who manage only their own).
+	 *
+	 * @var string
+	 */
+	public const MIN_CAPABILITY = 'edit_others_posts';
+
+	/**
 	 * Query-string parameter used for the toggle action.
 	 *
 	 * @var string
@@ -279,7 +291,23 @@ class Sudo_Session {
 
 		$allowed_roles = (array) Admin::get( 'allowed_roles', [ 'editor' ] );
 
-		return ! empty( array_intersect( (array) $user->roles, $allowed_roles ) );
+		if ( empty( array_intersect( (array) $user->roles, $allowed_roles ) ) ) {
+			return false;
+		}
+
+		// Defense-in-depth: reject users who lack the minimum capability floor,
+		// regardless of what roles are configured in settings.
+		// Note: We check the role's stored capabilities directly instead of
+		// using user_can(), because user_can() triggers the user_has_cap
+		// filter — which calls is_active() → user_is_allowed() → infinite loop.
+		foreach ( (array) $user->roles as $role_slug ) {
+			$role = get_role( $role_slug );
+			if ( $role && ! empty( $role->capabilities[ self::MIN_CAPABILITY ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	// -------------------------------------------------------------------------
@@ -300,7 +328,7 @@ class Sudo_Session {
 	 * @return array<string, bool>
 	 */
 	public function filter_user_capabilities( array $allcaps, array $caps, array $args, \WP_User $user ): array {
-		// Strip unfiltered_html from Editors and Webmasters outside of sudo.
+		// Strip unfiltered_html from Editors and Site Managers outside of sudo.
 		// WordPress grants this to Editors by default on single-site installs,
 		// but it allows arbitrary HTML/JS injection and should require sudo.
 		if ( ! self::is_active( $user->ID ) ) {
@@ -748,6 +776,12 @@ class Sudo_Session {
 				<p class="description">
 					<?php esc_html_e( 'To activate sudo mode and gain temporary Administrator privileges, please enter your password.', 'wp-sudo' ); ?>
 				</p>
+
+				<ol class="wp-sudo-lecture">
+					<li><?php esc_html_e( 'Respect the privacy of others.', 'wp-sudo' ); ?></li>
+					<li><?php esc_html_e( 'Think before you type.', 'wp-sudo' ); ?></li>
+					<li><?php esc_html_e( 'With great power comes great responsibility.', 'wp-sudo' ); ?></li>
+				</ol>
 
 				<?php if ( $error ) : ?>
 					<div class="notice notice-error inline" id="wp-sudo-reauth-error" role="alert"><p><?php echo esc_html( $error ); ?></p></div>

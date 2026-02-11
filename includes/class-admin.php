@@ -111,7 +111,7 @@ class Admin {
 	public static function defaults(): array {
 		return [
 			'session_duration' => 15,
-			'allowed_roles'   => [ 'editor', 'webmaster' ],
+			'allowed_roles'   => [ 'editor', 'site_manager' ],
 		];
 	}
 
@@ -142,7 +142,13 @@ class Admin {
 			$sanitized['session_duration'] = 15;
 		}
 
-		$sanitized['allowed_roles'] = array_map( 'sanitize_text_field', (array) ( $input['allowed_roles'] ?? [] ) );
+		$raw_roles = array_map( 'sanitize_text_field', (array) ( $input['allowed_roles'] ?? [] ) );
+
+		// Strip roles that don't meet the minimum capability floor.
+		$all_roles = wp_roles()->roles;
+		$sanitized['allowed_roles'] = array_values( array_filter( $raw_roles, function ( string $slug ) use ( $all_roles ): bool {
+			return isset( $all_roles[ $slug ] ) && ! empty( $all_roles[ $slug ]['capabilities'][ Sudo_Session::MIN_CAPABILITY ] );
+		} ) );
 
 		return $sanitized;
 	}
@@ -202,7 +208,7 @@ class Admin {
 
 		printf(
 			'<div class="notice notice-success is-dismissible"><p>%s <a href="%s">%s</a></p></div>',
-			esc_html__( 'Sudo is active. A new Webmaster role has been created.', 'wp-sudo' ),
+			esc_html__( 'Sudo is active. A new Site Manager role has been created.', 'wp-sudo' ),
 			esc_url( admin_url( 'options-general.php?page=' . self::PAGE_SLUG ) ),
 			esc_html__( 'Configure sudo settings', 'wp-sudo' )
 		);
@@ -223,9 +229,11 @@ class Admin {
 		$screen->add_help_tab( [
 			'id'      => 'wp-sudo-overview',
 			'title'   => __( 'Overview', 'wp-sudo' ),
-			'content' => '<p>' . __( 'Sudo gives designated roles a safe, time-limited way to perform administrative tasks without permanently granting them the Administrator role.', 'wp-sudo' ) . '</p>'
+			'content' => '<p>' . __( 'The name "sudo" comes from a <a href="https://en.wikipedia.org/wiki/Sudo" target="_blank" rel="noopener">Unix command</a> that lets a trusted user temporarily act as the system administrator. This plugin applies the same concept to WordPress.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'Sudo gives designated roles a safe, time-limited way to perform administrative tasks without permanently granting them the Administrator role.', 'wp-sudo' ) . '</p>'
 				. '<p>' . __( 'Eligible users see an <strong>Activate Sudo</strong> button in the admin bar. Clicking it requires reauthentication (password and optional two-factor), after which the user receives full Administrator capabilities for the configured session duration.', 'wp-sudo' ) . '</p>'
-				. '<p>' . __( 'Escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, and Cron requests are never escalated.', 'wp-sudo' ) . '</p>',
+				. '<p>' . __( 'Escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, and Cron requests are never escalated.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'The <code>unfiltered_html</code> capability is stripped from Editors and Site Managers outside of sudo. This prevents arbitrary HTML/JS injection without an active, reauthenticated session.', 'wp-sudo' ) . '</p>',
 		] );
 
 		$screen->add_help_tab( [
@@ -239,7 +247,8 @@ class Admin {
 			'id'      => 'wp-sudo-allowed-roles',
 			'title'   => __( 'Allowed Roles', 'wp-sudo' ),
 			'content' => '<p>' . __( '<strong>Allowed Roles</strong> determines which user roles may activate sudo mode. Administrators are excluded because they already have full privileges.', 'wp-sudo' ) . '</p>'
-				. '<p>' . __( 'By default, the <strong>Editor</strong> and <strong>Webmaster</strong> roles are allowed. The Webmaster role is a custom role created by this plugin — it has all Editor capabilities plus theme switching, plugin activation, updates, and import/export.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'By default, the <strong>Editor</strong> and <strong>Site Manager</strong> roles are allowed. The Site Manager role is a custom role created by this plugin — it has all Editor capabilities plus theme switching, plugin activation, updates, and import/export.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'Roles that lack the <code>edit_others_posts</code> capability (Author, Contributor, Subscriber) cannot be selected — the privilege gap between these roles and full Administrator is too large for safe escalation.', 'wp-sudo' ) . '</p>'
 				. '<p>' . __( 'If a user\'s role is removed from the allowed list while they have an active sudo session, their escalated privileges are revoked on the next page load.', 'wp-sudo' ) . '</p>',
 		] );
 
@@ -264,6 +273,7 @@ class Admin {
 
 		$screen->set_help_sidebar(
 			'<p><strong>' . __( 'For more information:', 'wp-sudo' ) . '</strong></p>'
+			. '<p><a href="https://en.wikipedia.org/wiki/Sudo" target="_blank" rel="noopener">' . __( 'What is sudo?', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://wordpress.org/plugins/two-factor/">' . __( 'Two Factor plugin', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://developer.wordpress.org/plugins/users/roles-and-capabilities/">' . __( 'Roles and Capabilities', 'wp-sudo' ) . '</a></p>'
 		);
@@ -330,20 +340,37 @@ class Admin {
 		$allowed = (array) self::get( 'allowed_roles', [] );
 		$roles   = wp_roles()->roles;
 
+		// Sort by capability count (ascending) so the list runs from
+		// least privileged to most privileged.
+		uasort( $roles, function ( array $a, array $b ): int {
+			return count( array_filter( $a['capabilities'] ) ) - count( array_filter( $b['capabilities'] ) );
+		} );
+
 		foreach ( $roles as $slug => $role ) {
 			// Skip administrator — they already have full privileges.
 			if ( 'administrator' === $slug ) {
 				continue;
 			}
 
-			printf(
-				'<label><input type="checkbox" name="%s[allowed_roles][]" value="%s" %s /> %s</label><br />',
-				esc_attr( self::OPTION_KEY ),
-				esc_attr( $slug ),
-				checked( in_array( $slug, $allowed, true ), true, false ),
-				esc_html( translate_user_role( $role['name'] ) )
-			);
+			// Check if this role meets the minimum capability floor.
+			$has_floor_cap = ! empty( $role['capabilities'][ Sudo_Session::MIN_CAPABILITY ] );
+
+			if ( $has_floor_cap ) {
+				printf(
+					'<label><input type="checkbox" name="%s[allowed_roles][]" value="%s" %s /> %s</label><br />',
+					esc_attr( self::OPTION_KEY ),
+					esc_attr( $slug ),
+					checked( in_array( $slug, $allowed, true ), true, false ),
+					esc_html( translate_user_role( $role['name'] ) )
+				);
+			} else {
+				printf(
+					'<label title="%s"><input type="checkbox" disabled /> <span class="wp-sudo-role-disabled">%s</span></label><br />',
+					esc_attr__( 'This role cannot activate sudo — it lacks sufficient base privileges (requires edit_others_posts).', 'wp-sudo' ),
+					esc_html( translate_user_role( $role['name'] ) )
+				);
+			}
 		}
-		echo '<p class="description">' . esc_html__( 'Select which roles may activate sudo mode.', 'wp-sudo' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Select which roles may activate sudo mode. Roles below the Editor trust level are not eligible.', 'wp-sudo' ) . '</p>';
 	}
 }
