@@ -36,22 +36,24 @@ define( 'WP_SUDO_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 /**
  * Autoload plugin classes.
  */
-spl_autoload_register( function ( string $class ) {
-	$prefix    = 'WP_Sudo\\';
-	$base_dir  = WP_SUDO_PLUGIN_DIR . 'includes/';
+spl_autoload_register(
+	function ( string $class_name ) {
+		$prefix   = 'WP_Sudo\\';
+		$base_dir = WP_SUDO_PLUGIN_DIR . 'includes/';
 
-	$len = strlen( $prefix );
-	if ( strncmp( $prefix, $class, $len ) !== 0 ) {
-		return;
+		$len = strlen( $prefix );
+		if ( strncmp( $prefix, $class_name, $len ) !== 0 ) {
+				return;
+		}
+
+		$relative_class = substr( $class_name, $len );
+		$file           = $base_dir . 'class-' . strtolower( str_replace( array( '\\', '_' ), array( '/', '-' ), $relative_class ) ) . '.php';
+
+		if ( file_exists( $file ) ) {
+			require $file; // phpcs:ignore WordPressVIPMinimum.Files.IncludingFile.UsingVariable
+		}
 	}
-
-	$relative_class = substr( $class, $len );
-	$file           = $base_dir . 'class-' . strtolower( str_replace( [ '\\', '_' ], [ '/', '-' ], $relative_class ) ) . '.php';
-
-	if ( file_exists( $file ) ) {
-		require $file;
-	}
-});
+);
 
 /**
  * Initialize the plugin.
@@ -69,16 +71,25 @@ function wp_sudo(): WP_Sudo\Plugin {
 }
 
 // Boot the plugin.
-add_action( 'plugins_loaded', static function () {
-	wp_sudo()->init();
-});
+add_action(
+	'plugins_loaded',
+	static function () {
+		wp_sudo()->init();
+	}
+);
 
 // Register activation hook.
-register_activation_hook( __FILE__, static function () {
-	wp_sudo()->activate();
-});
+register_activation_hook(
+	__FILE__,
+	static function () {
+		wp_sudo()->activate();
+	}
+);
 
 // Register deactivation hook.
-register_deactivation_hook( __FILE__, static function () {
-	wp_sudo()->deactivate();
-});
+register_deactivation_hook(
+	__FILE__,
+	static function () {
+		wp_sudo()->deactivate();
+	}
+);

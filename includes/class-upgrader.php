@@ -61,10 +61,10 @@ class Upgrader {
 	 *
 	 * @var array<string, string>
 	 */
-	private const UPGRADES = [
-		// No migrations yet. Add entries here as needed:
-		// '1.3.0' => 'upgrade_1_3_0',
-	];
+	private const UPGRADES = array(
+		// No migrations yet. Add entries here as needed.
+		// Example: '1.3.0' => 'upgrade_1_3_0'.
+	);
 
 	/**
 	 * Run any pending upgrade routines.
@@ -87,7 +87,7 @@ class Upgrader {
 
 		// Run each applicable routine in order.
 		foreach ( self::UPGRADES as $version => $method ) {
-			if ( version_compare( $stored, $version, '<' ) && is_callable( [ $this, $method ] ) ) {
+			if ( version_compare( $stored, $version, '<' ) && is_callable( array( $this, $method ) ) ) {
 				$this->{$method}();
 			}
 		}
@@ -98,21 +98,6 @@ class Upgrader {
 
 	// ─────────────────────────────────────────────────────────────────────
 	// Upgrade routines — add new private methods below, one per version.
+	// See the class docblock above for a full example.
 	// ─────────────────────────────────────────────────────────────────────
-
-	// Example (uncomment and adapt when needed):
-	//
-	// /**
-	//  * Upgrade routine for 1.3.0.
-	//  *
-	//  * @return void
-	//  */
-	// private function upgrade_1_3_0(): void {
-	//     // Example: rename an old option key.
-	//     $old = get_option( 'wp_sudo_old_key' );
-	//     if ( false !== $old ) {
-	//         update_option( 'wp_sudo_new_key', $old );
-	//         delete_option( 'wp_sudo_old_key' );
-	//     }
-	// }
 }

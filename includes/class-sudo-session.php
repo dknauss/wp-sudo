@@ -111,37 +111,37 @@ class Sudo_Session {
 	 */
 	public function register(): void {
 		// Capability escalation.
-		add_filter( 'user_has_cap', [ $this, 'filter_user_capabilities' ], 10, 4 );
+		add_filter( 'user_has_cap', array( $this, 'filter_user_capabilities' ), 10, 4 );
 
 		// Gracefully redirect users whose sudo session just expired,
 		// before WordPress checks page-level capabilities.
-		add_action( 'admin_init', [ $this, 'handle_expired_session_redirect' ], 1 );
+		add_action( 'admin_init', array( $this, 'handle_expired_session_redirect' ), 1 );
 
 		// Admin-bar button.
-		add_action( 'admin_bar_menu', [ $this, 'admin_bar_button' ], 999 );
+		add_action( 'admin_bar_menu', array( $this, 'admin_bar_button' ), 999 );
 
 		// Handle deactivate and reauth-redirect requests.
-		add_action( 'admin_init', [ $this, 'handle_deactivate' ] );
+		add_action( 'admin_init', array( $this, 'handle_deactivate' ) );
 
 		// Handle reauth form submission (must run on admin_init, before headers).
-		add_action( 'admin_init', [ $this, 'handle_reauth_submission' ] );
+		add_action( 'admin_init', array( $this, 'handle_reauth_submission' ) );
 
 		// Register the hidden reauth page.
-		add_action( 'admin_menu', [ $this, 'register_reauth_page' ] );
+		add_action( 'admin_menu', array( $this, 'register_reauth_page' ) );
 
 		// Enqueue admin-bar styles on every admin (and front-end admin bar) page.
-		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_bar_assets' ] );
-		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_admin_bar_assets' ] );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_bar_assets' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_admin_bar_assets' ) );
 
 		// Enqueue reauth page styles.
-		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_reauth_assets' ] );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_reauth_assets' ) );
 
 		// Live countdown + auto-redirect script (runs after admin bar is rendered).
-		add_action( 'admin_footer', [ $this, 'sudo_countdown_script' ] );
-		add_action( 'wp_footer', [ $this, 'sudo_countdown_script' ] );
+		add_action( 'admin_footer', array( $this, 'sudo_countdown_script' ) );
+		add_action( 'wp_footer', array( $this, 'sudo_countdown_script' ) );
 
 		// Show a one-time notice when a sudo session has just expired.
-		add_action( 'admin_notices', [ $this, 'sudo_expired_notice' ] );
+		add_action( 'admin_notices', array( $this, 'sudo_expired_notice' ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -289,7 +289,7 @@ class Sudo_Session {
 			return false;
 		}
 
-		$allowed_roles = (array) Admin::get( 'allowed_roles', [ 'editor' ] );
+		$allowed_roles = (array) Admin::get( 'allowed_roles', array( 'editor' ) );
 
 		if ( empty( array_intersect( (array) $user->roles, $allowed_roles ) ) ) {
 			return false;
@@ -433,12 +433,18 @@ class Sudo_Session {
 		}
 
 		// Fall back: check for Basic Auth header (common app-password vector).
+		// phpcs:ignore WordPressVIPMinimum.Variables.ServerVariables.BasicAuthentication -- Detection only, not handling auth.
 		if ( ! empty( $_SERVER['PHP_AUTH_USER'] ) && ! empty( $_SERVER['PHP_AUTH_PW'] ) ) {
 			return true;
 		}
 
 		// Authorization header with Basic scheme.
-		$auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+		$auth_header = '';
+		if ( isset( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
+			$auth_header = sanitize_text_field( wp_unslash( $_SERVER['HTTP_AUTHORIZATION'] ) );
+		} elseif ( isset( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) ) {
+			$auth_header = sanitize_text_field( wp_unslash( $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ) );
+		}
 		if ( str_starts_with( strtolower( $auth_header ), 'basic ' ) ) {
 			return true;
 		}
@@ -474,7 +480,8 @@ class Sudo_Session {
 
 		// Only redirect if we're NOT already on the dashboard or on
 		// pages the user can access without sudo (like the reauth page).
-		$current_page = $_GET['page'] ?? '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing check only, no data processing.
+		$current_page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
 
 		if ( 'wp-sudo-reauth' === $current_page ) {
 			return;
@@ -482,7 +489,7 @@ class Sudo_Session {
 
 		// Check if we're on the main dashboard (index.php) — that's safe.
 		global $pagenow;
-		if ( 'index.php' === $pagenow && empty( $_GET['page'] ) ) {
+		if ( 'index.php' === $pagenow && empty( $current_page ) ) {
 			// Already on the dashboard — just let the notice show.
 			return;
 		}
@@ -552,15 +559,17 @@ class Sudo_Session {
 			? esc_attr__( 'Click to deactivate sudo mode', 'wp-sudo' )
 			: esc_attr__( 'Click to reauthenticate and activate sudo mode', 'wp-sudo' );
 
-		$wp_admin_bar->add_node( [
-			'id'    => 'wp-sudo-toggle',
-			'title' => $title,
-			'href'  => $href,
-			'meta'  => [
-				'class' => $class,
-				'title' => $tooltip,
-			],
-		] );
+		$wp_admin_bar->add_node(
+			array(
+				'id'    => 'wp-sudo-toggle',
+				'title' => $title,
+				'href'  => $href,
+				'meta'  => array(
+					'class' => $class,
+					'title' => $tooltip,
+				),
+			) 
+		);
 	}
 
 	// -------------------------------------------------------------------------
@@ -579,8 +588,8 @@ class Sudo_Session {
 		}
 
 		// Verify nonce.
-		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( $_GET['_wpnonce'], self::NONCE_ACTION ) ) {
-			wp_die( __( 'Security check failed.', 'wp-sudo' ), 403 );
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), self::NONCE_ACTION ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'wp-sudo' ), 403 );
 		}
 
 		$user_id = get_current_user_id();
@@ -628,7 +637,7 @@ class Sudo_Session {
 			'',
 			'read',
 			'wp-sudo-reauth',
-			[ $this, 'render_reauth_page' ]
+			array( $this, 'render_reauth_page' )
 		);
 	}
 
@@ -643,11 +652,12 @@ class Sudo_Session {
 	 */
 	public function handle_reauth_submission(): void {
 		// Only process on the reauth page.
-		if ( ! isset( $_GET['page'] ) || 'wp-sudo-reauth' !== $_GET['page'] ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing check before POST handling.
+		if ( ! isset( $_GET['page'] ) || 'wp-sudo-reauth' !== sanitize_text_field( wp_unslash( $_GET['page'] ) ) ) {
 			return;
 		}
 
-		if ( 'POST' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
+		if ( 'POST' !== ( isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '' ) ) {
 			return;
 		}
 
@@ -662,8 +672,8 @@ class Sudo_Session {
 		}
 
 		// Verify nonce.
-		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], self::REAUTH_NONCE ) ) {
-			wp_die( __( 'Security check failed.', 'wp-sudo' ), 403 );
+		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), self::REAUTH_NONCE ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'wp-sudo' ), 403 );
 		}
 
 		$user_id = get_current_user_id();
@@ -674,10 +684,11 @@ class Sudo_Session {
 			return;
 		}
 
-		$user          = get_userdata( $user_id );
-		$password      = $_POST['wp_sudo_password'];
-		$transient_key = 'wp_sudo_redirect_' . $user_id;
-		$redirect_to   = get_transient( $transient_key ) ?: admin_url();
+		$user           = get_userdata( $user_id );
+		$password       = wp_unslash( $_POST['wp_sudo_password'] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Passwords must not be sanitized.
+		$transient_key  = 'wp_sudo_redirect_' . $user_id;
+		$saved_redirect = get_transient( $transient_key );
+		$redirect_to    = $saved_redirect ? $saved_redirect : admin_url();
 
 		if ( $user && wp_check_password( $password, $user->user_pass, $user->ID ) ) {
 			// Reset failed attempts on successful password verification.
@@ -726,7 +737,7 @@ class Sudo_Session {
 		$user_id = get_current_user_id();
 
 		if ( ! self::user_is_allowed( $user_id ) ) {
-			wp_die( __( 'You are not allowed to use sudo mode.', 'wp-sudo' ), 403 );
+			wp_die( esc_html__( 'You are not allowed to use sudo mode.', 'wp-sudo' ), 403 );
 		}
 
 		// If sudo is already active, redirect back.
@@ -735,11 +746,12 @@ class Sudo_Session {
 			exit;
 		}
 
-		$user          = get_userdata( $user_id );
-		$error         = '';
-		$transient_key = 'wp_sudo_redirect_' . $user_id;
-		$redirect_to   = get_transient( $transient_key ) ?: admin_url();
-		$is_2fa_step   = (bool) get_transient( 'wp_sudo_2fa_pending_' . $user_id );
+		$user           = get_userdata( $user_id );
+		$error          = '';
+		$transient_key  = 'wp_sudo_redirect_' . $user_id;
+		$saved_redirect = get_transient( $transient_key );
+		$redirect_to    = $saved_redirect ? $saved_redirect : admin_url();
+		$is_2fa_step    = (bool) get_transient( 'wp_sudo_2fa_pending_' . $user_id );
 
 		// Check for lockout.
 		$is_locked_out = self::is_locked_out( $user_id );
@@ -751,7 +763,7 @@ class Sudo_Session {
 			delete_transient( $error_key );
 			if ( $is_locked_out ) {
 				$remaining_lockout = self::lockout_remaining( $user_id );
-				$error = sprintf(
+				$error             = sprintf(
 					/* translators: %d: seconds remaining */
 					__( 'Too many failed attempts. Please wait %d seconds before trying again.', 'wp-sudo' ),
 					$remaining_lockout
@@ -804,13 +816,15 @@ class Sudo_Session {
 						/>
 					</p>
 
-					<?php submit_button(
+					<?php
+					submit_button(
 						__( 'Confirm &amp; Activate Sudo', 'wp-sudo' ),
 						'primary',
 						'submit',
 						true,
-						$is_locked_out ? [ 'disabled' => 'disabled' ] : []
-					); ?>
+						$is_locked_out ? array( 'disabled' => 'disabled' ) : array()
+					);
+					?>
 				</form>
 
 				<p class="wp-sudo-reauth-cancel">
@@ -863,8 +877,8 @@ class Sudo_Session {
 	 */
 	private function handle_two_factor_submission(): void {
 		// Verify nonce.
-		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], self::REAUTH_NONCE ) ) {
-			wp_die( __( 'Security check failed.', 'wp-sudo' ), 403 );
+		if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ), self::REAUTH_NONCE ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'wp-sudo' ), 403 );
 		}
 
 		$user_id = get_current_user_id();
@@ -877,7 +891,7 @@ class Sudo_Session {
 		// Verify that the password step was completed.
 		$pending_key = 'wp_sudo_2fa_pending_' . $user_id;
 		if ( ! get_transient( $pending_key ) ) {
-			wp_die( __( 'Your verification session has expired. Please start over.', 'wp-sudo' ), 403 );
+			wp_die( esc_html__( 'Your verification session has expired. Please start over.', 'wp-sudo' ), 403 );
 		}
 
 		$valid = false;
@@ -910,8 +924,9 @@ class Sudo_Session {
 			delete_transient( $pending_key );
 			self::activate( $user_id );
 
-			$redirect_key = 'wp_sudo_redirect_' . $user_id;
-			$redirect_to  = get_transient( $redirect_key ) ?: admin_url();
+			$redirect_key   = 'wp_sudo_redirect_' . $user_id;
+			$saved_redirect = get_transient( $redirect_key );
+			$redirect_to    = $saved_redirect ? $saved_redirect : admin_url();
 			delete_transient( $redirect_key );
 
 			wp_safe_redirect( $redirect_to );
@@ -968,10 +983,12 @@ class Sudo_Session {
 					do_action( 'wp_sudo_render_two_factor_fields', $user );
 					?>
 
-					<?php submit_button(
+					<?php
+					submit_button(
 						__( 'Verify &amp; Activate Sudo', 'wp-sudo' ),
 						'primary'
-					); ?>
+					);
+					?>
 				</form>
 
 				<p class="wp-sudo-reauth-cancel">
@@ -1009,7 +1026,7 @@ class Sudo_Session {
 		wp_enqueue_style(
 			'wp-sudo-admin-bar',
 			WP_SUDO_PLUGIN_URL . 'admin/css/wp-sudo-admin-bar.css',
-			[],
+			array(),
 			WP_SUDO_VERSION
 		);
 	}
@@ -1020,7 +1037,8 @@ class Sudo_Session {
 	 * @return void
 	 */
 	public function enqueue_reauth_assets(): void {
-		$current_page = $_GET['page'] ?? '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing check only, no data processing.
+		$current_page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
 
 		if ( 'wp-sudo-reauth' !== $current_page ) {
 			return;
@@ -1029,7 +1047,7 @@ class Sudo_Session {
 		wp_enqueue_style(
 			'wp-sudo-reauth',
 			WP_SUDO_PLUGIN_URL . 'admin/css/wp-sudo-reauth.css',
-			[],
+			array(),
 			WP_SUDO_VERSION
 		);
 	}
@@ -1053,16 +1071,18 @@ class Sudo_Session {
 		$expires       = (int) get_user_meta( $user_id, self::META_KEY, true );
 		$dashboard_url = admin_url();
 
-		$js_data = wp_json_encode( [
-			'expiresAt'    => $expires,
-			'serverNow'    => (int) time(),
-			'dashboardUrl' => $dashboard_url,
-			'i18n'         => [
-				'sudo'          => __( 'Sudo', 'wp-sudo' ),
-				/* translators: %s: time remaining as M:SS */
-				'expiryWarning' => __( 'Sudo session expires in %s.', 'wp-sudo' ),
-			],
-		] );
+		$js_data = wp_json_encode(
+			array(
+				'expiresAt'    => $expires,
+				'serverNow'    => (int) time(),
+				'dashboardUrl' => $dashboard_url,
+				'i18n'         => array(
+					'sudo'          => __( 'Sudo', 'wp-sudo' ),
+					/* translators: %s: time remaining as M:SS */
+					'expiryWarning' => __( 'Sudo session expires in %s.', 'wp-sudo' ),
+				),
+			) 
+		);
 
 		$js = <<<JS
 		( function() {
@@ -1189,21 +1209,22 @@ JS;
 
 		$duration = (int) Admin::get( 'session_duration', 15 );
 
+		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
 		setcookie(
 			self::TOKEN_COOKIE,
 			$token,
-			[
+			array(
 				'expires'  => time() + ( $duration * MINUTE_IN_SECONDS ),
 				'path'     => ADMIN_COOKIE_PATH,
 				'domain'   => COOKIE_DOMAIN,
 				'secure'   => is_ssl(),
 				'httponly' => true,
 				'samesite' => 'Strict',
-			]
+			)
 		);
 
 		// Also set in superglobal for the current request.
-		$_COOKIE[ self::TOKEN_COOKIE ] = $token;
+		$_COOKIE[ self::TOKEN_COOKIE ] = $token; // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
 	}
 
 	/**
@@ -1219,7 +1240,8 @@ JS;
 			return false;
 		}
 
-		$cookie_token = $_COOKIE[ self::TOKEN_COOKIE ] ?? '';
+		// phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
+		$cookie_token = isset( $_COOKIE[ self::TOKEN_COOKIE ] ) ? sanitize_text_field( wp_unslash( $_COOKIE[ self::TOKEN_COOKIE ] ) ) : '';
 
 		if ( ! $cookie_token ) {
 			return false;
@@ -1239,20 +1261,21 @@ JS;
 		delete_user_meta( $user_id, self::TOKEN_META_KEY );
 
 		// Expire the cookie.
+		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
 		setcookie(
 			self::TOKEN_COOKIE,
 			'',
-			[
+			array(
 				'expires'  => time() - YEAR_IN_SECONDS,
 				'path'     => ADMIN_COOKIE_PATH,
 				'domain'   => COOKIE_DOMAIN,
 				'secure'   => is_ssl(),
 				'httponly' => true,
 				'samesite' => 'Strict',
-			]
+			)
 		);
 
-		unset( $_COOKIE[ self::TOKEN_COOKIE ] );
+		unset( $_COOKIE[ self::TOKEN_COOKIE ] ); // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
 	}
 
 	// -------------------------------------------------------------------------

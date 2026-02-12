@@ -44,7 +44,7 @@ class Site_Manager_Role {
 	public function register(): void {
 		// The role is added on activation, but we hook init to ensure
 		// capabilities stay in sync if they are updated in a future version.
-		add_action( 'init', [ $this, 'maybe_sync_capabilities' ] );
+		add_action( 'init', array( $this, 'maybe_sync_capabilities' ) );
 	}
 
 	/**
@@ -55,7 +55,7 @@ class Site_Manager_Role {
 	 * @return void
 	 */
 	public function add_role(): void {
-		add_role( self::ROLE_SLUG, self::ROLE_NAME, self::capabilities() );
+		add_role( self::ROLE_SLUG, self::ROLE_NAME, self::capabilities() ); // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.custom_role_add_role
 	}
 
 	/**
@@ -80,13 +80,13 @@ class Site_Manager_Role {
 	public function maybe_sync_capabilities(): void {
 		$stored = get_option( 'wp_sudo_role_version', '' );
 
-		if ( $stored === WP_SUDO_VERSION ) {
+		if ( WP_SUDO_VERSION === $stored ) {
 			return;
 		}
 
 		// Remove and re-add to pick up any capability changes.
 		remove_role( self::ROLE_SLUG );
-		add_role( self::ROLE_SLUG, self::ROLE_NAME, self::capabilities() );
+		add_role( self::ROLE_SLUG, self::ROLE_NAME, self::capabilities() ); // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.custom_role_add_role
 
 		update_option( 'wp_sudo_role_version', WP_SUDO_VERSION );
 	}
@@ -102,7 +102,7 @@ class Site_Manager_Role {
 	public static function capabilities(): array {
 		// Start with every Editor capability.
 		$editor = get_role( 'editor' );
-		$caps   = $editor ? $editor->capabilities : [];
+		$caps   = $editor ? $editor->capabilities : array();
 
 		// Remove unfiltered_html — it allows arbitrary HTML/JS injection
 		// and should only be available during an active sudo session.
@@ -112,26 +112,26 @@ class Site_Manager_Role {
 		// NOTE: Dangerous capabilities like edit_users, promote_users, and
 		// manage_options are intentionally omitted. They are only available
 		// during an active sudo session to prevent permanent self-escalation.
-		$extra = [
+		$extra = array(
 			// Theme management (switch, but not install/edit).
-			'switch_themes'          => true,
-			'edit_theme_options'     => true,
+			'switch_themes'      => true,
+			'edit_theme_options' => true,
 
 			// Plugin management (activate/deactivate, but not install/edit).
-			'activate_plugins'       => true,
+			'activate_plugins'   => true,
 
 			// User management (read-only).
-			'list_users'             => true,
+			'list_users'         => true,
 
 			// Update core / plugins / themes.
-			'update_core'            => true,
-			'update_plugins'         => true,
-			'update_themes'          => true,
+			'update_core'        => true,
+			'update_plugins'     => true,
+			'update_themes'      => true,
 
 			// Import / export.
-			'import'                 => true,
-			'export'                 => true,
-		];
+			'import'             => true,
+			'export'             => true,
+		);
 
 		return array_merge( $caps, $extra );
 	}

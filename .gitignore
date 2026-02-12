@@ -12,3 +12,7 @@ Thumbs.db
 
 # Build artifacts
 *.zip
+
+# Test coverage
+coverage/
+.phpunit.result.cache

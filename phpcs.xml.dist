@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<ruleset name="WP Sudo">
+	<description>Coding standards for the WP Sudo plugin.</description>
+
+	<rule ref="WordPress-Extra"/>
+	<rule ref="WordPress-Docs"/>
+	<rule ref="WordPressVIPMinimum"/>
+
+	<arg name="extensions" value="php"/>
+	<arg value="sp"/>
+	<arg name="colors"/>
+
+	<file>wp-sudo.php</file>
+	<file>includes/</file>
+	<file>uninstall.php</file>
+
+	<!-- Test minimum PHP version -->
+	<config name="testVersion" value="8.0-"/>
+	<config name="minimum_wp_version" value="6.2"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="wp-sudo"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

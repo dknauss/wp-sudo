@@ -45,17 +45,19 @@ function wp_sudo_cleanup_user_meta(): void {
 
 if ( is_multisite() ) {
 	// Get every site in the network.
-	$site_ids = get_sites( [
-		'fields'     => 'ids',
-		'number'     => 0,
-		'network_id' => get_current_network_id(),
-	] );
+	$site_ids = get_sites(
+		array(
+			'fields'     => 'ids',
+			'number'     => 0,
+			'network_id' => get_current_network_id(),
+		) 
+	);
 
 	$plugin_basename = plugin_basename( __DIR__ . '/wp-sudo.php' );
 
 	// Check if the plugin is network-activated (active across all sites).
 	// If so, only clean per-site data for the current site; preserve user meta.
-	$network_plugins = (array) get_site_option( 'active_sitewide_plugins', [] );
+	$network_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
 	if ( isset( $network_plugins[ $plugin_basename ] ) ) {
 		wp_sudo_cleanup_site();
 		return;
@@ -64,9 +66,9 @@ if ( is_multisite() ) {
 	$other_site_active = false;
 
 	foreach ( $site_ids as $site_id ) {
-		switch_to_blog( $site_id );
+		switch_to_blog( $site_id ); // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.switch_to_blog_switch_to_blog
 
-		$active_plugins = (array) get_option( 'active_plugins', [] );
+		$active_plugins = (array) get_option( 'active_plugins', array() );
 
 		if ( in_array( $plugin_basename, $active_plugins, true ) ) {
 			// Plugin is still active on this site — don't touch it,
