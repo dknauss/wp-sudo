@@ -272,6 +272,70 @@ class Sudo_Session {
 	}
 
 	/**
+	 * Attempt to activate sudo mode for a user.
+	 *
+	 * Encapsulates the full validation flow: eligibility, lockout,
+	 * password check, 2FA, and activation. Used by both the reauth
+	 * page and the modal AJAX handler.
+	 *
+	 * @param int    $user_id  User ID.
+	 * @param string $password The user's password.
+	 * @return array{code: string, remaining?: int} Result with status code.
+	 */
+	public static function attempt_activation( int $user_id, string $password ): array {
+		if ( ! self::user_is_allowed( $user_id ) ) {
+			return array( 'code' => 'not_allowed' );
+		}
+
+		if ( self::is_locked_out( $user_id ) ) {
+			return array(
+				'code'      => 'locked_out',
+				'remaining' => self::lockout_remaining( $user_id ),
+			);
+		}
+
+		$user = get_userdata( $user_id );
+
+		if ( ! $user || ! wp_check_password( $password, $user->user_pass, $user->ID ) ) {
+			self::record_failed_attempt( $user_id );
+
+			/**
+			 * Fires when a sudo reauth attempt fails.
+			 *
+			 * @param int $user_id  The user who failed reauth.
+			 * @param int $attempts Total failed attempts.
+			 */
+			do_action(
+				'wp_sudo_reauth_failed',
+				$user_id,
+				self::get_failed_attempts( $user_id )
+			);
+
+			// Check if this attempt triggered a lockout.
+			if ( self::is_locked_out( $user_id ) ) {
+				return array(
+					'code'      => 'locked_out',
+					'remaining' => self::lockout_remaining( $user_id ),
+				);
+			}
+
+			return array( 'code' => 'invalid_password' );
+		}
+
+		// Password is correct — reset failed attempts.
+		self::reset_failed_attempts( $user_id );
+
+		// Check for 2FA requirement.
+		if ( self::needs_two_factor( $user_id ) ) {
+			set_transient( 'wp_sudo_2fa_pending_' . $user_id, true, 5 * MINUTE_IN_SECONDS );
+			return array( 'code' => '2fa_pending' );
+		}
+
+		self::activate( $user_id );
+		return array( 'code' => 'success' );
+	}
+
+	/**
 	 * Determine whether a user is eligible to activate sudo.
 	 *
 	 * @param int $user_id User ID.
@@ -559,16 +623,24 @@ class Sudo_Session {
 			? esc_attr__( 'Click to deactivate sudo mode', 'wp-sudo' )
 			: esc_attr__( 'Click to reauthenticate and activate sudo mode', 'wp-sudo' );
 
+		$meta = array(
+			'class' => $class,
+			'title' => $tooltip,
+		);
+
+		// When inactive, add a data attribute for the modal JS to intercept.
+		// The href remains as a no-JS fallback to the reauth page.
+		if ( ! $is_active ) {
+			$meta['data-wp-sudo-modal'] = 'open';
+		}
+
 		$wp_admin_bar->add_node(
 			array(
 				'id'    => 'wp-sudo-toggle',
 				'title' => $title,
 				'href'  => $href,
-				'meta'  => array(
-					'class' => $class,
-					'title' => $tooltip,
-				),
-			) 
+				'meta'  => $meta,
+			)
 		);
 	}
 
@@ -676,55 +748,25 @@ class Sudo_Session {
 			wp_die( esc_html__( 'Security check failed.', 'wp-sudo' ), 403 );
 		}
 
-		$user_id = get_current_user_id();
+		$user_id  = get_current_user_id();
+		$password = wp_unslash( $_POST['wp_sudo_password'] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Passwords must not be sanitized.
 
-		// Enforce rate limiting — reject submissions during lockout.
-		if ( self::is_locked_out( $user_id ) ) {
-			set_transient( 'wp_sudo_reauth_error_' . $user_id, true, 60 );
-			return;
-		}
+		$result = self::attempt_activation( $user_id, $password );
 
-		$user           = get_userdata( $user_id );
-		$password       = wp_unslash( $_POST['wp_sudo_password'] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Passwords must not be sanitized.
-		$transient_key  = 'wp_sudo_redirect_' . $user_id;
-		$saved_redirect = get_transient( $transient_key );
-		$redirect_to    = $saved_redirect ? $saved_redirect : admin_url();
-
-		if ( $user && wp_check_password( $password, $user->user_pass, $user->ID ) ) {
-			// Reset failed attempts on successful password verification.
-			self::reset_failed_attempts( $user_id );
-
-			// If the user has 2FA configured, require it before activation.
-			if ( self::needs_two_factor( $user_id ) ) {
-				set_transient( 'wp_sudo_2fa_pending_' . $user_id, true, 5 * MINUTE_IN_SECONDS );
-				return; // Let render_reauth_page show the 2FA form.
-			}
-
-			self::activate( $user_id );
+		if ( 'success' === $result['code'] ) {
+			$transient_key  = 'wp_sudo_redirect_' . $user_id;
+			$saved_redirect = get_transient( $transient_key );
+			$redirect_to    = $saved_redirect ? $saved_redirect : admin_url();
 			delete_transient( $transient_key );
 			wp_safe_redirect( $redirect_to );
 			exit;
 		}
 
-		// Track failed attempt for rate limiting.
-		self::record_failed_attempt( $user_id );
+		if ( '2fa_pending' === $result['code'] ) {
+			return; // Let render_reauth_page show the 2FA form.
+		}
 
-		/**
-		 * Fires when a sudo reauth attempt fails.
-		 *
-		 * Compatible with Stream, WP Activity Log, and similar plugins.
-		 *
-		 * @param int $user_id The user who failed reauth.
-		 * @param int $attempts Total failed attempts.
-		 */
-		do_action(
-			'wp_sudo_reauth_failed',
-			$user_id,
-			self::get_failed_attempts( $user_id )
-		);
-
-		// Wrong password — store error in a transient so the render method
-		// can display it after the redirect-to-self.
+		// Error — store in transient so the render method can display it.
 		set_transient( 'wp_sudo_reauth_error_' . $user_id, true, 60 );
 	}
 
@@ -848,7 +890,7 @@ class Sudo_Session {
 	 * @param int $user_id User ID.
 	 * @return bool
 	 */
-	private static function needs_two_factor( int $user_id ): bool {
+	public static function needs_two_factor( int $user_id ): bool {
 		$needs = false;
 
 		// Built-in: Two Factor plugin (wordpress.org/plugins/two-factor).

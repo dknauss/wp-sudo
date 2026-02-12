@@ -1,0 +1,124 @@
+/**
+ * WP Sudo – Modal reauthentication styles.
+ *
+ * @package WP_Sudo
+ */
+
+/* Dialog backdrop */
+#wp-sudo-modal::backdrop {
+	background: rgba(0, 0, 0, 0.5);
+}
+
+/* Dialog element — centered, no default border */
+#wp-sudo-modal {
+	border: none;
+	padding: 0;
+	background: transparent;
+	max-width: 420px;
+	width: 90vw;
+}
+
+/* Card inside the dialog */
+.wp-sudo-modal-card {
+	position: relative;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+	padding: 30px 24px 20px;
+}
+
+.wp-sudo-modal-card h1 {
+	display: flex;
+	align-items: center;
+	gap: 0.3em;
+	font-size: 1.4em;
+	margin: 0 0 0.5em;
+}
+
+.wp-sudo-modal-card h1 .dashicons {
+	font-size: 1.2em;
+	width: auto;
+	height: auto;
+}
+
+.wp-sudo-modal-card .description {
+	color: #646970;
+	margin-bottom: 1.5em;
+}
+
+/* Sudo lecture */
+.wp-sudo-modal-card .wp-sudo-lecture {
+	color: #646970;
+	font-size: 13px;
+	margin: 0 0 1.5em 1.5em;
+	padding: 0;
+}
+
+.wp-sudo-modal-card .wp-sudo-lecture li {
+	margin-bottom: 0.15em;
+}
+
+/* Form elements */
+.wp-sudo-modal-card label {
+	font-weight: 600;
+}
+
+.wp-sudo-modal-card input[type="password"],
+.wp-sudo-modal-card input[type="text"] {
+	width: 100%;
+	margin-top: 4px;
+}
+
+.wp-sudo-modal-card .notice {
+	margin: 0 0 1em;
+}
+
+/* Buttons */
+.wp-sudo-modal-card .submit {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 1em;
+}
+
+/* Hide the Two Factor plugin's own submit button inside the modal 2FA step.
+   The provider's authentication_page() renders
+   <p class="submit"><input type="submit" id="wp-submit">.
+   We provide our own button pair (Verify + Cancel) instead. */
+#wp-sudo-modal-2fa-form #wp-submit,
+#wp-sudo-modal-2fa-form input[type="submit"] {
+	display: none;
+}
+
+/* Loading overlay — hidden by default via HTML hidden attribute.
+   display: flex is only applied when [hidden] is removed by JS. */
+.wp-sudo-modal-loading {
+	position: absolute;
+	inset: 0;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255, 255, 255, 0.8);
+	z-index: 10;
+}
+
+.wp-sudo-modal-loading:not([hidden]) {
+	display: flex;
+}
+
+.wp-sudo-modal-loading .spinner {
+	float: none;
+	margin: 0;
+}
+
+/* Screen-reader-only text — visually hidden but announced by AT. */
+.wp-sudo-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}

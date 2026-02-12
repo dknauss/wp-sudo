@@ -426,4 +426,93 @@ class SudoSessionTest extends TestCase {
 
 		$this->assertSame( 0, $method->invoke( null, 1 ) );
 	}
+
+	// =================================================================
+	// attempt_activation()
+	// =================================================================
+
+	public function test_attempt_activation_rejects_disallowed_user(): void {
+		$user = new \WP_User( 1, [ 'subscriber' ] );
+		Functions\when( 'get_userdata' )->justReturn( $user );
+		Functions\when( 'get_option' )->justReturn( [
+			'allowed_roles' => [ 'editor' ],
+		] );
+
+		$result = Sudo_Session::attempt_activation( 1, 'any-password' );
+
+		$this->assertSame( 'not_allowed', $result['code'] );
+	}
+
+	public function test_attempt_activation_rejects_locked_out_user(): void {
+		$user = new \WP_User( 1, [ 'editor' ] );
+		Functions\when( 'get_userdata' )->justReturn( $user );
+		Functions\when( 'get_option' )->justReturn( [
+			'allowed_roles' => [ 'editor' ],
+		] );
+
+		$editor_role               = new \stdClass();
+		$editor_role->capabilities = [ 'edit_others_posts' => true ];
+		Functions\when( 'get_role' )->justReturn( $editor_role );
+
+		$lockout_until = time() + 200;
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $lockout_until ) {
+			if ( Sudo_Session::LOCKOUT_UNTIL_META_KEY === $key ) {
+				return $lockout_until;
+			}
+			return '';
+		} );
+
+		$result = Sudo_Session::attempt_activation( 1, 'any-password' );
+
+		$this->assertSame( 'locked_out', $result['code'] );
+		$this->assertGreaterThan( 0, $result['remaining'] );
+	}
+
+	public function test_attempt_activation_rejects_wrong_password(): void {
+		$user = new \WP_User( 1, [ 'editor' ] );
+		Functions\when( 'get_userdata' )->justReturn( $user );
+		Functions\when( 'get_option' )->justReturn( [
+			'allowed_roles' => [ 'editor' ],
+		] );
+
+		$editor_role               = new \stdClass();
+		$editor_role->capabilities = [ 'edit_others_posts' => true ];
+		Functions\when( 'get_role' )->justReturn( $editor_role );
+
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'wp_check_password' )->justReturn( false );
+		Functions\when( 'update_user_meta' )->justReturn( true );
+		Functions\when( 'do_action' )->justReturn( null );
+
+		$result = Sudo_Session::attempt_activation( 1, 'wrong-password' );
+
+		$this->assertSame( 'invalid_password', $result['code'] );
+	}
+
+	public function test_attempt_activation_succeeds_with_correct_password(): void {
+		$user = new \WP_User( 1, [ 'editor' ] );
+		Functions\when( 'get_userdata' )->justReturn( $user );
+		Functions\when( 'get_option' )->justReturn( [
+			'session_duration' => 15,
+			'allowed_roles'    => [ 'editor' ],
+		] );
+
+		$editor_role               = new \stdClass();
+		$editor_role->capabilities = [ 'edit_others_posts' => true ];
+		Functions\when( 'get_role' )->justReturn( $editor_role );
+
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'wp_check_password' )->justReturn( true );
+		Functions\when( 'update_user_meta' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-token-123' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+		Functions\when( 'set_transient' )->justReturn( true );
+		Functions\when( 'do_action' )->justReturn( null );
+
+		$result = Sudo_Session::attempt_activation( 1, 'correct-password' );
+
+		$this->assertSame( 'success', $result['code'] );
+	}
 }

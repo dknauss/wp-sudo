@@ -48,6 +48,13 @@ class Plugin {
 	private ?Upgrader $upgrader = null;
 
 	/**
+	 * Modal reauthentication instance.
+	 *
+	 * @var Modal_Reauth|null
+	 */
+	private ?Modal_Reauth $modal = null;
+
+	/**
 	 * Initialize the plugin and register hooks.
 	 *
 	 * @return void
@@ -67,6 +74,10 @@ class Plugin {
 		// Initialize sudo session handling (runs on front-end and admin).
 		$this->sudo = new Sudo_Session();
 		$this->sudo->register();
+
+		// Initialize modal reauthentication (runs on front-end and admin).
+		$this->modal = new Modal_Reauth();
+		$this->modal->register();
 
 		// Initialize admin settings (admin-only).
 		if ( is_admin() ) {
@@ -123,5 +134,14 @@ class Plugin {
 	 */
 	public function sudo(): ?Sudo_Session {
 		return $this->sudo;
+	}
+
+	/**
+	 * Get the Modal_Reauth instance.
+	 *
+	 * @return Modal_Reauth|null
+	 */
+	public function modal(): ?Modal_Reauth {
+		return $this->modal;
 	}
 }
