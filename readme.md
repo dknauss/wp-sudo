@@ -15,13 +15,13 @@
 **Core**
 
 - Adds a **Site Manager** user role with Editor capabilities.
-- **Sudo mode** — eligible users can temporarily escalate to full Administrator privileges by reauthenticating via a one-click admin-bar button.
+- **Sudo mode** — eligible users can temporarily escalate to full Administrator privileges by reauthenticating via a one-click admin-bar button (in-place modal, with a no-JS fallback).
 - Configurable sudo session duration. (1–15 minutes, default 15.)
 - Choose which roles are allowed to activate sudo mode.
 
 **Security**
 
-- **Reauthentication required** — users must enter their password before escalation is granted.
+- **Reauthentication required** — users must enter their password before escalation is granted via an in-place modal dialog.
 - **Two-factor authentication** — if the Two Factor plugin is active and the user has 2FA configured, a second verification step is required. Third-party 2FA plugins can integrate via the `wp_sudo_requires_two_factor`, `wp_sudo_validate_two_factor`, and `wp_sudo_render_two_factor_fields` hooks.
 - **Scoped escalation** — escalated privileges apply only to admin panel page loads. REST API, XML-RPC, AJAX, Application Password, and Cron requests are explicitly blocked.
 - **Session binding** — sudo sessions are cryptographically bound to the browser that activated them via a secure cookie token.
@@ -54,7 +54,7 @@ A Site Manager has all Editor capabilities plus: switch themes, edit theme optio
 
 ### How does sudo mode work?
 
-Eligible users see an **Activate Sudo** button in the admin bar. Clicking it redirects to a reauthentication page where they must enter their password. On success, the session activates and they are redirected back to where they started. The admin bar button turns green and shows a live countdown. Clicking it again (or waiting for it to expire) reverts the user to their normal capabilities.
+Eligible users see an **Activate Sudo** button in the admin bar. Clicking it opens an in-place reauthentication dialog where they must enter their password (and 2FA, if enabled). On success, the session activates and the page reloads. If JavaScript is unavailable, the admin bar link falls back to the reauthentication page. The admin bar button turns green and shows a live countdown. Clicking it again (or waiting for it to expire) reverts the user to their normal capabilities.
 
 ### Is sudo mode active on REST API or XML-RPC?
 
@@ -109,7 +109,7 @@ Sudo immediately deactivates. Every request re-verifies that the user's role is 
 
    ![Dashboard with Activate Sudo button](assets/screenshot-1.png)
 
-2. Reauthentication page — password confirmation with the classic sudo lecture.
+2. Reauthentication dialog — password confirmation with the classic sudo lecture.
 
    ![Reauthentication page](assets/screenshot-2.png)
 
@@ -122,6 +122,15 @@ Sudo immediately deactivates. Every request re-verifies that the user's role is 
    ![Sudo Settings page](assets/screenshot-4.png)
 
 ## Changelog
+
+### 1.2.1
+
+- In-place modal reauthentication for sudo activation; no full-page redirect (admin bar link remains as a no-JS fallback).
+- Added `Sudo_Session::attempt_activation()` as a public API for shared validation and activation flow.
+- AJAX activation now separates session activation from capability escalation, which applies on the next eligible admin page load.
+- Accessibility improvements to the modal dialog (ARIA labels, busy state, status announcements, focus trapping, Escape-to-close).
+- `Sudo_Session::needs_two_factor()` is now public static for modal and third-party use.
+- Expanded unit test suite and added PHPCS VIP WordPress Coding Standards configuration.
 
 ### 1.2.0
 

@@ -14,7 +14,7 @@ use Brain\Monkey\Functions;
 class UpgraderTest extends TestCase {
 
 	public function test_skips_when_version_is_current(): void {
-		Functions\when( 'get_option' )->justReturn( '1.2.0' );
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
 		Functions\expect( 'update_option' )->never();
 
 		$upgrader = new Upgrader();
@@ -33,7 +33,7 @@ class UpgraderTest extends TestCase {
 		Functions\when( 'get_option' )->justReturn( '0.0.0' );
 		Functions\expect( 'update_option' )
 			->once()
-			->with( Upgrader::VERSION_OPTION, '1.2.0' );
+			->with( Upgrader::VERSION_OPTION, WP_SUDO_VERSION );
 
 		$upgrader = new Upgrader();
 		$upgrader->maybe_upgrade();

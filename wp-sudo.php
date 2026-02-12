@@ -3,7 +3,7 @@
  * Plugin Name:       Sudo
  * Plugin URI:        https://github.com/dknauss/wp-sudo
  * Description:       Sudo mode for WordPress! Site Managers with Editor capabilities can temporarily escalate their privileges to the Administrator level.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Dan Knauss
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin version.
-define( 'WP_SUDO_VERSION', '1.2.0' );
+define( 'WP_SUDO_VERSION', '1.2.1' );
 
 // Plugin directory path.
 define( 'WP_SUDO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
