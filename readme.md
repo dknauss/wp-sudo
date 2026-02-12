@@ -1,4 +1,4 @@
-# Sudo
+# Sudo for WordPress
 
 **Sudo mode for WordPress.** Designated roles can temporarily escalate their privileges to the Administrator level.
 
