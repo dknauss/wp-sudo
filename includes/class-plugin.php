@@ -169,7 +169,8 @@ class Plugin {
 		$challenge_url = add_query_arg(
 			array(
 				'page'       => 'wp-sudo-challenge',
-				'return_url' => rawurlencode( $this->get_current_admin_url() ),
+				// add_query_arg() already encodes the URL, so no need for rawurlencode().
+				'return_url' => $this->get_current_admin_url(),
 			),
 			is_network_admin() ? network_admin_url( 'admin.php' ) : admin_url( 'admin.php' )
 		);

@@ -120,9 +120,11 @@ class Gate {
 
 		// Fallback admin notice when a gated AJAX/REST request was blocked.
 		add_action( 'admin_notices', array( $this, 'render_blocked_notice' ) );
+		add_action( 'network_admin_notices', array( $this, 'render_blocked_notice' ) );
 
 		// Persistent gate notice on gated pages when no sudo session is active.
 		add_action( 'admin_notices', array( $this, 'render_gate_notice' ) );
+		add_action( 'network_admin_notices', array( $this, 'render_gate_notice' ) );
 
 		// PHP action link filters for server-rendered buttons (plugins list table).
 		add_filter( 'plugin_action_links', array( $this, 'filter_plugin_action_links' ), 50, 2 );
@@ -833,7 +835,8 @@ class Gate {
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
-			$query_args['return_url'] = rawurlencode( $current_url );
+			// add_query_arg() already encodes the URL, so no need for rawurlencode().
+			$query_args['return_url'] = $current_url;
 		}
 
 		$challenge_url = add_query_arg(
@@ -905,7 +908,8 @@ class Gate {
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
-			$query_args['return_url'] = rawurlencode( $current_url );
+			// add_query_arg() already encodes the URL, so no need for rawurlencode().
+			$query_args['return_url'] = $current_url;
 		}
 
 		$challenge_url = add_query_arg(
