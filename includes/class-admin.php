@@ -92,6 +92,11 @@ class Admin {
 		// MU-plugin install/uninstall AJAX handlers.
 		add_action( 'wp_ajax_' . self::AJAX_MU_INSTALL, array( $this, 'handle_mu_install' ) );
 		add_action( 'wp_ajax_' . self::AJAX_MU_UNINSTALL, array( $this, 'handle_mu_uninstall' ) );
+
+		// Replace core's confusing "user editing capabilities" error with
+		// a clearer message on the Users page.
+		add_action( 'load-users.php', array( $this, 'rewrite_role_error' ) );
+		add_action( 'admin_notices', array( $this, 'render_role_error_notice' ) );
 	}
 
 	/**
@@ -835,5 +840,59 @@ class Admin {
 		if ( ! empty( $args['description'] ) ) {
 			echo '<p class="description">' . esc_html( $args['description'] ) . '</p>';
 		}
+	}
+
+	/**
+	 * Rewrite core's confusing err_admin_role query parameter.
+	 *
+	 * WordPress core redirects to `users.php?update=err_admin_role` when
+	 * a bulk role change skips the current user because the target role
+	 * lacks `promote_users`. The resulting error message is unclear.
+	 *
+	 * This method intercepts the redirect before the page renders and
+	 * swaps the value so core's switch statement doesn't match, allowing
+	 * us to render a clearer notice instead.
+	 *
+	 * Hooked at `load-users.php`.
+	 *
+	 * @since 2.1.0
+	 * @return void
+	 */
+	public function rewrite_role_error(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only routing check.
+		if ( ! isset( $_GET['update'] ) || 'err_admin_role' !== $_GET['update'] ) {
+			return;
+		}
+
+		$url = add_query_arg( 'update', 'wp_sudo_role_error' );
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * Render a clearer notice when a bulk role change skips the current user.
+	 *
+	 * Replaces core's "The current user's role must have user editing
+	 * capabilities" with a message that explains the actual constraint.
+	 *
+	 * @since 2.1.0
+	 * @return void
+	 */
+	public function render_role_error_notice(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display check.
+		if ( ! isset( $_GET['update'] ) || 'wp_sudo_role_error' !== $_GET['update'] ) {
+			return;
+		}
+
+		echo wp_kses_post(
+			wp_get_admin_notice(
+				__( 'You can&#8217;t demote yourself to a role that doesn&#8217;t allow you to promote yourself back again.', 'wp-sudo' ),
+				array(
+					'id'                 => 'message',
+					'additional_classes' => array( 'error' ),
+					'dismissible'        => true,
+				)
+			)
+		);
 	}
 }
