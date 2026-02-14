@@ -822,9 +822,14 @@ class Gate {
 			&& false !== strpos( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 'Mac' );
 		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
 
-		$current_url = isset( $_SERVER['REQUEST_URI'] )
-			? home_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) )
-			: '';
+		$current_url = '';
+		if ( isset( $_SERVER['REQUEST_URI'] ) ) {
+			$scheme = is_ssl() ? 'https' : 'http';
+			$host   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? 'localhost' ) );
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() on the full URL below.
+			$uri         = wp_unslash( $_SERVER['REQUEST_URI'] );
+			$current_url = esc_url_raw( $scheme . '://' . $host . $uri );
+		}
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
@@ -889,9 +894,14 @@ class Gate {
 
 		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
 
-		$current_url = isset( $_SERVER['REQUEST_URI'] )
-			? home_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) )
-			: '';
+		$current_url = '';
+		if ( isset( $_SERVER['REQUEST_URI'] ) ) {
+			$scheme = is_ssl() ? 'https' : 'http';
+			$host   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? 'localhost' ) );
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() on the full URL below.
+			$uri         = wp_unslash( $_SERVER['REQUEST_URI'] );
+			$current_url = esc_url_raw( $scheme . '://' . $host . $uri );
+		}
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {

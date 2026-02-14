@@ -380,6 +380,12 @@ class Plugin {
 	 * Used to pass a return_url to the challenge page so the user
 	 * is redirected back to where they were after authentication.
 	 *
+	 * Constructs the full URL from scheme + host + REQUEST_URI to ensure
+	 * correct handling of admin pages (including network admin paths like
+	 * /wp-admin/network/themes.php). Using home_url() with REQUEST_URI
+	 * produces incorrect URLs because REQUEST_URI is already an absolute
+	 * path from the server root, not relative to the WordPress home.
+	 *
 	 * @return string The current admin URL, or the admin root as fallback.
 	 */
 	private function get_current_admin_url(): string {
@@ -387,9 +393,12 @@ class Plugin {
 			return is_network_admin() ? network_admin_url() : admin_url();
 		}
 
-		$request_uri = sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) );
+		$scheme = is_ssl() ? 'https' : 'http';
+		$host   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? 'localhost' ) );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() on the full URL below.
+		$uri = wp_unslash( $_SERVER['REQUEST_URI'] );
 
-		return home_url( $request_uri );
+		return esc_url_raw( $scheme . '://' . $host . $uri );
 	}
 
 	/**
