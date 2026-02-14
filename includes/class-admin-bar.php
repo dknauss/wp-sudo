@@ -81,8 +81,16 @@ class Admin_Bar {
 		$minutes = floor( $remaining / 60 );
 		$seconds = $remaining % 60;
 
+		// Build the deactivation URL against the current page so the user
+		// stays where they are after the session ends (instead of landing
+		// on the dashboard).
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated -- Fallback handles missing key.
+		$current_url = isset( $_SERVER['REQUEST_URI'] )
+			? set_url_scheme( home_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) ) )
+			: admin_url();
+
 		$deactivate_url = wp_nonce_url(
-			add_query_arg( self::DEACTIVATE_PARAM, '1', admin_url() ),
+			add_query_arg( self::DEACTIVATE_PARAM, '1', $current_url ),
 			self::DEACTIVATE_NONCE,
 			'_wpnonce'
 		);

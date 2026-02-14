@@ -10,10 +10,10 @@ namespace WP_Sudo\Tests\Unit;
 use WP_Sudo\Plugin;
 use WP_Sudo\Gate;
 use WP_Sudo\Challenge;
-use WP_Sudo\Modal;
 use WP_Sudo\Admin_Bar;
 use WP_Sudo\Admin;
 use WP_Sudo\Upgrader;
+use WP_Sudo\Sudo_Session;
 use WP_Sudo\Tests\TestCase;
 use Brain\Monkey\Functions;
 
@@ -34,7 +34,6 @@ class PluginTest extends TestCase {
 
 		$this->assertInstanceOf( Gate::class, $plugin->gate() );
 		$this->assertInstanceOf( Challenge::class, $plugin->challenge() );
-		$this->assertInstanceOf( Modal::class, $plugin->modal() );
 		$this->assertInstanceOf( Admin_Bar::class, $plugin->admin_bar() );
 		$this->assertInstanceOf( Admin::class, $plugin->admin() );
 	}
@@ -111,15 +110,244 @@ class PluginTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------
+	// enqueue_shortcut()
+	// -----------------------------------------------------------------
+
+	public function test_enqueue_shortcut_skips_anonymous(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+
+		Functions\expect( 'wp_enqueue_script' )->never();
+
+		$plugin = new Plugin();
+		$plugin->enqueue_shortcut();
+	}
+
+	public function test_enqueue_shortcut_skips_active_session(): void {
+		$user_id = 5;
+		$token   = 'shortcut-token';
+
+		Functions\when( 'get_current_user_id' )->justReturn( $user_id );
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		Functions\expect( 'wp_enqueue_script' )->never();
+
+		$plugin = new Plugin();
+		$plugin->enqueue_shortcut();
+
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+	}
+
+	public function test_enqueue_shortcut_skips_challenge_page(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		$_GET['page'] = 'wp-sudo-challenge';
+
+		Functions\expect( 'wp_enqueue_script' )->never();
+
+		$plugin = new Plugin();
+		$plugin->enqueue_shortcut();
+
+		unset( $_GET['page'] );
+	}
+
+	public function test_enqueue_shortcut_loads_on_admin_page(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'admin_url' )->alias( fn( $path = '' ) => 'https://example.com/wp-admin/' . $path );
+		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/admin.php?page=wp-sudo-challenge' );
+
+		$_GET['page'] = 'some-other-page';
+
+		Functions\expect( 'wp_enqueue_script' )
+			->once()
+			->with(
+				'wp-sudo-shortcut',
+				\Mockery::type( 'string' ),
+				array(),
+				WP_SUDO_VERSION,
+				true
+			);
+
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-shortcut',
+				'wpSudoShortcut',
+				\Mockery::on( function ( $data ) {
+					return isset( $data['challengeUrl'] );
+				} )
+			);
+
+		$plugin = new Plugin();
+		$plugin->enqueue_shortcut();
+
+		unset( $_GET['page'] );
+	}
+
+	// -----------------------------------------------------------------
+	// enqueue_gate_ui()
+	// -----------------------------------------------------------------
+
+	public function test_enqueue_gate_ui_skips_anonymous(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+
+		Functions\expect( 'wp_enqueue_script' )->never();
+
+		$plugin = new Plugin();
+		$plugin->enqueue_gate_ui( 'plugins.php' );
+	}
+
+	public function test_enqueue_gate_ui_skips_active_session(): void {
+		$user_id = 5;
+		$token   = 'gate-ui-token';
+
+		Functions\when( 'get_current_user_id' )->justReturn( $user_id );
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		Functions\expect( 'wp_enqueue_script' )->never();
+
+		$plugin = new Plugin();
+		$plugin->enqueue_gate_ui( 'plugins.php' );
+
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+	}
+
+	public function test_enqueue_gate_ui_skips_non_gated_page(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		Functions\expect( 'wp_enqueue_script' )->never();
+
+		$plugin = new Plugin();
+		$plugin->enqueue_gate_ui( 'edit.php' );
+	}
+
+	/**
+	 * @dataProvider gated_page_provider
+	 *
+	 * @param string $hook_suffix Admin page hook suffix.
+	 * @param string $expected_page Expected page identifier passed to JS.
+	 */
+	public function test_enqueue_gate_ui_loads_on_gated_page( string $hook_suffix, string $expected_page ): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		Functions\expect( 'wp_enqueue_script' )
+			->once()
+			->with(
+				'wp-sudo-gate-ui',
+				\Mockery::type( 'string' ),
+				array(),
+				WP_SUDO_VERSION,
+				true
+			);
+
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-gate-ui',
+				'wpSudoGateUi',
+				\Mockery::on( function ( $data ) use ( $expected_page ) {
+					return isset( $data['page'] ) && $expected_page === $data['page'];
+				} )
+			);
+
+		$plugin = new Plugin();
+		$plugin->enqueue_gate_ui( $hook_suffix );
+	}
+
+	/**
+	 * Data provider for gated page test.
+	 *
+	 * @return array<string, array{0: string, 1: string}>
+	 */
+	public static function gated_page_provider(): array {
+		return array(
+			'themes'         => array( 'themes.php', 'themes' ),
+			'theme-install'  => array( 'theme-install.php', 'theme-install' ),
+			'plugins'        => array( 'plugins.php', 'plugins' ),
+			'plugin-install' => array( 'plugin-install.php', 'plugin-install' ),
+		);
+	}
+
+	// -----------------------------------------------------------------
 	// activate()
 	// -----------------------------------------------------------------
 
 	public function test_activate_stamps_version_and_sets_flag(): void {
 		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'get_role' )->justReturn( null );
 
 		Functions\expect( 'update_option' )
 			->once()
 			->with( 'wp_sudo_activated', true );
+
+		$plugin = new Plugin();
+		$plugin->activate();
+	}
+
+	public function test_activate_strips_unfiltered_html_from_editor(): void {
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		$role = \Mockery::mock( 'WP_Role' );
+		$role->shouldReceive( 'remove_cap' )
+			->once()
+			->with( 'unfiltered_html' );
+
+		Functions\expect( 'get_role' )
+			->once()
+			->with( 'editor' )
+			->andReturn( $role );
+
+		$plugin = new Plugin();
+		$plugin->activate();
+	}
+
+	public function test_activate_skips_strip_when_no_editor_role(): void {
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		Functions\expect( 'get_role' )
+			->once()
+			->with( 'editor' )
+			->andReturn( null );
+
+		$plugin = new Plugin();
+		$plugin->activate();
+
+		// No error — null role is handled gracefully.
+		$this->assertTrue( true );
+	}
+
+	public function test_activate_skips_strip_on_multisite(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'get_site_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		Functions\expect( 'get_role' )->never();
 
 		$plugin = new Plugin();
 		$plugin->activate();
@@ -130,12 +358,108 @@ class PluginTest extends TestCase {
 	// -----------------------------------------------------------------
 
 	public function test_deactivate_removes_flag(): void {
+		Functions\when( 'get_role' )->justReturn( null );
+
 		Functions\expect( 'delete_option' )
 			->once()
 			->with( 'wp_sudo_activated' );
 
 		$plugin = new Plugin();
 		$plugin->deactivate();
+	}
+
+	public function test_deactivate_restores_unfiltered_html_to_editor(): void {
+		Functions\when( 'delete_option' )->justReturn( true );
+
+		$role = \Mockery::mock( 'WP_Role' );
+		$role->shouldReceive( 'add_cap' )
+			->once()
+			->with( 'unfiltered_html' );
+
+		Functions\expect( 'get_role' )
+			->once()
+			->with( 'editor' )
+			->andReturn( $role );
+
+		$plugin = new Plugin();
+		$plugin->deactivate();
+	}
+
+	public function test_deactivate_skips_restore_on_multisite(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+		Functions\when( 'delete_site_option' )->justReturn( true );
+
+		Functions\expect( 'get_role' )->never();
+
+		$plugin = new Plugin();
+		$plugin->deactivate();
+	}
+
+	// -----------------------------------------------------------------
+	// enforce_editor_unfiltered_html()
+	// -----------------------------------------------------------------
+
+	public function test_enforce_strips_cap_and_fires_hook_when_tampered(): void {
+		$role               = \Mockery::mock( 'WP_Role' );
+		$role->capabilities = array( 'unfiltered_html' => true );
+
+		$role->shouldReceive( 'remove_cap' )
+			->once()
+			->with( 'unfiltered_html' );
+
+		Functions\when( 'get_role' )->justReturn( $role );
+
+		Functions\expect( 'do_action' )
+			->once()
+			->with( 'wp_sudo_capability_tampered', 'editor', 'unfiltered_html' );
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+	}
+
+	public function test_enforce_skips_when_cap_not_present(): void {
+		$role               = \Mockery::mock( 'WP_Role' );
+		$role->capabilities = array();
+
+		$role->shouldNotReceive( 'remove_cap' );
+
+		Functions\when( 'get_role' )->justReturn( $role );
+
+		Functions\expect( 'do_action' )
+			->with( 'wp_sudo_capability_tampered', \Mockery::any(), \Mockery::any() )
+			->never();
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+	}
+
+	public function test_enforce_skips_when_no_editor_role(): void {
+		Functions\when( 'get_role' )->justReturn( null );
+
+		Functions\expect( 'do_action' )
+			->with( 'wp_sudo_capability_tampered', \Mockery::any(), \Mockery::any() )
+			->never();
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+
+		// No error — null role is handled gracefully.
+		$this->assertTrue( true );
+	}
+
+	public function test_enforce_skips_on_multisite(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		Functions\expect( 'get_role' )->never();
+
+		Functions\expect( 'do_action' )
+			->with( 'wp_sudo_capability_tampered', \Mockery::any(), \Mockery::any() )
+			->never();
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+
+		$this->assertTrue( true );
 	}
 
 	// -----------------------------------------------------------------
@@ -147,7 +471,6 @@ class PluginTest extends TestCase {
 
 		$this->assertNull( $plugin->gate() );
 		$this->assertNull( $plugin->challenge() );
-		$this->assertNull( $plugin->modal() );
 		$this->assertNull( $plugin->admin_bar() );
 		$this->assertNull( $plugin->admin() );
 	}

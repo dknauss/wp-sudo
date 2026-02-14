@@ -105,7 +105,7 @@ class Sudo_Session {
 	 *
 	 * Keyed by user ID. Prevents redundant get_user_meta + SHA-256
 	 * calls when is_active() is called 3–5 times per page load from
-	 * Gate, Modal, and Admin_Bar. Invalidated on activate/deactivate.
+	 * Gate and Admin_Bar. Invalidated on activate/deactivate.
 	 *
 	 * @var array<int, bool>
 	 */
@@ -242,8 +242,7 @@ class Sudo_Session {
 	 * Attempt to activate sudo mode for a user.
 	 *
 	 * Encapsulates the full validation flow: lockout, password check,
-	 * 2FA, and activation. Used by both the Challenge page and the
-	 * Modal AJAX handler.
+	 * 2FA, and activation. Used by the Challenge page AJAX handler.
 	 *
 	 * @since 2.0.0 Role-agnostic — no eligibility check.
 	 *

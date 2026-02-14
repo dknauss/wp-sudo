@@ -92,6 +92,11 @@ class Admin {
 		// MU-plugin install/uninstall AJAX handlers.
 		add_action( 'wp_ajax_' . self::AJAX_MU_INSTALL, array( $this, 'handle_mu_install' ) );
 		add_action( 'wp_ajax_' . self::AJAX_MU_UNINSTALL, array( $this, 'handle_mu_uninstall' ) );
+
+		// Replace core's confusing "user editing capabilities" error with
+		// a clearer message on the Users page.
+		add_action( 'load-users.php', array( $this, 'rewrite_role_error' ) );
+		add_action( 'admin_notices', array( $this, 'render_role_error_notice' ) );
 	}
 
 	/**
@@ -185,16 +190,39 @@ class Admin {
 				'id'      => 'wp-sudo-how-it-works',
 				'title'   => __( 'How Sudo Works', 'wp-sudo' ),
 				'content' =>
-					'<h3>' . __( 'Action-Gated Reauthentication', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo gates dangerous operations behind a reauthentication step. When any user attempts a gated action (plugin activation, user deletion, etc.), they must re-enter their password before proceeding.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'This is role-agnostic: administrators, editors, and any custom role are all challenged equally. WordPress capability checks still run after the gate.', 'wp-sudo' ) . '</p>'
+					'<h3>' . __( 'Zero-Trust Reauthentication', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WP Sudo brings zero-trust principles to WordPress admin operations. A valid login session is never sufficient on its own — dangerous operations require explicit identity confirmation every time.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'This is role-agnostic: administrators, editors, and any custom role are all challenged equally. Sessions are time-bounded and non-extendable. WordPress capability checks still run after the gate.', 'wp-sudo' ) . '</p>'
 					. '<p>' . __( 'Browser requests (admin UI, AJAX, REST with cookie auth) get an interactive challenge. Non-interactive entry points (WP-CLI, Cron, XML-RPC, App Passwords) are governed by configurable policies.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Recommended Plugins', 'wp-sudo' ) . '</h3>'
+					. '<h3>' . __( 'Keyboard Shortcut', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to open the sudo challenge without triggering a gated action first. This is useful when you know you are about to perform several gated actions and want to authenticate once upfront. When a session is already active, the shortcut flashes the admin bar timer.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-security',
+				'title'   => __( 'Security', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, WebAuthn/passkeys, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Content Sanitization', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WP Sudo removes the <code>unfiltered_html</code> capability from the Editor role. This means KSES content filtering is always active for editors — script tags, iframes, and other potentially dangerous HTML are stripped on save. Administrators retain <code>unfiltered_html</code>. The capability is restored if the plugin is deactivated or uninstalled.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Tamper Detection', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WP Sudo checks the Editor role on every request. If <code>unfiltered_html</code> reappears (e.g. via direct database modification), it is stripped and the <code>wp_sudo_capability_tampered</code> action fires so logging plugins can record the event.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-recommended-plugins',
+				'title'   => __( 'Recommended Plugins', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Complementary Plugins', 'wp-sudo' ) . '</h3>'
 					. '<ul>'
 					. '<li>' . __( '<strong>Two Factor</strong> &mdash; strongly recommended. Adds a second verification step (TOTP, email, backup codes) to the sudo challenge.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>WP Activity Log</strong> or <strong>Stream</strong> &mdash; recommended for audit visibility. These logging plugins capture the 8 action hooks WP Sudo fires for session lifecycle, policy decisions, and gated actions.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>WebAuthn Provider for Two Factor</strong> &mdash; recommended alongside Two Factor. Adds passkey and security key (FIDO2/WebAuthn) support so users can reauthenticate with a hardware key or platform passkey.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>WP Activity Log</strong> or <strong>Stream</strong> &mdash; recommended for audit visibility. These logging plugins capture the 9 action hooks WP Sudo fires for session lifecycle, policy decisions, gated actions, and tamper detection.', 'wp-sudo' ) . '</li>'
 					. '</ul>',
 			)
 		);
@@ -245,14 +273,16 @@ class Admin {
 					. '<li><code>wp_sudo_action_blocked</code> — ' . __( 'Denied by policy.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_allowed</code> — ' . __( 'Permitted by policy.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_replayed</code> — ' . __( 'Stashed request replayed.', 'wp-sudo' ) . '</li>'
+					. '<li><code>wp_sudo_capability_tampered</code> — ' . __( 'Removed capability re-detected (possible database tampering).', 'wp-sudo' ) . '</li>'
 					. '</ul>',
 			)
 		);
 
 		$screen->set_help_sidebar(
 			'<p><strong>' . __( 'For more information:', 'wp-sudo' ) . '</strong></p>'
-			. '<p><a href="https://en.wikipedia.org/wiki/Sudo" target="_blank">' . __( 'About sudo', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://en.wikipedia.org/wiki/Sudo" target="_blank">' . __( 'About', 'wp-sudo' ) . '<code>sudo</code></a>' . __( ' (*nix command)', 'wp-sudo' ) . '</p>'
 			. '<p><a href="https://wordpress.org/plugins/two-factor/" target="_blank">' . __( 'Two Factor plugin', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://wordpress.org/plugins/two-factor-provider-webauthn/" target="_blank">' . __( 'WebAuthn Provider', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://wordpress.org/plugins/wp-security-audit-log/" target="_blank">' . __( 'WP Activity Log', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://wordpress.org/plugins/stream/" target="_blank">' . __( 'Stream', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://developer.wordpress.org/plugins/users/roles-and-capabilities/" target="_blank">' . __( 'Roles &amp; Capabilities', 'wp-sudo' ) . '</a></p>'
@@ -830,5 +860,59 @@ class Admin {
 		if ( ! empty( $args['description'] ) ) {
 			echo '<p class="description">' . esc_html( $args['description'] ) . '</p>';
 		}
+	}
+
+	/**
+	 * Rewrite core's confusing err_admin_role query parameter.
+	 *
+	 * WordPress core redirects to `users.php?update=err_admin_role` when
+	 * a bulk role change skips the current user because the target role
+	 * lacks `promote_users`. The resulting error message is unclear.
+	 *
+	 * This method intercepts the redirect before the page renders and
+	 * swaps the value so core's switch statement doesn't match, allowing
+	 * us to render a clearer notice instead.
+	 *
+	 * Hooked at `load-users.php`.
+	 *
+	 * @since 2.1.0
+	 * @return void
+	 */
+	public function rewrite_role_error(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only routing check.
+		if ( ! isset( $_GET['update'] ) || 'err_admin_role' !== $_GET['update'] ) {
+			return;
+		}
+
+		$url = add_query_arg( 'update', 'wp_sudo_role_error' );
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * Render a clearer notice when a bulk role change skips the current user.
+	 *
+	 * Replaces core's "The current user's role must have user editing
+	 * capabilities" with a message that explains the actual constraint.
+	 *
+	 * @since 2.1.0
+	 * @return void
+	 */
+	public function render_role_error_notice(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display check.
+		if ( ! isset( $_GET['update'] ) || 'wp_sudo_role_error' !== $_GET['update'] ) {
+			return;
+		}
+
+		echo wp_kses_post(
+			wp_get_admin_notice(
+				__( 'You can&#8217;t demote yourself to a role that doesn&#8217;t allow you to promote yourself back again.', 'wp-sudo' ),
+				array(
+					'id'                 => 'message',
+					'additional_classes' => array( 'error' ),
+					'dismissible'        => true,
+				)
+			)
+		);
 	}
 }

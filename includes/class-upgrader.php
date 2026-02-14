@@ -47,6 +47,7 @@ class Upgrader {
 	 */
 	private const UPGRADES = array(
 		'2.0.0' => 'upgrade_2_0_0',
+		'2.1.0' => 'upgrade_2_1_0',
 	);
 
 	/**
@@ -134,5 +135,18 @@ class Upgrader {
 
 		// Remove the role version tracking option.
 		delete_option( 'wp_sudo_role_version' );
+	}
+
+	/**
+	 * 2.1.0 migration: remove unfiltered_html from the Editor role.
+	 *
+	 * Ensures KSES content filtering is always active for editors.
+	 * On multisite, WordPress core already restricts unfiltered_html
+	 * to Super Admins, so the helper method is a no-op there.
+	 *
+	 * @return void
+	 */
+	private function upgrade_2_1_0(): void {
+		Plugin::strip_editor_unfiltered_html();
 	}
 }

@@ -229,7 +229,7 @@ class AdminTest extends TestCase {
 	// add_help_tabs()
 	// -----------------------------------------------------------------
 
-	public function test_add_help_tabs_registers_four_tabs(): void {
+	public function test_add_help_tabs_registers_six_tabs(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -239,7 +239,7 @@ class AdminTest extends TestCase {
 		$admin = new Admin();
 		$admin->add_help_tabs();
 
-		$this->assertCount( 4, $screen->get_help_tabs() );
+		$this->assertCount( 6, $screen->get_help_tabs() );
 	}
 
 	public function test_add_help_tabs_has_expected_tab_ids(): void {
@@ -256,6 +256,8 @@ class AdminTest extends TestCase {
 		$ids  = array_keys( $tabs );
 
 		$this->assertContains( 'wp-sudo-how-it-works', $ids );
+		$this->assertContains( 'wp-sudo-security', $ids );
+		$this->assertContains( 'wp-sudo-recommended-plugins', $ids );
 		$this->assertContains( 'wp-sudo-settings-help', $ids );
 		$this->assertContains( 'wp-sudo-extending', $ids );
 		$this->assertContains( 'wp-sudo-audit-hooks', $ids );
@@ -284,7 +286,7 @@ class AdminTest extends TestCase {
 		$this->assertTrue( true );
 	}
 
-	public function test_how_it_works_tab_mentions_two_factor(): void {
+	public function test_security_tab_mentions_two_factor(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -295,7 +297,7 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-how-it-works']['content'] ?? '';
+		$content = $tabs['wp-sudo-security']['content'] ?? '';
 
 		$this->assertStringContainsString( 'Two-Factor Authentication', $content );
 		$this->assertStringContainsString( 'Two Factor plugin', $content );
@@ -319,7 +321,26 @@ class AdminTest extends TestCase {
 		$this->assertStringNotContainsString( 'How long the sudo window', $content );
 	}
 
-	public function test_how_it_works_tab_mentions_recommended_plugins(): void {
+	public function test_recommended_plugins_tab_lists_complements(): void {
+		$screen = new \WP_Screen();
+
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+
+		$admin = new Admin();
+		$admin->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-recommended-plugins']['content'] ?? '';
+
+		$this->assertStringContainsString( 'Two Factor', $content );
+		$this->assertStringContainsString( 'WebAuthn Provider', $content );
+		$this->assertStringContainsString( 'WP Activity Log', $content );
+		$this->assertStringContainsString( 'Stream', $content );
+	}
+
+	public function test_how_it_works_tab_mentions_keyboard_shortcut(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -332,9 +353,8 @@ class AdminTest extends TestCase {
 		$tabs    = $screen->get_help_tabs();
 		$content = $tabs['wp-sudo-how-it-works']['content'] ?? '';
 
-		$this->assertStringContainsString( 'Recommended Plugins', $content );
-		$this->assertStringContainsString( 'WP Activity Log', $content );
-		$this->assertStringContainsString( 'Stream', $content );
+		$this->assertStringContainsString( 'Keyboard Shortcut', $content );
+		$this->assertStringContainsString( 'Ctrl+Shift+S', $content );
 	}
 
 	public function test_settings_tab_covers_mu_plugin_and_multisite(): void {
@@ -665,5 +685,70 @@ class AdminTest extends TestCase {
 		// WP_CONTENT_DIR points to /tmp/fake-wordpress/wp-content
 		// which should not contain wp-sudo-gate.php.
 		$this->assertFalse( Admin::is_mu_plugin_installed() );
+	}
+
+	// -----------------------------------------------------------------
+	// rewrite_role_error()
+	// -----------------------------------------------------------------
+
+	public function test_rewrite_role_error_skips_without_param(): void {
+		unset( $_GET['update'] );
+
+		Functions\expect( 'wp_safe_redirect' )->never();
+
+		$admin = new Admin();
+		$admin->rewrite_role_error();
+	}
+
+	public function test_rewrite_role_error_skips_other_update_values(): void {
+		$_GET['update'] = 'promote';
+
+		Functions\expect( 'wp_safe_redirect' )->never();
+
+		$admin = new Admin();
+		$admin->rewrite_role_error();
+
+		unset( $_GET['update'] );
+	}
+
+	// -----------------------------------------------------------------
+	// render_role_error_notice()
+	// -----------------------------------------------------------------
+
+	public function test_render_role_error_notice_skips_without_param(): void {
+		unset( $_GET['update'] );
+
+		$admin = new Admin();
+		$admin->render_role_error_notice();
+
+		$this->expectOutputString( '' );
+	}
+
+	public function test_render_role_error_notice_skips_other_update_values(): void {
+		$_GET['update'] = 'promote';
+
+		$admin = new Admin();
+		$admin->render_role_error_notice();
+
+		$this->expectOutputString( '' );
+
+		unset( $_GET['update'] );
+	}
+
+	public function test_render_role_error_notice_outputs_for_matching_param(): void {
+		$_GET['update'] = 'wp_sudo_role_error';
+
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'wp_get_admin_notice' )->alias( function ( $message, $args ) {
+			return '<div class="notice"><p>' . $message . '</p></div>';
+		} );
+		Functions\when( 'wp_kses_post' )->returnArg();
+
+		$this->expectOutputRegex( '/demote yourself to a role/' );
+
+		$admin = new Admin();
+		$admin->render_role_error_notice();
+
+		unset( $_GET['update'] );
 	}
 }

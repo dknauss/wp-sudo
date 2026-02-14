@@ -164,18 +164,19 @@ class ChallengeTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------
-	// handle_ajax_auth — modal flow (no stash_key)
+	// handle_ajax_auth — session-only flow (no stash_key)
 	// -----------------------------------------------------------------
 
 	/**
-	 * Test handle_ajax_auth succeeds without stash_key (modal flow).
+	 * Test handle_ajax_auth succeeds without stash_key (session-only flow).
 	 *
-	 * When the modal triggers auth, no stash_key is sent. The handler
-	 * should skip stash validation and return {code: 'authenticated'}.
+	 * When the challenge page is in session-only mode, no stash_key is
+	 * sent. The handler should skip stash validation and return
+	 * {code: 'authenticated'}.
 	 */
 	public function test_handle_ajax_auth_succeeds_without_stash_key(): void {
 		$_POST['password'] = 'correct-horse';
-		// No stash_key in $_POST — modal flow.
+		// No stash_key in $_POST — session-only flow.
 
 		Functions\expect( 'check_ajax_referer' )->once();
 		Functions\when( 'get_current_user_id' )->justReturn( 42 );
@@ -198,7 +199,7 @@ class ChallengeTest extends TestCase {
 		Functions\when( 'is_ssl' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 
-		// Modal success should return 'authenticated' code (not replay).
+		// Session-only success should return 'authenticated' code (not replay).
 		Functions\expect( 'wp_send_json_success' )
 			->once()
 			->with( \Mockery::on( function ( $data ) {
@@ -267,10 +268,10 @@ class ChallengeTest extends TestCase {
 	}
 
 	/**
-	 * Test handle_ajax_2fa succeeds without stash_key (modal flow).
+	 * Test handle_ajax_2fa succeeds without stash_key (session-only flow).
 	 */
 	public function test_handle_ajax_2fa_succeeds_without_stash_key(): void {
-		// No stash_key in $_POST — modal flow.
+		// No stash_key in $_POST — session-only flow.
 
 		// Set challenge cookie to bind the 2FA lookup.
 		$challenge_nonce = 'test-challenge-nonce-2fa';
@@ -449,5 +450,83 @@ class ChallengeTest extends TestCase {
 			->once();
 
 		$this->challenge->register();
+	}
+
+	// -----------------------------------------------------------------
+	// Session-only mode (no stash key)
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test enqueue_assets passes sessionOnly flag when stash key is empty.
+	 */
+	public function test_enqueue_assets_passes_session_only_flag(): void {
+		$_GET['page'] = 'wp-sudo-challenge';
+		// No stash_key — session-only mode.
+
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )->once();
+
+		Functions\expect( 'admin_url' )
+			->with( 'admin-ajax.php' )
+			->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+
+		Functions\expect( 'wp_create_nonce' )
+			->with( Challenge::NONCE_ACTION )
+			->andReturn( 'test-nonce' );
+
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-challenge',
+				'wpSudoChallenge',
+				\Mockery::on(
+					function ( $data ) {
+						return isset( $data['sessionOnly'] )
+							&& true === $data['sessionOnly']
+							&& '' === $data['stashKey'];
+					}
+				)
+			);
+
+		$this->challenge->enqueue_assets();
+
+		unset( $_GET['page'] );
+	}
+
+	/**
+	 * Test enqueue_assets sets sessionOnly to false when stash key is present.
+	 */
+	public function test_enqueue_assets_passes_stash_mode_flag(): void {
+		$_GET['page']      = 'wp-sudo-challenge';
+		$_GET['stash_key'] = 'abc123';
+
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )->once();
+
+		Functions\expect( 'admin_url' )
+			->with( 'admin-ajax.php' )
+			->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+
+		Functions\expect( 'wp_create_nonce' )
+			->with( Challenge::NONCE_ACTION )
+			->andReturn( 'test-nonce' );
+
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-challenge',
+				'wpSudoChallenge',
+				\Mockery::on(
+					function ( $data ) {
+						return isset( $data['sessionOnly'] )
+							&& false === $data['sessionOnly']
+							&& 'abc123' === $data['stashKey'];
+					}
+				)
+			);
+
+		$this->challenge->enqueue_assets();
+
+		unset( $_GET['page'], $_GET['stash_key'] );
 	}
 }

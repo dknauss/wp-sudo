@@ -32,6 +32,7 @@ class AdminBarTest extends TestCase {
 
 	protected function tearDown(): void {
 		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+		unset( $_SERVER['REQUEST_URI'] );
 		parent::tearDown();
 	}
 
@@ -87,9 +88,13 @@ class AdminBarTest extends TestCase {
 	public function test_admin_bar_node_shows_for_active_session(): void {
 		Functions\when( 'get_current_user_id' )->justReturn( 5 );
 		Functions\when( '__' )->returnArg();
-		Functions\when( 'wp_nonce_url' )->justReturn( 'https://example.com/wp-admin/?wp_sudo_deactivate=1&_wpnonce=abc' );
-		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/?wp_sudo_deactivate=1' );
+		Functions\when( 'wp_nonce_url' )->justReturn( 'https://example.com/wp-admin/plugins.php?wp_sudo_deactivate=1&_wpnonce=abc' );
+		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/plugins.php?wp_sudo_deactivate=1' );
 		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/' );
+		Functions\when( 'home_url' )->alias( fn( $path = '' ) => 'https://example.com' . $path );
+		Functions\when( 'set_url_scheme' )->returnArg();
+
+		$_SERVER['REQUEST_URI'] = '/wp-admin/plugins.php';
 
 		$future = time() + 300;
 		$token  = 'bar-token-123';

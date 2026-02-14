@@ -2,21 +2,20 @@
  * WP Sudo – Keyboard shortcut for proactive sudo activation.
  *
  * Listens for Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac)
- * and opens the sudo reauthentication modal. After successful
- * authentication the page reloads so the admin bar countdown
- * appears.
+ * and navigates to the challenge page in session-only mode.
  *
- * When a sudo session is already active the modal is not rendered
- * and this script is not enqueued, so the shortcut is silently
- * unavailable — the admin bar countdown provides visual feedback.
+ * When a sudo session is already active the shortcut script is not
+ * enqueued, so the shortcut is silently unavailable — the admin bar
+ * countdown provides visual feedback instead.
  *
  * @package WP_Sudo
  */
 ( function () {
 	'use strict';
 
-	// Bail if the modal API is not available.
-	if ( ! window.wpSudo || typeof window.wpSudo.openModal !== 'function' ) {
+	var config = window.wpSudoShortcut || {};
+
+	if ( ! config.challengeUrl ) {
 		return;
 	}
 
@@ -24,15 +23,7 @@
 		// Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac).
 		if ( e.shiftKey && ( e.ctrlKey || e.metaKey ) && e.key.toLowerCase() === 's' ) {
 			e.preventDefault();
-
-			window.wpSudo.openModal( 'Activate sudo mode' )
-				.then( function () {
-					// Session activated — reload to show admin bar countdown.
-					window.location.reload();
-				} )
-				.catch( function () {
-					// User cancelled — nothing to do.
-				} );
+			window.location.href = config.challengeUrl;
 		}
 	} );
 } )();

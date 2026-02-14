@@ -2,8 +2,13 @@
  * WP Sudo – Challenge page controller.
  *
  * Handles the password + optional 2FA flow on the challenge interstitial,
- * then replays the stashed request (redirect for GET, self-submitting
- * form for POST).
+ * then either replays the stashed request (redirect for GET, self-submitting
+ * form for POST) or redirects to the cancel URL in session-only mode.
+ *
+ * Session-only mode (no stash key): the user is activating a sudo session
+ * proactively, e.g. via an admin notice link or the keyboard shortcut.
+ * After successful authentication, the page redirects back to the
+ * referring admin page instead of replaying a stashed request.
  *
  * @package WP_Sudo
  */
@@ -12,7 +17,7 @@
 
 	var config = window.wpSudoChallenge || {};
 
-	if ( ! config.ajaxUrl || ! config.stashKey ) {
+	if ( ! config.ajaxUrl ) {
 		return;
 	}
 
@@ -52,7 +57,9 @@
 			body.append( 'action', config.authAction );
 			body.append( '_wpnonce', config.nonce );
 			body.append( 'password', password );
-			body.append( 'stash_key', config.stashKey );
+			if ( config.stashKey ) {
+				body.append( 'stash_key', config.stashKey );
+			}
 
 			fetch( config.ajaxUrl, { method: 'POST', body: body, credentials: 'same-origin' } )
 				.then( function ( r ) {
@@ -94,7 +101,13 @@
 							return;
 						}
 
-						// Success — replay the stashed request.
+						// Session-only mode: redirect back instead of replaying.
+						if ( config.sessionOnly && response.data && response.data.code === 'authenticated' ) {
+							window.location.href = config.cancelUrl || ( window.location.origin + '/wp-admin/' );
+							return;
+						}
+
+						// Stash mode: replay the stashed request.
 						handleReplay( response.data );
 						return;
 					}
@@ -143,7 +156,9 @@
 			body.delete( '_wpnonce' );
 			body.append( 'action', config.tfaAction );
 			body.append( '_wpnonce', config.nonce );
-			body.append( 'stash_key', config.stashKey );
+			if ( config.stashKey ) {
+				body.append( 'stash_key', config.stashKey );
+			}
 
 			fetch( config.ajaxUrl, { method: 'POST', body: body, credentials: 'same-origin' } )
 				.then( function ( r ) {
@@ -179,6 +194,12 @@
 					if ( response.success ) {
 						if ( response.data && response.data.code === '2fa_resent' ) {
 							return; // Code resent — stay on 2FA step.
+						}
+
+						// Session-only mode: redirect back instead of replaying.
+						if ( config.sessionOnly ) {
+							window.location.href = config.cancelUrl || ( window.location.origin + '/wp-admin/' );
+							return;
 						}
 
 						handleReplay( response.data );

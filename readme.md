@@ -1,6 +1,6 @@
 # Sudo for WordPress
 
-**Action-gated reauthentication for WordPress.** Dangerous operations require password confirmation before they proceed — regardless of user role.
+**Action-gated reauthentication for WordPress.** Potentially dangerous operations require password confirmation before they proceed — regardless of user role.
 
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![WordPress: 6.2+](https://img.shields.io/badge/WordPress-6.2%2B-0073aa.svg)](https://wordpress.org/)
@@ -8,9 +8,9 @@
 
 ## Description
 
-**Sudo** gates destructive WordPress admin operations behind a reauthentication step. When any user — administrator, editor, or custom role — attempts a dangerous action, they must confirm their identity before proceeding.
+**Sudo** brings zero-trust reauthentication to WordPress. Potentially destructive operations are gated behind an identity challenge — no user is trusted by default, regardless of role. When any user — administrators, editors, or custom roles — attempts a dangerous action, they must confirm their identity before proceeding.
 
-This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
+This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
 ### What Gets Gated?
 
@@ -30,13 +30,14 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 ### How It Works
 
-**Browser requests (admin UI, AJAX, REST API with cookie auth):** The user sees an interstitial challenge page or modal dialog. After entering their password (and 2FA code if configured), the original request is replayed automatically.
+**Browser requests (admin UI):** The user sees an interstitial challenge page. After entering their password (and 2FA code if configured), the original request is replayed automatically. **AJAX and REST requests** receive a `sudo_required` error; an admin notice on the next page load links to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
 **Non-interactive requests (WP-CLI, Cron, XML-RPC, Application Passwords):** Configurable per-surface policies. Each can be set to Block (default) or Allow. WP-CLI in Allow mode requires the `--sudo` flag.
 
 ### Security Features
 
-- **Role-agnostic** — any user attempting a gated action is challenged, including administrators and compromised accounts.
+- **Zero-trust architecture** — a valid login session is never sufficient on its own. Dangerous operations require explicit identity confirmation every time, with time-bounded sessions that cannot be extended.
+- **Role-agnostic** — any user attempting a gated action is challenged, including administrators and compromised accounts. No role is implicitly trusted.
 - **Full attack surface** — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and Application Passwords are all covered.
 - **Session binding** — sudo sessions are cryptographically bound to the browser via a secure httponly cookie token.
 - **2FA browser binding** — the two-factor challenge is bound to the originating browser with a one-time challenge cookie, preventing cross-browser replay.
@@ -50,12 +51,15 @@ Sudo works on its own, but these plugins add significant value:
 
 - **[Two Factor](https://wordpress.org/plugins/two-factor/)** — Strongly recommended. When installed, the sudo challenge becomes a two-step process: password + verification code (TOTP, email, backup codes). This is the difference between "confirm you know the password" and "confirm you possess the device." Third-party 2FA plugins can integrate via the `wp_sudo_requires_two_factor`, `wp_sudo_validate_two_factor`, and `wp_sudo_render_two_factor_fields` hooks.
 
+- **[WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)** — Recommended alongside Two Factor. Adds passkey and security key (FIDO2/WebAuthn) support. Administrators can reauthenticate with a hardware key or platform passkey instead of a TOTP code.
+
 - **[WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/)** or **[Stream](https://wordpress.org/plugins/stream/)** — Recommended for audit visibility. Sudo fires 8 action hooks covering session lifecycle, gated actions, policy decisions, and lockouts. A logging plugin turns these hooks into a searchable audit trail so you can answer "who did what, and did they reauthenticate?"
 
 ### User Experience
 
 - **Admin bar countdown** — a live M:SS timer shows remaining session time when active. Turns red in the final 60 seconds.
 - **Countdown on 2FA step** — a visible timer shows how long the user has to enter their verification code.
+- **Keyboard shortcut** — press `Ctrl+Shift+S` (Windows/Linux) or `Cmd+Shift+S` (Mac) to proactively start a sudo session without triggering a gated action first. When a session is already active, the shortcut flashes the admin bar timer.
 - **Accessible** — screen-reader announcements, ARIA labels, focus management, and keyboard support throughout. WCAG 2.1 AA.
 - **Contextual help** — 4 help tabs on the settings page cover how sudo works, settings, extending via filters, and audit hooks.
 
@@ -79,7 +83,7 @@ Settings are network-wide — one configuration for the entire network, managed 
 
 ### How does sudo gating work?
 
-When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init` (before WordPress processes it). The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error, a modal dialog handles reauthentication, and the original request is retried automatically.
+When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init` (before WordPress processes it). The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
 ### Does this replace WordPress roles and capabilities?
 
@@ -91,7 +95,7 @@ See the table in the Description section above. The settings page also includes 
 
 ### What about REST API and Application Passwords?
 
-Cookie-authenticated REST requests (from the block editor, admin AJAX) get the interactive modal flow. Application Password and bearer-token REST requests are governed by a separate policy setting (Block or Allow, default Block). When blocked, these requests receive a 403 error with a `sudo_blocked` code.
+Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting (Block or Allow, default Block). When blocked, these requests receive a 403 error with a `sudo_blocked` code.
 
 ### What about WP-CLI, Cron, and XML-RPC?
 
@@ -121,10 +125,11 @@ Install [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) 
 - `wp_sudo_action_blocked( $user_id, $rule_id, $surface )` — denied by policy.
 - `wp_sudo_action_allowed( $user_id, $rule_id, $surface )` — permitted by policy.
 - `wp_sudo_action_replayed( $user_id, $rule_id )` — stashed request replayed after reauth.
+- `wp_sudo_capability_tampered( $role, $capability )` — a removed capability was re-detected on a role (possible database tampering).
 
 ### Does it support two-factor authentication?
 
-Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is installed and the user has 2FA enabled, the sudo challenge becomes a two-step process: password first, then the configured 2FA method (TOTP, email code, backup codes, etc.). A visible countdown timer shows how long the user has to enter their code. Third-party 2FA plugins can integrate via filter hooks.
+Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is installed and the user has 2FA enabled, the sudo challenge becomes a two-step process: password first, then the configured 2FA method (TOTP, email code, backup codes, etc.). For passkey and security key support, add the [WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/) plugin. A visible countdown timer shows how long the user has to enter their code. Third-party 2FA plugins can integrate via filter hooks.
 
 ### Does it work on multisite?
 
@@ -192,6 +197,9 @@ do_action( 'wp_sudo_action_gated', int $user_id, string $rule_id, string $surfac
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_allowed', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_replayed', int $user_id, string $rule_id );
+
+// Tamper detection.
+do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 ```
 
 ### Filters
@@ -206,30 +214,49 @@ do_action( 'wp_sudo_action_replayed', int $user_id, string $rule_id );
 
 ## Screenshots
 
-1. **Challenge page** — a gated action triggers a reauthentication interstitial with the action description and password field.
+1. **Challenge page** — reauthentication interstitial with password field. Triggered by a gated action or proactively via the keyboard shortcut.
 
    ![Challenge page](assets/screenshot-1.png)
 
-2. **Active sudo session** — the admin bar shows a green countdown timer (M:SS). Turns red in the final 60 seconds.
+2. **Two-factor verification** — after password confirmation, users with 2FA enabled enter their authentication code.
 
-   ![Active sudo session](assets/screenshot-2.png)
+   ![Two-factor verification](assets/screenshot-2.png)
 
-3. **Settings page** — configure session duration and entry point policies. View all gated actions and mu-plugin status.
+3. **Settings page** — configure session duration and entry point policies (REST, CLI, Cron, XML-RPC).
 
    ![Settings page](assets/screenshot-3.png)
 
-4. **Modal dialog** — AJAX and REST operations trigger an in-page reauthentication dialog that retries the original request on success.
+4. **Gate notice (plugins)** — when no sudo session is active, a persistent notice links to the challenge page. Action buttons are disabled.
 
-   ![Modal dialog](assets/screenshot-4.png)
+   ![Gate notice on plugins page](assets/screenshot-4.png)
+
+5. **Gate notice (themes)** — the same gating notice appears on the themes page.
+
+   ![Gate notice on themes page](assets/screenshot-5.png)
+
+6. **Gated actions** — the settings page lists all gated operations with their categories and surfaces.
+
+   ![Gated actions table](assets/screenshot-6.png)
+
+7. **Active sudo session** — the admin bar shows a green countdown timer with the remaining minutes and seconds. Hover to see the deactivation link.
+
+   ![Active sudo session](assets/screenshot-7.png)
 
 ## Changelog
+
+### 2.1.0
+
+- Removes the `unfiltered_html` capability from the Editor role. Editors can no longer embed scripts, iframes, or other non-whitelisted HTML — KSES sanitization is always active for editors. Administrators retain `unfiltered_html`. The capability is restored if the plugin is deactivated or uninstalled.
+- Adds tamper detection: if `unfiltered_html` reappears on the Editor role (e.g. via database modification), it is stripped automatically and the `wp_sudo_capability_tampered` action fires for audit logging.
+- Fixes admin bar deactivation redirect: clicking the countdown timer to end a session now keeps you on the current page instead of redirecting to the dashboard.
+- Replaces WordPress core's confusing "user editing capabilities" error with a clearer message when a bulk role change skips the current user.
 
 ### 2.0.0
 
 Complete rewrite. Action-gated reauthentication replaces role-based privilege escalation.
 
 - **New model** — gates dangerous operations behind reauthentication for any user, regardless of role. No custom role, no capability escalation.
-- **Full attack surface coverage** — admin UI (stash-challenge-replay), AJAX (error + modal + retry), REST API (cookie-auth modal, app-password policy), WP-CLI, Cron, XML-RPC.
+- **Full attack surface coverage** — admin UI (stash-challenge-replay), AJAX (error + admin notice + session activation), REST API (cookie-auth challenge, app-password policy), WP-CLI, Cron, XML-RPC.
 - **Action Registry** — 20 gated rules across 7 categories (plugins, themes, users, editors, options, updates, tools), plus 8 multisite-specific rules. Extensible via `wp_sudo_gated_actions` filter.
 - **Entry point policies** — configurable Block/Allow for REST Application Passwords, WP-CLI, Cron, and XML-RPC.
 - **2FA browser binding** — challenge cookie prevents cross-browser 2FA replay.
