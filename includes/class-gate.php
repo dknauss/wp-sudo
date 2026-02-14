@@ -120,11 +120,9 @@ class Gate {
 
 		// Fallback admin notice when a gated AJAX/REST request was blocked.
 		add_action( 'admin_notices', array( $this, 'render_blocked_notice' ) );
-		add_action( 'network_admin_notices', array( $this, 'render_blocked_notice' ) );
 
 		// Persistent gate notice on gated pages when no sudo session is active.
 		add_action( 'admin_notices', array( $this, 'render_gate_notice' ) );
-		add_action( 'network_admin_notices', array( $this, 'render_gate_notice' ) );
 
 		// PHP action link filters for server-rendered buttons (plugins list table).
 		add_filter( 'plugin_action_links', array( $this, 'filter_plugin_action_links' ), 50, 2 );
@@ -824,19 +822,13 @@ class Gate {
 			&& false !== strpos( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 'Mac' );
 		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
 
-		$current_url = '';
-		if ( isset( $_SERVER['REQUEST_URI'] ) ) {
-			$scheme = is_ssl() ? 'https' : 'http';
-			$host   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? 'localhost' ) );
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() on the full URL below.
-			$uri         = wp_unslash( $_SERVER['REQUEST_URI'] );
-			$current_url = esc_url_raw( $scheme . '://' . $host . $uri );
-		}
+		$current_url = isset( $_SERVER['REQUEST_URI'] )
+			? home_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) )
+			: '';
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
-			// add_query_arg() already encodes the URL, so no need for rawurlencode().
-			$query_args['return_url'] = $current_url;
+			$query_args['return_url'] = rawurlencode( $current_url );
 		}
 
 		$challenge_url = add_query_arg(
@@ -897,19 +889,13 @@ class Gate {
 
 		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
 
-		$current_url = '';
-		if ( isset( $_SERVER['REQUEST_URI'] ) ) {
-			$scheme = is_ssl() ? 'https' : 'http';
-			$host   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? 'localhost' ) );
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() on the full URL below.
-			$uri         = wp_unslash( $_SERVER['REQUEST_URI'] );
-			$current_url = esc_url_raw( $scheme . '://' . $host . $uri );
-		}
+		$current_url = isset( $_SERVER['REQUEST_URI'] )
+			? home_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) )
+			: '';
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
-			// add_query_arg() already encodes the URL, so no need for rawurlencode().
-			$query_args['return_url'] = $current_url;
+			$query_args['return_url'] = rawurlencode( $current_url );
 		}
 
 		$challenge_url = add_query_arg(

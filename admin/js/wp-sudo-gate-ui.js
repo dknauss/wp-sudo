@@ -29,8 +29,7 @@
 	var selectorMap = {
 		'theme-install': [
 			'.theme-install',
-			'.update-now',
-			'.activate'
+			'.update-now'
 		].join( ', ' ),
 
 		'themes': [
