@@ -194,15 +194,31 @@ class Admin {
 					. '<p>' . __( 'WP Sudo brings zero-trust principles to WordPress admin operations. A valid login session is never sufficient on its own — dangerous operations require explicit identity confirmation every time.', 'wp-sudo' ) . '</p>'
 					. '<p>' . __( 'This is role-agnostic: administrators, editors, and any custom role are all challenged equally. Sessions are time-bounded and non-extendable. WordPress capability checks still run after the gate.', 'wp-sudo' ) . '</p>'
 					. '<p>' . __( 'Browser requests (admin UI, AJAX, REST with cookie auth) get an interactive challenge. Non-interactive entry points (WP-CLI, Cron, XML-RPC, App Passwords) are governed by configurable policies.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, WebAuthn/passkeys, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Keyboard Shortcut', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to open the sudo challenge without triggering a gated action first. This is useful when you know you are about to perform several gated actions and want to authenticate once upfront. When a session is already active, the shortcut flashes the admin bar timer.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to open the sudo challenge without triggering a gated action first. This is useful when you know you are about to perform several gated actions and want to authenticate once upfront. When a session is already active, the shortcut flashes the admin bar timer.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-security',
+				'title'   => __( 'Security', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, WebAuthn/passkeys, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Content Sanitization', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'WP Sudo removes the <code>unfiltered_html</code> capability from the Editor role. This means KSES content filtering is always active for editors — script tags, iframes, and other potentially dangerous HTML are stripped on save. Administrators retain <code>unfiltered_html</code>. The capability is restored if the plugin is deactivated or uninstalled.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'As a tamper-detection canary, WP Sudo checks the Editor role on every request. If <code>unfiltered_html</code> reappears (e.g. via direct database modification), it is stripped and the <code>wp_sudo_capability_tampered</code> action fires so logging plugins can record the event.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Recommended Plugins', 'wp-sudo' ) . '</h3>'
-					. '<ul>'
+					. '<h3>' . __( 'Tamper Detection', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WP Sudo checks the Editor role on every request. If <code>unfiltered_html</code> reappears (e.g. via direct database modification), it is stripped and the <code>wp_sudo_capability_tampered</code> action fires so logging plugins can record the event.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-recommended-plugins',
+				'title'   => __( 'Recommended Plugins', 'wp-sudo' ),
+				'content' =>
+					'<ul>'
 					. '<li>' . __( '<strong>Two Factor</strong> &mdash; strongly recommended. Adds a second verification step (TOTP, email, backup codes) to the sudo challenge.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>WebAuthn Provider for Two Factor</strong> &mdash; recommended alongside Two Factor. Adds passkey and security key (FIDO2/WebAuthn) support so users can reauthenticate with a hardware key or platform passkey.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>WP Activity Log</strong> or <strong>Stream</strong> &mdash; recommended for audit visibility. These logging plugins capture the 9 action hooks WP Sudo fires for session lifecycle, policy decisions, gated actions, and tamper detection.', 'wp-sudo' ) . '</li>'

@@ -229,7 +229,7 @@ class AdminTest extends TestCase {
 	// add_help_tabs()
 	// -----------------------------------------------------------------
 
-	public function test_add_help_tabs_registers_four_tabs(): void {
+	public function test_add_help_tabs_registers_six_tabs(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -239,7 +239,7 @@ class AdminTest extends TestCase {
 		$admin = new Admin();
 		$admin->add_help_tabs();
 
-		$this->assertCount( 4, $screen->get_help_tabs() );
+		$this->assertCount( 6, $screen->get_help_tabs() );
 	}
 
 	public function test_add_help_tabs_has_expected_tab_ids(): void {
@@ -256,6 +256,8 @@ class AdminTest extends TestCase {
 		$ids  = array_keys( $tabs );
 
 		$this->assertContains( 'wp-sudo-how-it-works', $ids );
+		$this->assertContains( 'wp-sudo-security', $ids );
+		$this->assertContains( 'wp-sudo-recommended-plugins', $ids );
 		$this->assertContains( 'wp-sudo-settings-help', $ids );
 		$this->assertContains( 'wp-sudo-extending', $ids );
 		$this->assertContains( 'wp-sudo-audit-hooks', $ids );
@@ -284,7 +286,7 @@ class AdminTest extends TestCase {
 		$this->assertTrue( true );
 	}
 
-	public function test_how_it_works_tab_mentions_two_factor(): void {
+	public function test_security_tab_mentions_two_factor(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -295,7 +297,7 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-how-it-works']['content'] ?? '';
+		$content = $tabs['wp-sudo-security']['content'] ?? '';
 
 		$this->assertStringContainsString( 'Two-Factor Authentication', $content );
 		$this->assertStringContainsString( 'Two Factor plugin', $content );
@@ -319,7 +321,7 @@ class AdminTest extends TestCase {
 		$this->assertStringNotContainsString( 'How long the sudo window', $content );
 	}
 
-	public function test_how_it_works_tab_mentions_recommended_plugins(): void {
+	public function test_recommended_plugins_tab_lists_complements(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -330,9 +332,10 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-how-it-works']['content'] ?? '';
+		$content = $tabs['wp-sudo-recommended-plugins']['content'] ?? '';
 
-		$this->assertStringContainsString( 'Recommended Plugins', $content );
+		$this->assertStringContainsString( 'Two Factor', $content );
+		$this->assertStringContainsString( 'WebAuthn Provider', $content );
 		$this->assertStringContainsString( 'WP Activity Log', $content );
 		$this->assertStringContainsString( 'Stream', $content );
 	}
