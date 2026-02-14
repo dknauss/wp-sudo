@@ -218,7 +218,8 @@ class Admin {
 				'id'      => 'wp-sudo-recommended-plugins',
 				'title'   => __( 'Recommended Plugins', 'wp-sudo' ),
 				'content' =>
-					'<ul>'
+					'<h3>' . __( 'Complementary Plugins', 'wp-sudo' ) . '</h3>'
+					. '<ul>'
 					. '<li>' . __( '<strong>Two Factor</strong> &mdash; strongly recommended. Adds a second verification step (TOTP, email, backup codes) to the sudo challenge.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>WebAuthn Provider for Two Factor</strong> &mdash; recommended alongside Two Factor. Adds passkey and security key (FIDO2/WebAuthn) support so users can reauthenticate with a hardware key or platform passkey.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>WP Activity Log</strong> or <strong>Stream</strong> &mdash; recommended for audit visibility. These logging plugins capture the 9 action hooks WP Sudo fires for session lifecycle, policy decisions, gated actions, and tamper detection.', 'wp-sudo' ) . '</li>'
