@@ -11,6 +11,9 @@
 // ── WordPress core constant (guards in every class file check this) ──
 define( 'ABSPATH', '/tmp/fake-wordpress/' );
 
+// ── WordPress directory constants ────────────────────────────────────
+define( 'WP_CONTENT_DIR', '/tmp/fake-wordpress/wp-content' );
+
 // ── Plugin constants (normally defined in wp-sudo.php) ───────────────
 define( 'WP_SUDO_VERSION', '2.0.0' );
 define( 'WP_SUDO_PLUGIN_DIR', dirname( __DIR__ ) . '/' );

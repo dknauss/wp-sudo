@@ -1,12 +1,11 @@
 <?php
 /**
- * WP Sudo — MU-Plugin Early Gate Loader.
+ * WP Sudo — MU-Plugin Shim.
  *
- * Optional drop-in for wp-content/mu-plugins/. Copy this file there to
- * guarantee the gate hooks are registered before any regular plugin loads.
- *
- * When installed, the main plugin detects WP_SUDO_MU_LOADED and skips
- * its own early hook registration to avoid duplicate hooks.
+ * Stable shim that delegates to the loader inside the plugin directory.
+ * This file is copied to wp-content/mu-plugins/ and should never need
+ * updating — the loader it requires ships with the regular plugin and
+ * is updated via the standard WordPress update mechanism.
  *
  * @package WP_Sudo
  */
@@ -16,30 +15,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Mark that the mu-plugin is handling early hooks.
 define( 'WP_SUDO_MU_LOADED', true );
 
-// Path to the main plugin directory.
-$wp_sudo_plugin_dir = WP_CONTENT_DIR . '/plugins/wp-sudo/';
+$wp_sudo_loader = WP_CONTENT_DIR . '/plugins/wp-sudo/mu-plugin/wp-sudo-loader.php';
 
-// Only proceed if the main plugin is present.
-if ( ! file_exists( $wp_sudo_plugin_dir . 'wp-sudo.php' ) ) {
-	return;
+if ( file_exists( $wp_sudo_loader ) ) {
+	require_once $wp_sudo_loader; // phpcs:ignore WordPressVIPMinimum.Files.IncludingFile.UsingVariable
 }
-
-// Load the autoloader if constants are not yet defined.
-if ( ! defined( 'WP_SUDO_PLUGIN_DIR' ) ) {
-	require_once $wp_sudo_plugin_dir . 'wp-sudo.php'; // phpcs:ignore WordPressVIPMinimum.Files.IncludingFile.UsingVariable
-}
-
-// Register the early non-interactive gate hooks at muplugins_loaded.
-add_action(
-	'muplugins_loaded',
-	static function () {
-		$gate = new WP_Sudo\Gate(
-			new WP_Sudo\Sudo_Session(),
-			new WP_Sudo\Request_Stash()
-		);
-		$gate->register_early();
-	}
-);

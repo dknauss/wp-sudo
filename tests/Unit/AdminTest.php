@@ -169,6 +169,12 @@ class AdminTest extends TestCase {
 		Filters\expectAdded( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME )
 			->once();
 
+		Actions\expectAdded( 'wp_ajax_' . Admin::AJAX_MU_INSTALL )
+			->once();
+
+		Actions\expectAdded( 'wp_ajax_' . Admin::AJAX_MU_UNINSTALL )
+			->once();
+
 		$admin = new Admin();
 		$admin->register();
 	}
@@ -330,6 +336,8 @@ class AdminTest extends TestCase {
 		Functions\when( 'do_settings_sections' )->justReturn( null );
 		Functions\when( 'submit_button' )->justReturn( null );
 		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'esc_html__' )->returnArg();
 
 		$admin = new Admin();
 
@@ -380,6 +388,9 @@ class AdminTest extends TestCase {
 		Actions\expectAdded( 'admin_enqueue_scripts' )->once();
 
 		Filters\expectAdded( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME )->once();
+
+		Actions\expectAdded( 'wp_ajax_' . Admin::AJAX_MU_INSTALL )->once();
+		Actions\expectAdded( 'wp_ajax_' . Admin::AJAX_MU_UNINSTALL )->once();
 
 		$admin = new Admin();
 		$admin->register();
@@ -458,5 +469,101 @@ class AdminTest extends TestCase {
 		// plugin.activate has both Admin and REST surfaces.
 		$this->assertStringContainsString( 'Admin', $output );
 		$this->assertStringContainsString( 'REST', $output );
+	}
+
+	// -----------------------------------------------------------------
+	// MU-plugin AJAX constants
+	// -----------------------------------------------------------------
+
+	public function test_ajax_mu_install_constant(): void {
+		$this->assertSame( 'wp_sudo_mu_install', Admin::AJAX_MU_INSTALL );
+	}
+
+	public function test_ajax_mu_uninstall_constant(): void {
+		$this->assertSame( 'wp_sudo_mu_uninstall', Admin::AJAX_MU_UNINSTALL );
+	}
+
+	// -----------------------------------------------------------------
+	// render_mu_plugin_status()
+	// -----------------------------------------------------------------
+
+	public function test_render_mu_plugin_status_shows_not_installed(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_html_e' )->alias(
+			function ( $text ) {
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
+
+		// WP_SUDO_MU_LOADED is not defined, so render_mu_plugin_status()
+		// will show "Not installed" and an install button.
+		$admin = new Admin();
+
+		ob_start();
+		$admin->render_mu_plugin_status();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Not installed', $output );
+		$this->assertStringContainsString( 'wp-sudo-mu-install', $output );
+		$this->assertStringContainsString( 'Install MU-Plugin', $output );
+	}
+
+	// -----------------------------------------------------------------
+	// enqueue_assets() — JS and localized data
+	// -----------------------------------------------------------------
+
+	public function test_enqueue_assets_registers_admin_js(): void {
+		Functions\expect( 'wp_enqueue_style' )->once();
+
+		Functions\expect( 'wp_enqueue_script' )
+			->once()
+			->with(
+				'wp-sudo-admin',
+				\Mockery::type( 'string' ),
+				\Mockery::type( 'array' ),
+				\Mockery::any(),
+				true
+			);
+
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-admin',
+				'wpSudoAdmin',
+				\Mockery::on( function ( $data ) {
+					return isset( $data['ajaxUrl'] )
+						&& isset( $data['nonce'] )
+						&& $data['installAction'] === Admin::AJAX_MU_INSTALL
+						&& $data['uninstallAction'] === Admin::AJAX_MU_UNINSTALL;
+				} )
+			);
+
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+		Functions\when( 'wp_create_nonce' )->justReturn( 'fake-nonce' );
+
+		$admin = new Admin();
+		$admin->enqueue_assets( 'settings_page_' . Admin::PAGE_SLUG );
+	}
+
+	public function test_enqueue_assets_skips_other_pages(): void {
+		Functions\expect( 'wp_enqueue_style' )->never();
+		Functions\expect( 'wp_enqueue_script' )->never();
+
+		$admin = new Admin();
+		$admin->enqueue_assets( 'toplevel_page_other-plugin' );
+
+		// If we get here without expectations failing, the method correctly skipped.
+		$this->assertTrue( true );
+	}
+
+	// -----------------------------------------------------------------
+	// is_mu_plugin_installed()
+	// -----------------------------------------------------------------
+
+	public function test_is_mu_plugin_installed_returns_false_when_file_missing(): void {
+		// WP_CONTENT_DIR points to /tmp/fake-wordpress/wp-content
+		// which should not contain wp-sudo-gate.php.
+		$this->assertFalse( Admin::is_mu_plugin_installed() );
 	}
 }

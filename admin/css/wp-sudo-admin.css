@@ -27,3 +27,23 @@
 	font-style: normal;
 	color: #646970;
 }
+
+/* MU-plugin status */
+#wp-sudo-mu-status {
+	margin: 0 0 8px;
+}
+
+#wp-sudo-mu-status .dashicons {
+	vertical-align: middle;
+	margin-right: 4px;
+}
+
+#wp-sudo-mu-spinner {
+	float: none;
+	margin-top: 0;
+	vertical-align: middle;
+}
+
+#wp-sudo-mu-message {
+	margin-top: 8px;
+}

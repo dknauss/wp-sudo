@@ -42,6 +42,20 @@ class Admin {
 	public const PAGE_SLUG = 'wp-sudo-settings';
 
 	/**
+	 * AJAX action for installing the MU-plugin shim.
+	 *
+	 * @var string
+	 */
+	public const AJAX_MU_INSTALL = 'wp_sudo_mu_install';
+
+	/**
+	 * AJAX action for uninstalling the MU-plugin shim.
+	 *
+	 * @var string
+	 */
+	public const AJAX_MU_UNINSTALL = 'wp_sudo_mu_uninstall';
+
+	/**
 	 * Per-request cache for the full settings array.
 	 *
 	 * Prevents redundant is_multisite() + get_option/get_site_option
@@ -74,6 +88,10 @@ class Admin {
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_filter( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME, array( $this, 'add_action_links' ) );
+
+		// MU-plugin install/uninstall AJAX handlers.
+		add_action( 'wp_ajax_' . self::AJAX_MU_INSTALL, array( $this, 'handle_mu_install' ) );
+		add_action( 'wp_ajax_' . self::AJAX_MU_UNINSTALL, array( $this, 'handle_mu_uninstall' ) );
 	}
 
 	/**
@@ -429,6 +447,25 @@ class Admin {
 			array(),
 			WP_SUDO_VERSION
 		);
+
+		wp_enqueue_script(
+			'wp-sudo-admin',
+			WP_SUDO_PLUGIN_URL . 'admin/js/wp-sudo-admin.js',
+			array(),
+			WP_SUDO_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'wp-sudo-admin',
+			'wpSudoAdmin',
+			array(
+				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+				'nonce'           => wp_create_nonce( 'wp_sudo_mu_plugin' ),
+				'installAction'   => self::AJAX_MU_INSTALL,
+				'uninstallAction' => self::AJAX_MU_UNINSTALL,
+			)
+		);
 	}
 
 	/**
@@ -499,6 +536,8 @@ class Admin {
 				</form>
 			<?php endif; ?>
 
+			<?php $this->render_mu_plugin_status(); ?>
+
 			<?php $this->render_gated_actions_table(); ?>
 		</div>
 		<?php
@@ -565,6 +604,153 @@ class Admin {
 			</tbody>
 		</table>
 		<?php
+	}
+
+	/**
+	 * Render the MU-plugin status section.
+	 *
+	 * Shows whether the MU-plugin shim is installed and provides
+	 * a button to install or remove it.
+	 *
+	 * @return void
+	 */
+	public function render_mu_plugin_status(): void {
+		$installed = defined( 'WP_SUDO_MU_LOADED' );
+		?>
+		<h2><?php esc_html_e( 'Early Gate (MU-Plugin)', 'wp-sudo' ); ?></h2>
+		<p class="description">
+			<?php esc_html_e( 'The optional MU-plugin shim ensures gate hooks are registered before any regular plugin loads. This prevents other plugins from deregistering or bypassing the gate. The shim delegates to a loader inside the plugin directory, so it never needs updating — regular plugin updates handle it automatically.', 'wp-sudo' ); ?>
+		</p>
+		<table class="form-table" role="presentation">
+			<tbody>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Status', 'wp-sudo' ); ?></th>
+					<td>
+						<p id="wp-sudo-mu-status">
+							<?php if ( $installed ) : ?>
+								<span class="dashicons dashicons-yes-alt" style="color: #00a32a;" aria-hidden="true"></span>
+								<?php esc_html_e( 'Installed', 'wp-sudo' ); ?>
+							<?php else : ?>
+								<span class="dashicons dashicons-warning" style="color: #dba617;" aria-hidden="true"></span>
+								<?php esc_html_e( 'Not installed', 'wp-sudo' ); ?>
+							<?php endif; ?>
+						</p>
+						<?php if ( $installed ) : ?>
+							<button type="button" class="button" id="wp-sudo-mu-uninstall">
+								<?php esc_html_e( 'Remove MU-Plugin', 'wp-sudo' ); ?>
+							</button>
+						<?php else : ?>
+							<button type="button" class="button button-primary" id="wp-sudo-mu-install">
+								<?php esc_html_e( 'Install MU-Plugin', 'wp-sudo' ); ?>
+							</button>
+						<?php endif; ?>
+						<span id="wp-sudo-mu-spinner" class="spinner" aria-hidden="true"></span>
+						<p id="wp-sudo-mu-message" class="description" aria-live="polite"></p>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+		<?php
+	}
+
+	/**
+	 * Check if the MU-plugin shim is installed.
+	 *
+	 * @return bool True if the shim file exists in mu-plugins/.
+	 */
+	public static function is_mu_plugin_installed(): bool {
+		$mu_dir = defined( 'WPMU_PLUGIN_DIR' )
+			? WPMU_PLUGIN_DIR
+			: ( WP_CONTENT_DIR . '/mu-plugins' );
+
+		return file_exists( $mu_dir . '/wp-sudo-gate.php' );
+	}
+
+	/**
+	 * Get the path to the MU-plugins directory.
+	 *
+	 * @return string Absolute path to the mu-plugins directory.
+	 */
+	private static function get_mu_plugin_dir(): string {
+		return defined( 'WPMU_PLUGIN_DIR' )
+			? WPMU_PLUGIN_DIR
+			: ( WP_CONTENT_DIR . '/mu-plugins' );
+	}
+
+	/**
+	 * Handle AJAX request to install the MU-plugin shim.
+	 *
+	 * Copies the stable shim file from wp-sudo/mu-plugin/wp-sudo-gate.php
+	 * to wp-content/mu-plugins/wp-sudo-gate.php. Creates the mu-plugins
+	 * directory if it does not exist.
+	 *
+	 * @return void
+	 */
+	public function handle_mu_install(): void {
+		check_ajax_referer( 'wp_sudo_mu_plugin', '_nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
+		}
+
+		$source = WP_SUDO_PLUGIN_DIR . 'mu-plugin/wp-sudo-gate.php';
+		$mu_dir = self::get_mu_plugin_dir();
+		$dest   = $mu_dir . '/wp-sudo-gate.php';
+
+		if ( ! file_exists( $source ) ) {
+			wp_send_json_error( array( 'message' => __( 'Source shim file not found.', 'wp-sudo' ) ) );
+		}
+
+		// Create the mu-plugins directory if needed.
+		if ( ! is_dir( $mu_dir ) ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir, WordPressVIPMinimum.Functions.RestrictedFunctions.directory_mkdir
+			if ( ! mkdir( $mu_dir, 0755, true ) ) {
+				wp_send_json_error( array( 'message' => __( 'Could not create mu-plugins directory. Check file permissions.', 'wp-sudo' ) ) );
+			}
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPressVIPMinimum.Performance.FetchingRemoteData.FileGetContentsUnknown
+		$contents = file_get_contents( $source );
+		if ( false === $contents ) {
+			wp_send_json_error( array( 'message' => __( 'Could not read source shim file.', 'wp-sudo' ) ) );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents, WordPressVIPMinimum.Functions.RestrictedFunctions.file_ops_file_put_contents
+		$written = file_put_contents( $dest, $contents );
+		if ( false === $written ) {
+			wp_send_json_error( array( 'message' => __( 'Could not write to mu-plugins directory. Check file permissions.', 'wp-sudo' ) ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'MU-plugin installed. It will be active on the next page load.', 'wp-sudo' ) ) );
+	}
+
+	/**
+	 * Handle AJAX request to uninstall the MU-plugin shim.
+	 *
+	 * Deletes wp-content/mu-plugins/wp-sudo-gate.php.
+	 *
+	 * @return void
+	 */
+	public function handle_mu_uninstall(): void {
+		check_ajax_referer( 'wp_sudo_mu_plugin', '_nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
+		}
+
+		$mu_file = self::get_mu_plugin_dir() . '/wp-sudo-gate.php';
+
+		if ( ! file_exists( $mu_file ) ) {
+			wp_send_json_success( array( 'message' => __( 'MU-plugin is already removed.', 'wp-sudo' ) ) );
+			return;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink, WordPressVIPMinimum.Functions.RestrictedFunctions.file_ops_unlink
+		if ( ! unlink( $mu_file ) ) {
+			wp_send_json_error( array( 'message' => __( 'Could not remove MU-plugin file. Check file permissions.', 'wp-sudo' ) ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'MU-plugin removed. It will be inactive on the next page load.', 'wp-sudo' ) ) );
 	}
 
 	/**
