@@ -166,7 +166,7 @@ class Gate {
 	/**
 	 * Gate WP-CLI operations.
 	 *
-	 * Policy "block" (default): deny all gated operations.
+	 * Policy "block" (default): deny all WP-CLI operations.
 	 * Policy "allow": permit only with --sudo flag.
 	 *
 	 * @return void
@@ -193,38 +193,56 @@ class Gate {
 				do_action( 'wp_sudo_action_allowed', 0, '', 'cli' );
 				return;
 			}
+
+			// Allow mode without --sudo flag: block only gated actions.
+			add_action(
+				'admin_init',
+				function () {
+					$matched = $this->match_request( 'admin' );
+					if ( $matched ) {
+						/**
+						 * Fires when a gated action is blocked by policy.
+						 *
+						 * @since 2.0.0
+						 *
+						 * @param int    $user_id Always 0 for CLI.
+						 * @param string $rule_id The rule ID that matched.
+						 * @param string $surface Always 'cli'.
+						 */
+						do_action( 'wp_sudo_action_blocked', 0, $matched['id'], 'cli' );
+						wp_die(
+							esc_html(
+								sprintf(
+									/* translators: %s: action label */
+									__( 'This operation (%s) requires sudo. Use the admin UI or pass --sudo.', 'wp-sudo' ),
+									$matched['label'] ?? $matched['id']
+								)
+							),
+							'',
+							array( 'response' => 403 )
+						);
+					}
+				},
+				0
+			);
+			return;
 		}
 
-		// Block: register a pre-command hook to deny gated actions.
-		add_action(
-			'admin_init',
-			function () {
-				$matched = $this->match_request( 'admin' );
-				if ( $matched ) {
-					/**
-					 * Fires when a gated action is blocked by policy.
-					 *
-					 * @since 2.0.0
-					 *
-					 * @param int    $user_id Always 0 for CLI.
-					 * @param string $rule_id The rule ID that matched.
-					 * @param string $surface Always 'cli'.
-					 */
-					do_action( 'wp_sudo_action_blocked', 0, $matched['id'], 'cli' );
-					wp_die(
-						esc_html(
-							sprintf(
-								/* translators: %s: action label */
-								__( 'This operation (%s) requires sudo. Use the admin UI or pass --sudo.', 'wp-sudo' ),
-								$matched['label'] ?? $matched['id']
-							)
-						),
-						'',
-						array( 'response' => 403 )
-					);
-				}
-			},
-			0
+		// Block mode: deny all WP-CLI operations immediately.
+		/**
+		 * Fires when all WP-CLI operations are blocked by policy.
+		 *
+		 * @since 2.1.0
+		 *
+		 * @param int    $user_id Always 0 for CLI.
+		 * @param string $rule_id Empty string — CLI blocked entirely.
+		 * @param string $surface Always 'cli'.
+		 */
+		do_action( 'wp_sudo_action_blocked', 0, '', 'cli' );
+		wp_die(
+			esc_html__( 'WP-CLI access is blocked by Sudo. Change the policy in Settings → Sudo or use the admin UI.', 'wp-sudo' ),
+			'',
+			array( 'response' => 403 )
 		);
 	}
 
