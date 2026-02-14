@@ -1,5 +1,5 @@
 /**
- * WP Sudo – Modal reauthentication styles.
+ * WP Sudo – Modal reauthentication styles (v2).
  *
  * @package WP_Sudo
  */
@@ -41,21 +41,15 @@
 	height: auto;
 }
 
-.wp-sudo-modal-card .description {
+/* Action label — shows which action triggered the challenge */
+#wp-sudo-modal-action-label {
 	color: #646970;
 	margin-bottom: 1.5em;
 }
 
-/* Sudo lecture */
-.wp-sudo-modal-card .wp-sudo-lecture {
+.wp-sudo-modal-card .description {
 	color: #646970;
-	font-size: 13px;
-	margin: 0 0 1.5em 1.5em;
-	padding: 0;
-}
-
-.wp-sudo-modal-card .wp-sudo-lecture li {
-	margin-bottom: 0.15em;
+	margin-bottom: 1.5em;
 }
 
 /* Form elements */
@@ -79,6 +73,19 @@
 	gap: 8px;
 	align-items: center;
 	margin-top: 1em;
+}
+
+/* 2FA countdown timer */
+.wp-sudo-2fa-timer {
+	display: block;
+	margin-top: 8px;
+	font-size: 13px;
+	color: #646970;
+}
+
+.wp-sudo-2fa-timer.wp-sudo-expiring {
+	color: #b32d2e;
+	font-weight: 600;
 }
 
 /* Hide the Two Factor plugin's own submit button inside the modal 2FA step.
@@ -121,4 +128,21 @@
 	clip: rect(0, 0, 0, 0);
 	white-space: nowrap;
 	border: 0;
+}
+
+/* Focus-visible outlines for keyboard navigation */
+.wp-sudo-modal-card :focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+/* Reduced motion: disable loading spinner animation and dialog transitions */
+@media (prefers-reduced-motion: reduce) {
+	.wp-sudo-modal-loading .spinner {
+		animation: none;
+	}
+
+	#wp-sudo-modal {
+		transition: none;
+	}
 }

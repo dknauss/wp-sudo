@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Sudo
  * Plugin URI:        https://github.com/dknauss/wp-sudo
- * Description:       Sudo mode for WordPress! Site Managers with Editor capabilities can temporarily escalate their privileges to the Administrator level.
- * Version:           1.2.1
+ * Description:       Action-gated reauthentication for WordPress. Dangerous operations require password confirmation before they proceed — regardless of user role.
+ * Version:           2.0.0
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Dan Knauss
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin version.
-define( 'WP_SUDO_VERSION', '1.2.1' );
+define( 'WP_SUDO_VERSION', '2.0.0' );
 
 // Plugin directory path.
 define( 'WP_SUDO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
@@ -56,7 +56,7 @@ spl_autoload_register(
 );
 
 /**
- * Initialize the plugin.
+ * Get the main plugin instance.
  *
  * @return WP_Sudo\Plugin Main plugin instance.
  */
@@ -81,8 +81,12 @@ add_action(
 // Register activation hook.
 register_activation_hook(
 	__FILE__,
-	static function () {
-		wp_sudo()->activate();
+	static function ( bool $network_wide = false ) {
+		if ( is_multisite() && $network_wide ) {
+			wp_sudo()->activate_network();
+		} else {
+			wp_sudo()->activate();
+		}
 	}
 );
 

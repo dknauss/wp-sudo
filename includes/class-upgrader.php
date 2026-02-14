@@ -21,28 +21,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * version number is updated after all applicable routines have executed so
  * that a failed mid-sequence routine will be retried on the next page load.
  *
- * Role capability syncing is handled separately by Site_Manager_Role::maybe_sync_capabilities()
- * because it needs to run on every version bump regardless of whether there is
- * a data migration. This class handles everything else: option renames, schema
- * changes, one-time data fixes, etc.
- *
  * HOW TO ADD A NEW UPGRADE
  * ────────────────────────
  * 1. Add a private method named `upgrade_X_Y_Z()` where X.Y.Z is the version
  *    that introduces the change.
  * 2. Add the version string to the UPGRADES array, mapping it to the method name.
  * 3. The method will run exactly once for sites upgrading from an older version.
- *
- * Example:
- *
- *     private const UPGRADES = [
- *         '1.3.0' => 'upgrade_1_3_0',
- *         '2.0.0' => 'upgrade_2_0_0',
- *     ];
- *
- *     private function upgrade_1_3_0(): void {
- *         // Rename an option, migrate data, etc.
- *     }
  */
 class Upgrader {
 
@@ -62,8 +46,7 @@ class Upgrader {
 	 * @var array<string, string>
 	 */
 	private const UPGRADES = array(
-		// No migrations yet. Add entries here as needed.
-		// Example: '1.3.0' => 'upgrade_1_3_0'.
+		'2.0.0' => 'upgrade_2_0_0',
 	);
 
 	/**
@@ -78,7 +61,7 @@ class Upgrader {
 	 * @return void
 	 */
 	public function maybe_upgrade(): void {
-		$stored = get_option( self::VERSION_OPTION, '0.0.0' );
+		$stored = $this->get_db_version();
 
 		// Nothing to do if already current.
 		if ( version_compare( $stored, WP_SUDO_VERSION, '>=' ) ) {
@@ -93,11 +76,63 @@ class Upgrader {
 		}
 
 		// Mark as current.
-		update_option( self::VERSION_OPTION, WP_SUDO_VERSION );
+		$this->set_db_version( WP_SUDO_VERSION );
+	}
+
+	/**
+	 * Get the stored database version.
+	 *
+	 * Uses network-wide option on multisite, per-site option on single-site.
+	 *
+	 * @return string The stored version string.
+	 */
+	private function get_db_version(): string {
+		return is_multisite()
+			? (string) get_site_option( self::VERSION_OPTION, '0.0.0' )
+			: (string) get_option( self::VERSION_OPTION, '0.0.0' );
+	}
+
+	/**
+	 * Set the stored database version.
+	 *
+	 * Uses network-wide option on multisite, per-site option on single-site.
+	 *
+	 * @param string $version The version string to store.
+	 * @return void
+	 */
+	private function set_db_version( string $version ): void {
+		if ( is_multisite() ) {
+			update_site_option( self::VERSION_OPTION, $version );
+		} else {
+			update_option( self::VERSION_OPTION, $version );
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
 	// Upgrade routines — add new private methods below, one per version.
-	// See the class docblock above for a full example.
 	// ─────────────────────────────────────────────────────────────────────
+
+	/**
+	 * 2.0.0 migration: remove v1 role and settings that are no longer used.
+	 *
+	 * - Removes the `site_manager` custom role (v2 is role-agnostic).
+	 * - Strips `allowed_roles` from the settings array.
+	 * - Deletes the `wp_sudo_role_version` option used by v1's role syncer.
+	 *
+	 * @return void
+	 */
+	private function upgrade_2_0_0(): void {
+		// Remove the Site Manager custom role.
+		remove_role( 'site_manager' );
+
+		// Clean up v1 settings keys that no longer exist.
+		$settings = get_option( Admin::OPTION_KEY, array() );
+		if ( isset( $settings['allowed_roles'] ) ) {
+			unset( $settings['allowed_roles'] );
+			update_option( Admin::OPTION_KEY, $settings );
+		}
+
+		// Remove the role version tracking option.
+		delete_option( 'wp_sudo_role_version' );
+	}
 }

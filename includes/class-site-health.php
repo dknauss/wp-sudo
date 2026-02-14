@@ -1,0 +1,264 @@
+<?php
+/**
+ * Site Health integration — diagnostic tests for WP Sudo.
+ *
+ * Registers three tests in the WordPress Site Health panel:
+ *
+ * 1. **MU-plugin status** — whether the optional mu-plugin is installed.
+ * 2. **Session audit** — whether any users have stale sudo tokens.
+ * 3. **Entry-point policy review** — whether non-interactive surfaces
+ *    are set to the recommended "block" policy.
+ *
+ * @package WP_Sudo
+ */
+
+namespace WP_Sudo;
+
+// Abort if this file is called directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Class Site_Health
+ *
+ * @since 2.1.0
+ */
+class Site_Health {
+
+	/**
+	 * Register hooks.
+	 *
+	 * @return void
+	 */
+	public function register(): void {
+		add_filter( 'site_status_tests', array( $this, 'register_tests' ) );
+	}
+
+	/**
+	 * Register WP Sudo tests with Site Health.
+	 *
+	 * @param array<string, mixed> $tests Existing tests.
+	 * @return array<string, mixed>
+	 */
+	public function register_tests( array $tests ): array {
+		$tests['direct']['wp_sudo_mu_plugin'] = array(
+			'label' => __( 'WP Sudo MU-Plugin', 'wp-sudo' ),
+			'test'  => array( $this, 'test_mu_plugin_status' ),
+		);
+
+		$tests['direct']['wp_sudo_policies'] = array(
+			'label' => __( 'WP Sudo Entry Point Policies', 'wp-sudo' ),
+			'test'  => array( $this, 'test_policy_review' ),
+		);
+
+		$tests['direct']['wp_sudo_stale_sessions'] = array(
+			'label' => __( 'WP Sudo Stale Sessions', 'wp-sudo' ),
+			'test'  => array( $this, 'test_stale_sessions' ),
+		);
+
+		return $tests;
+	}
+
+	/**
+	 * Test: MU-plugin status.
+	 *
+	 * Checks whether the optional WP Sudo mu-plugin drop-in is installed
+	 * at wp-content/mu-plugins/wp-sudo-gate.php.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function test_mu_plugin_status(): array {
+		$mu_installed = defined( 'WP_SUDO_MU_LOADED' );
+
+		if ( $mu_installed ) {
+			return array(
+				'label'       => __( 'WP Sudo MU-Plugin is installed', 'wp-sudo' ),
+				'status'      => 'good',
+				'badge'       => array(
+					'label' => __( 'Security', 'wp-sudo' ),
+					'color' => 'blue',
+				),
+				'description' => '<p>' . __( 'The WP Sudo MU-Plugin is installed, ensuring gate hooks are registered before any regular plugin loads.', 'wp-sudo' ) . '</p>',
+				'test'        => 'wp_sudo_mu_plugin',
+			);
+		}
+
+		return array(
+			'label'       => __( 'WP Sudo MU-Plugin is not installed', 'wp-sudo' ),
+			'status'      => 'recommended',
+			'badge'       => array(
+				'label' => __( 'Security', 'wp-sudo' ),
+				'color' => 'orange',
+			),
+			'description' => '<p>' . __( 'The optional WP Sudo MU-Plugin is not installed. While the plugin works without it, the MU-Plugin ensures gate hooks are registered before any regular plugin can interfere.', 'wp-sudo' ) . '</p>',
+			'actions'     => '<p>' . sprintf(
+				/* translators: %s: URL to the Sudo settings page */
+				__( 'Install the MU-Plugin with one click from <a href="%s">Settings &rarr; Sudo</a>.', 'wp-sudo' ),
+				esc_url( $this->get_settings_url() )
+			) . '</p>',
+			'test'        => 'wp_sudo_mu_plugin',
+		);
+	}
+
+	/**
+	 * Test: Entry-point policy review.
+	 *
+	 * Verifies that non-interactive entry points (REST App Passwords,
+	 * WP-CLI, Cron, XML-RPC) use the recommended "block" policy.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function test_policy_review(): array {
+		$policy_keys = array(
+			Gate::SETTING_REST_APP_PASS_POLICY => __( 'REST API (App Passwords)', 'wp-sudo' ),
+			Gate::SETTING_CLI_POLICY           => __( 'WP-CLI', 'wp-sudo' ),
+			Gate::SETTING_CRON_POLICY          => __( 'Cron', 'wp-sudo' ),
+			Gate::SETTING_XMLRPC_POLICY        => __( 'XML-RPC', 'wp-sudo' ),
+		);
+
+		$relaxed = array();
+
+		foreach ( $policy_keys as $key => $label ) {
+			$value = Admin::get( $key, Gate::POLICY_BLOCK );
+			if ( Gate::POLICY_ALLOW === $value ) {
+				$relaxed[] = $label;
+			}
+		}
+
+		if ( empty( $relaxed ) ) {
+			return array(
+				'label'       => __( 'All WP Sudo entry point policies are set to block', 'wp-sudo' ),
+				'status'      => 'good',
+				'badge'       => array(
+					'label' => __( 'Security', 'wp-sudo' ),
+					'color' => 'blue',
+				),
+				'description' => '<p>' . __( 'All non-interactive entry points are set to the recommended "block" policy, preventing gated operations via CLI, Cron, XML-RPC, and Application Passwords.', 'wp-sudo' ) . '</p>',
+				'test'        => 'wp_sudo_policies',
+			);
+		}
+
+		return array(
+			'label'       => __( 'Some WP Sudo entry point policies are set to allow', 'wp-sudo' ),
+			'status'      => 'recommended',
+			'badge'       => array(
+				'label' => __( 'Security', 'wp-sudo' ),
+				'color' => 'orange',
+			),
+			'description' => '<p>' . sprintf(
+				/* translators: %s: comma-separated list of relaxed policy names */
+				__( 'The following entry points are set to "allow": %s. The recommended setting is "block" to prevent gated operations on non-interactive surfaces.', 'wp-sudo' ),
+				esc_html( implode( ', ', $relaxed ) )
+			) . '</p>',
+			'test'        => 'wp_sudo_policies',
+		);
+	}
+
+	/**
+	 * Test: Stale sudo sessions.
+	 *
+	 * Checks for users with expired sudo tokens that were not cleaned up.
+	 * This can happen if a session expires while the user is not browsing
+	 * (the is_active() cleanup only fires on page load).
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function test_stale_sessions(): array {
+		$stale_users = $this->find_stale_sessions();
+
+		if ( empty( $stale_users ) ) {
+			return array(
+				'label'       => __( 'No stale WP Sudo sessions found', 'wp-sudo' ),
+				'status'      => 'good',
+				'badge'       => array(
+					'label' => __( 'Security', 'wp-sudo' ),
+					'color' => 'blue',
+				),
+				'description' => '<p>' . __( 'All sudo session tokens are either active or have been cleaned up. No action needed.', 'wp-sudo' ) . '</p>',
+				'test'        => 'wp_sudo_stale_sessions',
+			);
+		}
+
+		$count = count( $stale_users );
+
+		// Clean up stale sessions automatically.
+		foreach ( $stale_users as $uid ) {
+			delete_user_meta( $uid, Sudo_Session::META_KEY );
+			delete_user_meta( $uid, Sudo_Session::TOKEN_META_KEY );
+		}
+
+		return array(
+			'label'       => sprintf(
+				/* translators: %d: number of stale sessions cleaned */
+				_n(
+					'%d stale WP Sudo session cleaned up',
+					'%d stale WP Sudo sessions cleaned up',
+					$count,
+					'wp-sudo'
+				),
+				$count
+			),
+			'status'      => 'good',
+			'badge'       => array(
+				'label' => __( 'Security', 'wp-sudo' ),
+				'color' => 'blue',
+			),
+			'description' => '<p>' . sprintf(
+				/* translators: %d: number of stale sessions */
+				_n(
+					'Found and cleaned %d expired sudo session token. This is normal — tokens expire naturally but are only cleaned on the next page load.',
+					'Found and cleaned %d expired sudo session tokens. This is normal — tokens expire naturally but are only cleaned on the next page load.',
+					$count,
+					'wp-sudo'
+				),
+				$count
+			) . '</p>',
+			'test'        => 'wp_sudo_stale_sessions',
+		);
+	}
+
+	/**
+	 * Get the URL to the WP Sudo settings page.
+	 *
+	 * Returns the network admin URL on multisite, site admin URL otherwise.
+	 *
+	 * @return string
+	 */
+	private function get_settings_url(): string {
+		if ( is_multisite() ) {
+			return network_admin_url( 'settings.php?page=' . Admin::PAGE_SLUG );
+		}
+
+		return admin_url( 'options-general.php?page=' . Admin::PAGE_SLUG );
+	}
+
+	/**
+	 * Find users with expired sudo session meta.
+	 *
+	 * @return int[] User IDs with stale sessions.
+	 */
+	private function find_stale_sessions(): array {
+		$users = get_users(
+			array(
+				'meta_key'     => Sudo_Session::META_KEY, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'   => '0', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'meta_compare' => '>',
+				'fields'       => 'ID',
+				'number'       => 100,
+			)
+		);
+
+		$now   = time();
+		$stale = array();
+
+		foreach ( $users as $uid ) {
+			$expires = (int) get_user_meta( (int) $uid, Sudo_Session::META_KEY, true );
+			if ( $expires > 0 && $expires < $now ) {
+				$stale[] = (int) $uid;
+			}
+		}
+
+		return $stale;
+	}
+}

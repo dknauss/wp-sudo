@@ -34,36 +34,29 @@ abstract class TestCase extends PHPUnitTestCase {
 				},
 			)
 		);
+
+		// Default stubs for multisite functions — single-site mode.
+		// Using when() instead of stubs() so tests can re-define with when().
+		Functions\when( 'is_multisite' )->justReturn( false );
+		Functions\when( 'is_network_admin' )->justReturn( false );
+		Functions\when( 'network_admin_url' )->alias(
+			static function ( string $path = '' ) {
+				return 'https://example.com/wp-admin/network/' . ltrim( $path, '/' );
+			}
+		);
 	}
 
 	protected function tearDown(): void {
+		unset( $_COOKIE[ \WP_Sudo\Sudo_Session::CHALLENGE_COOKIE ] );
+
+		// Clear per-request static caches to prevent cross-test contamination.
+		\WP_Sudo\Action_Registry::reset_cache();
+		\WP_Sudo\Sudo_Session::reset_cache();
+		\WP_Sudo\Admin::reset_cache();
+		\WP_Sudo\Modal::reset_cache();
+
 		Monkey\tearDown();
 		parent::tearDown();
 	}
 
-	/**
-	 * Create a fake WP_User for testing.
-	 *
-	 * @param int      $id    User ID.
-	 * @param string[] $roles User roles.
-	 * @return \WP_User
-	 */
-	protected function make_user( int $id, array $roles = [ 'editor' ] ): \WP_User {
-		$user = new \WP_User( $id, $roles );
-		return $user;
-	}
-
-	/**
-	 * Create a fake role object for testing.
-	 *
-	 * @param string             $name         Role name.
-	 * @param array<string,bool> $capabilities Capabilities.
-	 * @return \stdClass
-	 */
-	protected function make_role( string $name, array $capabilities = [] ): \stdClass {
-		$role               = new \stdClass();
-		$role->name         = $name;
-		$role->capabilities = $capabilities;
-		return $role;
-	}
 }

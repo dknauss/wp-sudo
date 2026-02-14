@@ -1,18 +1,11 @@
 /**
- * WP Sudo – Admin bar styles.
+ * WP Sudo – Admin bar styles (v2).
+ *
+ * Only displays when a sudo session is active. No inactive state —
+ * the node is simply absent when there's no session.
  *
  * @package WP_Sudo
  */
-
-/* Dashicon in admin bar */
-#wpadminbar #wp-admin-bar-wp-sudo-toggle .ab-icon::before {
-	content: "\f160"; /* dashicons-lock */
-	top: 2px;
-}
-
-#wpadminbar #wp-admin-bar-wp-sudo-toggle.wp-sudo-active .ab-icon::before {
-	content: "\f528"; /* dashicons-unlock */
-}
 
 /* Active state — green highlight, smooth transition for expiry warning */
 #wpadminbar .wp-sudo-active .ab-item {
@@ -26,11 +19,33 @@
 	color: #fff !important;
 }
 
-/* Inactive state — subtle */
-#wpadminbar .wp-sudo-inactive .ab-item {
-	color: #a0a5aa !important;
+/* Expiring state — red warning in last 60 seconds */
+#wpadminbar .wp-sudo-expiring .ab-item {
+	background: #c62828 !important;
+	color: #fff !important;
 }
 
-#wpadminbar .wp-sudo-inactive:hover .ab-item {
-	color: #00b9eb !important;
+#wpadminbar .wp-sudo-expiring:hover .ab-item {
+	background: #b71c1c !important;
+	color: #fff !important;
+}
+
+/* Screen-reader-only text — visually hidden but announced by AT */
+.wp-sudo-sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Reduced motion: disable background transition */
+@media (prefers-reduced-motion: reduce) {
+	#wpadminbar .wp-sudo-active .ab-item {
+		transition: none;
+	}
 }

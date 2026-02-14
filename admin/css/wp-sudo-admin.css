@@ -1,9 +1,10 @@
 /**
- * WP Sudo – Admin styles.
+ * WP Sudo – Admin settings page styles (v2).
  *
  * @package WP_Sudo
  */
 
+/* Page title with shield icon */
 .wrap h1 {
 	display: flex;
 	align-items: center;
@@ -16,6 +17,33 @@
 	font-size: 1.2em;
 }
 
-.wp-sudo-role-disabled {
-	color: #a7aaad;
+/* Policy select dropdowns — slightly wider than WP default */
+.form-table select {
+	min-width: 140px;
+}
+
+/* Description text below fields */
+.form-table .description {
+	font-style: normal;
+	color: #646970;
+}
+
+/* MU-plugin status */
+#wp-sudo-mu-status {
+	margin: 0 0 8px;
+}
+
+#wp-sudo-mu-status .dashicons {
+	vertical-align: middle;
+	margin-right: 4px;
+}
+
+#wp-sudo-mu-spinner {
+	float: none;
+	margin-top: 0;
+	vertical-align: middle;
+}
+
+#wp-sudo-mu-message {
+	margin-top: 8px;
 }
