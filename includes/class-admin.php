@@ -253,7 +253,7 @@ class Admin {
 
 		$screen->set_help_sidebar(
 			'<p><strong>' . __( 'For more information:', 'wp-sudo' ) . '</strong></p>'
-			. '<p><a href="https://en.wikipedia.org/wiki/Sudo" target="_blank">' . __( 'About sudo', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://en.wikipedia.org/wiki/Sudo" target="_blank">' . __( 'About', 'wp-sudo' ) . '<code>sudo</code></a>' . __( ' (*nix command)', 'wp-sudo' ) . '</p>'
 			. '<p><a href="https://wordpress.org/plugins/two-factor/" target="_blank">' . __( 'Two Factor plugin', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://wordpress.org/plugins/wp-security-audit-log/" target="_blank">' . __( 'WP Activity Log', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://wordpress.org/plugins/stream/" target="_blank">' . __( 'Stream', 'wp-sudo' ) . '</a></p>'
