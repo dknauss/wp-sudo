@@ -249,7 +249,7 @@ class Admin {
 				'title'   => __( 'Extending', 'wp-sudo' ),
 				'content' =>
 					'<h3>' . __( 'Custom Gated Actions', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Developers can add custom rules via the <code>wp_sudo_gated_actions</code> filter. Each rule defines matching criteria for admin UI, AJAX, and REST surfaces. Custom rules appear in the Gated Actions table and automatically get coverage on non-interactive surfaces (CLI, Cron, XML-RPC).', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Developers can add custom rules via the <code>wp_sudo_gated_actions</code> filter. Each rule defines matching criteria for admin UI, AJAX, and REST surfaces. Custom rules appear in the Gated Actions table. All rules — including custom rules — are automatically protected on non-interactive surfaces (CLI, Cron, XML-RPC, App Passwords) via policy settings, even if they don\'t define AJAX or REST criteria.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( '2FA Verification Window', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'The default 2FA window is 10 minutes. Use the <code>wp_sudo_two_factor_window</code> filter to adjust it (value in seconds). A visible countdown timer is shown during the verification step.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Third-Party 2FA Integration', 'wp-sudo' ) . '</h3>'
@@ -605,7 +605,7 @@ class Admin {
 		?>
 		<h2><?php esc_html_e( 'Gated Actions', 'wp-sudo' ); ?></h2>
 		<p class="description">
-			<?php esc_html_e( 'The following actions require reauthentication before execution. Developers can add custom rules via the wp_sudo_gated_actions filter.', 'wp-sudo' ); ?>
+			<?php esc_html_e( 'The following actions require reauthentication before execution. The surfaces shown (Admin, AJAX, REST) reflect interactive entry points where WordPress provides APIs. All gated actions are also protected on non-interactive surfaces (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings above. Developers can add custom rules via the wp_sudo_gated_actions filter.', 'wp-sudo' ); ?>
 		</p>
 		<table class="widefat striped" role="presentation">
 			<thead>

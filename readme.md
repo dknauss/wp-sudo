@@ -93,7 +93,7 @@ No. Sudo adds a reauthentication layer on top of the existing permission model. 
 
 ### Which operations are gated?
 
-See the table in the Description section above. The settings page also includes a read-only Gated Actions table showing all registered rules and their covered surfaces (Admin, AJAX, REST). Developers can add custom rules via the `wp_sudo_gated_actions` filter.
+See the table in the Description section above. The settings page also includes a read-only Gated Actions table showing all registered rules and their covered surfaces (Admin, AJAX, REST). Note: the surfaces shown reflect WordPress's actual API coverage — not all operations have REST endpoints. However, all gated actions are protected on non-interactive entry points (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings, regardless of which interactive surfaces they have. Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 ### What about REST API and Application Passwords?
 
@@ -147,7 +147,7 @@ Any active sudo sessions expire naturally. All gated actions return to their nor
 
 ### Can I extend the list of gated actions?
 
-Yes. Use the `wp_sudo_gated_actions` filter to add custom rules. Each rule defines matching criteria for admin UI (`pagenow`, actions, HTTP method), AJAX (action names), and REST (route patterns, HTTP methods). Custom rules appear in the Gated Actions table on the settings page and automatically get coverage on non-interactive surfaces.
+Yes. Use the `wp_sudo_gated_actions` filter to add custom rules. Each rule defines matching criteria for admin UI (`pagenow`, actions, HTTP method), AJAX (action names), and REST (route patterns, HTTP methods). Custom rules appear in the Gated Actions table on the settings page. All rules — including custom rules — are automatically protected on non-interactive surfaces (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings, even if they don't define AJAX or REST criteria.
 
 ### Can I change the 2FA verification window?
 
@@ -236,7 +236,7 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 
    ![Gate notice on themes page](assets/screenshot-5.png)
 
-6. **Gated actions** — the settings page lists all gated operations with their categories and surfaces.
+6. **Gated actions** — the settings page lists all gated operations with their categories and surfaces. The surfaces shown (Admin, AJAX, REST) reflect interactive entry points. All gated actions are also protected on non-interactive surfaces via policy settings.
 
    ![Gated actions table](assets/screenshot-6.png)
 
