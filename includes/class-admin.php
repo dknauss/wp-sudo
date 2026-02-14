@@ -191,6 +191,8 @@ class Admin {
 					. '<p>' . __( 'Browser requests (admin UI, AJAX, REST with cookie auth) get an interactive challenge. Non-interactive entry points (WP-CLI, Cron, XML-RPC, App Passwords) are governed by configurable policies.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Keyboard Shortcut', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to open the sudo challenge without triggering a gated action first. This is useful when you know you are about to perform several gated actions and want to authenticate once upfront. When a session is already active, the shortcut flashes the admin bar timer.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Recommended Plugins', 'wp-sudo' ) . '</h3>'
 					. '<ul>'
 					. '<li>' . __( '<strong>Two Factor</strong> &mdash; strongly recommended. Adds a second verification step (TOTP, email, backup codes) to the sudo challenge.', 'wp-sudo' ) . '</li>'

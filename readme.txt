@@ -59,6 +59,7 @@ Sudo works on its own, but these plugins add significant value:
 
 * **Admin bar countdown** — a live M:SS timer shows remaining session time when active. Turns red in the final 60 seconds.
 * **Countdown on 2FA step** — a visible timer shows how long the user has to enter their verification code.
+* **Keyboard shortcut** — press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to proactively start a sudo session without triggering a gated action first. When a session is already active, the shortcut flashes the admin bar timer.
 * **Accessible** — screen-reader announcements, ARIA labels, focus management, and keyboard support throughout.
 * **Contextual help** — 4 help tabs on the settings page cover how sudo works, settings, extending via filters, and audit hooks.
 

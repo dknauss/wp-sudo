@@ -337,6 +337,23 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'Stream', $content );
 	}
 
+	public function test_how_it_works_tab_mentions_keyboard_shortcut(): void {
+		$screen = new \WP_Screen();
+
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+
+		$admin = new Admin();
+		$admin->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-how-it-works']['content'] ?? '';
+
+		$this->assertStringContainsString( 'Keyboard Shortcut', $content );
+		$this->assertStringContainsString( 'Ctrl+Shift+S', $content );
+	}
+
 	public function test_settings_tab_covers_mu_plugin_and_multisite(): void {
 		$screen = new \WP_Screen();
 
