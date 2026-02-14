@@ -316,6 +316,118 @@ class ModalTest extends TestCase {
 	}
 
 	/**
+	 * Test intercept script loads on theme-install.php.
+	 *
+	 * Theme installation AJAX (install-theme) originates from the theme
+	 * browser at theme-install.php, not from update.php. The intercept
+	 * script must load here to catch sudo_required responses.
+	 */
+	public function test_enqueue_assets_includes_intercept_on_theme_install_page(): void {
+		global $pagenow;
+		$pagenow = 'theme-install.php';
+
+		Functions\when( 'get_current_user_id' )->justReturn( 5 );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		$enqueued_scripts = array();
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )
+			->times( 3 )
+			->andReturnUsing(
+				function ( $handle ) use ( &$enqueued_scripts ) {
+					$enqueued_scripts[] = $handle;
+				}
+			);
+
+		Functions\expect( 'admin_url' )->once()->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+		Functions\expect( 'wp_create_nonce' )->once()->andReturn( 'test-nonce' );
+		Functions\expect( 'wp_localize_script' )->once();
+
+		$this->modal->enqueue_assets();
+
+		$this->assertContains( 'wp-sudo-intercept', $enqueued_scripts );
+
+		$pagenow = null;
+	}
+
+	/**
+	 * Test intercept script loads on plugin-install.php.
+	 *
+	 * Plugin installation AJAX (install-plugin) originates from the plugin
+	 * browser at plugin-install.php, not from update.php.
+	 */
+	public function test_enqueue_assets_includes_intercept_on_plugin_install_page(): void {
+		global $pagenow;
+		$pagenow = 'plugin-install.php';
+
+		Functions\when( 'get_current_user_id' )->justReturn( 5 );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		$enqueued_scripts = array();
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )
+			->times( 3 )
+			->andReturnUsing(
+				function ( $handle ) use ( &$enqueued_scripts ) {
+					$enqueued_scripts[] = $handle;
+				}
+			);
+
+		Functions\expect( 'admin_url' )->once()->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+		Functions\expect( 'wp_create_nonce' )->once()->andReturn( 'test-nonce' );
+		Functions\expect( 'wp_localize_script' )->once();
+
+		$this->modal->enqueue_assets();
+
+		$this->assertContains( 'wp-sudo-intercept', $enqueued_scripts );
+
+		$pagenow = null;
+	}
+
+	/**
+	 * Test intercept script loads on update-core.php.
+	 *
+	 * Plugin and theme update AJAX can originate from the Updates page
+	 * at update-core.php, not just from plugins.php or themes.php.
+	 */
+	public function test_enqueue_assets_includes_intercept_on_update_core_page(): void {
+		global $pagenow;
+		$pagenow = 'update-core.php';
+
+		Functions\when( 'get_current_user_id' )->justReturn( 5 );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		$enqueued_scripts = array();
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )
+			->times( 3 )
+			->andReturnUsing(
+				function ( $handle ) use ( &$enqueued_scripts ) {
+					$enqueued_scripts[] = $handle;
+				}
+			);
+
+		Functions\expect( 'admin_url' )->once()->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+		Functions\expect( 'wp_create_nonce' )->once()->andReturn( 'test-nonce' );
+		Functions\expect( 'wp_localize_script' )->once();
+
+		$this->modal->enqueue_assets();
+
+		$this->assertContains( 'wp-sudo-intercept', $enqueued_scripts );
+
+		$pagenow = null;
+	}
+
+	/**
 	 * Test render_modal skips on the challenge page.
 	 *
 	 * The challenge page has its own reauth UI — loading the modal

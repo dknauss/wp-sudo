@@ -363,6 +363,23 @@ class Modal {
 	}
 
 	/**
+	 * Additional admin pages where gated AJAX actions can originate.
+	 *
+	 * Some AJAX actions are triggered from a different page than the one
+	 * listed in the rule's admin surface. For example, theme installation
+	 * AJAX fires from theme-install.php, but the admin rule targets
+	 * update.php (the non-JS fallback). The intercept script must also
+	 * load on these origin pages to catch sudo_required responses.
+	 *
+	 * @var array<string, true>
+	 */
+	private const AJAX_ORIGIN_PAGES = array(
+		'theme-install.php'  => true, // Fires install-theme AJAX.
+		'plugin-install.php' => true, // Fires install-plugin AJAX.
+		'update-core.php'    => true, // Fires update-plugin and update-theme AJAX.
+	);
+
+	/**
 	 * Check if the current $pagenow has gated rules with AJAX or REST surfaces.
 	 *
 	 * The intercept script patches fetch()/jQuery.ajax() globally
@@ -373,7 +390,7 @@ class Modal {
 	 */
 	private function page_has_gated_ajax_rules(): bool {
 		if ( null === self::$gated_pages ) {
-			self::$gated_pages = array();
+			self::$gated_pages = self::AJAX_ORIGIN_PAGES;
 
 			foreach ( Action_Registry::get_rules() as $rule ) {
 				// Rules with AJAX or REST surfaces may trigger sudo_required.
