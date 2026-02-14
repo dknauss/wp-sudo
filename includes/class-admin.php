@@ -190,7 +190,12 @@ class Admin {
 					. '<p>' . __( 'This is role-agnostic: administrators, editors, and any custom role are all challenged equally. WordPress capability checks still run after the gate.', 'wp-sudo' ) . '</p>'
 					. '<p>' . __( 'Browser requests (admin UI, AJAX, REST with cookie auth) get an interactive challenge. Non-interactive entry points (WP-CLI, Cron, XML-RPC, App Passwords) are governed by configurable policies.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, etc.) are supported automatically.', 'wp-sudo' ) . '</p>',
+					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Recommended Plugins', 'wp-sudo' ) . '</h3>'
+					. '<ul>'
+					. '<li>' . __( '<strong>Two Factor</strong> &mdash; strongly recommended. Adds a second verification step (TOTP, email, backup codes) to the sudo challenge.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>WP Activity Log</strong> or <strong>Stream</strong> &mdash; recommended for audit visibility. These logging plugins capture the 8 action hooks WP Sudo fires for session lifecycle, policy decisions, and gated actions.', 'wp-sudo' ) . '</li>'
+					. '</ul>',
 			)
 		);
 
@@ -202,7 +207,11 @@ class Admin {
 					'<h3>' . __( 'Session Duration', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'This setting controls how long the sudo window stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Entry Point Policies', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Each non-interactive entry point can be set to Block or Allow. When set to Block, all gated operations on that entry point are denied. WP-CLI in Allow mode requires the --sudo flag. All actions are logged regardless of policy.', 'wp-sudo' ) . '</p>',
+					. '<p>' . __( 'Each non-interactive entry point can be set to Block or Allow. When set to Block, all gated operations on that entry point are denied. WP-CLI in Allow mode requires the --sudo flag. All actions are logged regardless of policy.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'On multisite, settings are network-wide and the settings page appears under Network Admin &rarr; Settings &rarr; Sudo. Sudo sessions are also network-wide &mdash; authenticating on one site covers all sites in the network.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
@@ -212,9 +221,11 @@ class Admin {
 				'title'   => __( 'Extending', 'wp-sudo' ),
 				'content' =>
 					'<h3>' . __( 'Custom Gated Actions', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Developers can add custom rules via the <code>wp_sudo_gated_actions</code> filter. Each rule defines matching criteria for admin UI, AJAX, and REST surfaces.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'An optional mu-plugin drop-in ensures gate hooks are registered before any regular plugin. Copy <code>mu-plugin/wp-sudo-gate.php</code> to <code>wp-content/mu-plugins/</code>.', 'wp-sudo' ) . '</p>',
+					. '<p>' . __( 'Developers can add custom rules via the <code>wp_sudo_gated_actions</code> filter. Each rule defines matching criteria for admin UI, AJAX, and REST surfaces. Custom rules appear in the Gated Actions table and automatically get coverage on non-interactive surfaces (CLI, Cron, XML-RPC).', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( '2FA Verification Window', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'The default 2FA window is 10 minutes. Use the <code>wp_sudo_two_factor_window</code> filter to adjust it (value in seconds). A visible countdown timer is shown during the verification step.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Third-Party 2FA Integration', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Plugins other than Two Factor can integrate via the <code>wp_sudo_requires_two_factor</code>, <code>wp_sudo_validate_two_factor</code>, and <code>wp_sudo_render_two_factor_fields</code> hooks.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
@@ -224,6 +235,7 @@ class Admin {
 				'title'   => __( 'Audit Hooks', 'wp-sudo' ),
 				'content' =>
 					'<h3>' . __( 'Available Hooks', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'All hooks are captured by logging plugins like WP Activity Log and Stream.', 'wp-sudo' ) . '</p>'
 					. '<ul>'
 					. '<li><code>wp_sudo_activated</code> — ' . __( 'Session started.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_deactivated</code> — ' . __( 'Session ended.', 'wp-sudo' ) . '</li>'
@@ -241,6 +253,8 @@ class Admin {
 			'<p><strong>' . __( 'For more information:', 'wp-sudo' ) . '</strong></p>'
 			. '<p><a href="https://en.wikipedia.org/wiki/Sudo" target="_blank">' . __( 'About sudo', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://wordpress.org/plugins/two-factor/" target="_blank">' . __( 'Two Factor plugin', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://wordpress.org/plugins/wp-security-audit-log/" target="_blank">' . __( 'WP Activity Log', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://wordpress.org/plugins/stream/" target="_blank">' . __( 'Stream', 'wp-sudo' ) . '</a></p>'
 			. '<p><a href="https://developer.wordpress.org/plugins/users/roles-and-capabilities/" target="_blank">' . __( 'Roles &amp; Capabilities', 'wp-sudo' ) . '</a></p>'
 		);
 	}

@@ -69,6 +69,24 @@ class SiteHealthTest extends TestCase {
 
 	// ── test_mu_plugin_status() ──────────────────────────────────────
 
+	public function test_mu_plugin_not_installed_returns_recommended_with_settings_link(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'admin_url' )->alias( function ( $path = '' ) {
+			return 'https://example.com/wp-admin/' . $path;
+		} );
+
+		// Only runs when WP_SUDO_MU_LOADED is NOT defined yet.
+		if ( defined( 'WP_SUDO_MU_LOADED' ) ) {
+			$this->markTestSkipped( 'WP_SUDO_MU_LOADED already defined by another test.' );
+		}
+
+		$result = $this->health->test_mu_plugin_status();
+
+		$this->assertSame( 'recommended', $result['status'] );
+		$this->assertStringContainsString( 'wp-sudo-settings', $result['actions'] );
+	}
+
 	public function test_mu_plugin_installed_returns_good(): void {
 		Functions\when( '__' )->returnArg();
 

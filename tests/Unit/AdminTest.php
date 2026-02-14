@@ -319,6 +319,92 @@ class AdminTest extends TestCase {
 		$this->assertStringNotContainsString( 'How long the sudo window', $content );
 	}
 
+	public function test_how_it_works_tab_mentions_recommended_plugins(): void {
+		$screen = new \WP_Screen();
+
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+
+		$admin = new Admin();
+		$admin->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-how-it-works']['content'] ?? '';
+
+		$this->assertStringContainsString( 'Recommended Plugins', $content );
+		$this->assertStringContainsString( 'WP Activity Log', $content );
+		$this->assertStringContainsString( 'Stream', $content );
+	}
+
+	public function test_settings_tab_covers_mu_plugin_and_multisite(): void {
+		$screen = new \WP_Screen();
+
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+
+		$admin = new Admin();
+		$admin->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-settings-help']['content'] ?? '';
+
+		$this->assertStringContainsString( 'MU-Plugin', $content );
+		$this->assertStringContainsString( 'Multisite', $content );
+	}
+
+	public function test_extending_tab_covers_2fa_window_and_third_party(): void {
+		$screen = new \WP_Screen();
+
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+
+		$admin = new Admin();
+		$admin->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-extending']['content'] ?? '';
+
+		$this->assertStringContainsString( 'wp_sudo_two_factor_window', $content );
+		$this->assertStringContainsString( 'wp_sudo_requires_two_factor', $content );
+	}
+
+	public function test_audit_hooks_tab_mentions_logging_plugins(): void {
+		$screen = new \WP_Screen();
+
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+
+		$admin = new Admin();
+		$admin->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-audit-hooks']['content'] ?? '';
+
+		$this->assertStringContainsString( 'WP Activity Log', $content );
+		$this->assertStringContainsString( 'Stream', $content );
+	}
+
+	public function test_sidebar_links_to_logging_plugins(): void {
+		$screen = new \WP_Screen();
+
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+
+		$admin = new Admin();
+		$admin->add_help_tabs();
+
+		$sidebar = $screen->get_help_sidebar();
+
+		$this->assertStringContainsString( 'wp-security-audit-log', $sidebar );
+		$this->assertStringContainsString( 'plugins/stream', $sidebar );
+		$this->assertStringContainsString( 'two-factor', $sidebar );
+	}
+
 	// -----------------------------------------------------------------
 	// render_settings_page()
 	// -----------------------------------------------------------------

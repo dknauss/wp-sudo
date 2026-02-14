@@ -92,7 +92,11 @@ class Site_Health {
 				'color' => 'orange',
 			),
 			'description' => '<p>' . __( 'The optional WP Sudo MU-Plugin is not installed. While the plugin works without it, the MU-Plugin ensures gate hooks are registered before any regular plugin can interfere.', 'wp-sudo' ) . '</p>',
-			'actions'     => '<p>' . __( 'Copy <code>wp-sudo/mu-plugin/wp-sudo-gate.php</code> to <code>wp-content/mu-plugins/</code>.', 'wp-sudo' ) . '</p>',
+			'actions'     => '<p>' . sprintf(
+				/* translators: %s: URL to the Sudo settings page */
+				__( 'Install the MU-Plugin with one click from <a href="%s">Settings &rarr; Sudo</a>.', 'wp-sudo' ),
+				esc_url( $this->get_settings_url() )
+			) . '</p>',
 			'test'        => 'wp_sudo_mu_plugin',
 		);
 	}
@@ -212,6 +216,21 @@ class Site_Health {
 			) . '</p>',
 			'test'        => 'wp_sudo_stale_sessions',
 		);
+	}
+
+	/**
+	 * Get the URL to the WP Sudo settings page.
+	 *
+	 * Returns the network admin URL on multisite, site admin URL otherwise.
+	 *
+	 * @return string
+	 */
+	private function get_settings_url(): string {
+		if ( is_multisite() ) {
+			return network_admin_url( 'settings.php?page=' . Admin::PAGE_SLUG );
+		}
+
+		return admin_url( 'options-general.php?page=' . Admin::PAGE_SLUG );
 	}
 
 	/**
