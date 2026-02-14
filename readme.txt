@@ -153,16 +153,21 @@ Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filte
 
 == Screenshots ==
 
-1. Challenge page — a gated action triggers a reauthentication interstitial with the action description and password field.
-2. Active sudo session — the admin bar shows a green countdown timer (M:SS). Turns red in the final 60 seconds.
-3. Settings page — configure session duration and entry point policies. View all gated actions and mu-plugin status.
-4. Admin notice — when an AJAX or REST operation is blocked, an admin notice links to the challenge page for session activation.
+1. Challenge page — reauthentication interstitial with password field. Triggered by a gated action or proactively via the keyboard shortcut.
+2. Two-factor verification — after password confirmation, users with 2FA enabled enter their authentication code.
+3. Settings page — configure session duration and entry point policies (REST, CLI, Cron, XML-RPC).
+4. Gate notice (plugins) — when no sudo session is active, a persistent notice links to the challenge page. Action buttons are disabled.
+5. Gate notice (themes) — the same gating notice appears on the themes page.
+6. Gated actions — the settings page lists all gated operations with their categories and surfaces.
+7. Active sudo session — the admin bar shows a green countdown timer with the remaining minutes and seconds. Hover to see the deactivation link.
 
 == Changelog ==
 
 = 2.1.0 =
 * Removes the `unfiltered_html` capability from the Editor role. Editors can no longer embed scripts, iframes, or other non-whitelisted HTML — KSES sanitization is always active for editors. Administrators retain `unfiltered_html`. The capability is restored if the plugin is deactivated or uninstalled.
 * Adds tamper detection: if `unfiltered_html` reappears on the Editor role (e.g. via database modification), it is stripped automatically and the `wp_sudo_capability_tampered` action fires for audit logging.
+* Fixes admin bar deactivation redirect: clicking the countdown timer to end a session now keeps you on the current page instead of redirecting to the dashboard.
+* Replaces WordPress core's confusing "user editing capabilities" error with a clearer message when a bulk role change skips the current user.
 
 = 2.0.0 =
 Complete rewrite. Action-gated reauthentication replaces role-based privilege escalation.
