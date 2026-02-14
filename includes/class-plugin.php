@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @since 1.0.0
  * @since 2.0.0 Rewritten: removed Site_Manager_Role and Modal_Reauth;
- *              added Gate, Challenge, Modal, Admin_Bar.
+ *              added Gate, Challenge, Admin_Bar.
  */
 class Plugin {
 
@@ -39,13 +39,6 @@ class Plugin {
 	 * @var Challenge|null
 	 */
 	private ?Challenge $challenge = null;
-
-	/**
-	 * Modal (AJAX/REST retry dialog) instance.
-	 *
-	 * @var Modal|null
-	 */
-	private ?Modal $modal = null;
 
 	/**
 	 * Admin bar (countdown UI) instance.
@@ -113,13 +106,15 @@ class Plugin {
 		$this->challenge = new Challenge( $stash );
 		$this->challenge->register();
 
-		// Modal: dialog for AJAX/REST retry reauthentication.
-		$this->modal = new Modal();
-		$this->modal->register();
-
 		// Admin bar: countdown UI when session is active.
 		$this->admin_bar = new Admin_Bar();
 		$this->admin_bar->register();
+
+		// Keyboard shortcut: enqueue on admin pages when no active session.
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_shortcut' ) );
+
+		// Gate UI: disable action buttons on gated pages when no session.
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_gate_ui' ) );
 
 		// Admin settings page (admin-only).
 		if ( is_admin() ) {
@@ -129,6 +124,113 @@ class Plugin {
 			$this->site_health = new Site_Health();
 			$this->site_health->register();
 		}
+	}
+
+	/**
+	 * Enqueue the keyboard shortcut script on admin pages.
+	 *
+	 * The shortcut (Ctrl+Shift+S / Cmd+Shift+S) navigates to the
+	 * challenge page in session-only mode for proactive sudo activation.
+	 * Only loads when no sudo session is active and not on the challenge
+	 * page itself.
+	 *
+	 * @return void
+	 */
+	public function enqueue_shortcut(): void {
+		$user_id = get_current_user_id();
+
+		if ( ! $user_id ) {
+			return;
+		}
+
+		// Don't load if sudo is already active.
+		if ( Sudo_Session::is_active( $user_id ) ) {
+			return;
+		}
+
+		// Don't load on the challenge page — it has its own JS.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing check only.
+		$page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+		if ( 'wp-sudo-challenge' === $page ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'wp-sudo-shortcut',
+			WP_SUDO_PLUGIN_URL . 'admin/js/wp-sudo-shortcut.js',
+			array(),
+			WP_SUDO_VERSION,
+			true
+		);
+
+		$challenge_url = add_query_arg(
+			array(
+				'page'       => 'wp-sudo-challenge',
+				'return_url' => rawurlencode( $this->get_current_admin_url() ),
+			),
+			is_network_admin() ? network_admin_url( 'admin.php' ) : admin_url( 'admin.php' )
+		);
+
+		wp_localize_script(
+			'wp-sudo-shortcut',
+			'wpSudoShortcut',
+			array(
+				'challengeUrl' => $challenge_url,
+			)
+		);
+	}
+
+	/**
+	 * Enqueue the gate UI script on gated admin pages.
+	 *
+	 * Disables Install, Activate, Update, and Delete buttons on theme
+	 * and plugin pages when no sudo session is active. Also renders a
+	 * persistent admin notice with a link to the challenge page.
+	 *
+	 * @param string $hook_suffix The current admin page hook suffix.
+	 * @return void
+	 */
+	public function enqueue_gate_ui( string $hook_suffix = '' ): void {
+		$user_id = get_current_user_id();
+
+		if ( ! $user_id ) {
+			return;
+		}
+
+		// Don't disable buttons when a sudo session is active.
+		if ( Sudo_Session::is_active( $user_id ) ) {
+			return;
+		}
+
+		// Map admin page hook suffixes to page identifiers.
+		$page_map = array(
+			'theme-install.php'  => 'theme-install',
+			'themes.php'         => 'themes',
+			'plugin-install.php' => 'plugin-install',
+			'plugins.php'        => 'plugins',
+		);
+
+		$page = $page_map[ $hook_suffix ] ?? null;
+
+		if ( ! $page ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'wp-sudo-gate-ui',
+			WP_SUDO_PLUGIN_URL . 'admin/js/wp-sudo-gate-ui.js',
+			array(),
+			WP_SUDO_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'wp-sudo-gate-ui',
+			'wpSudoGateUi',
+			array(
+				'page' => $page,
+			)
+		);
 	}
 
 	/**
@@ -194,15 +296,6 @@ class Plugin {
 	}
 
 	/**
-	 * Get the Modal instance.
-	 *
-	 * @return Modal|null
-	 */
-	public function modal(): ?Modal {
-		return $this->modal;
-	}
-
-	/**
 	 * Get the Admin_Bar instance.
 	 *
 	 * @return Admin_Bar|null
@@ -218,5 +311,23 @@ class Plugin {
 	 */
 	public function admin(): ?Admin {
 		return $this->admin;
+	}
+
+	/**
+	 * Build the current admin page URL from the request URI.
+	 *
+	 * Used to pass a return_url to the challenge page so the user
+	 * is redirected back to where they were after authentication.
+	 *
+	 * @return string The current admin URL, or the admin root as fallback.
+	 */
+	private function get_current_admin_url(): string {
+		if ( ! isset( $_SERVER['REQUEST_URI'] ) ) {
+			return is_network_admin() ? network_admin_url() : admin_url();
+		}
+
+		$request_uri = sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) );
+
+		return home_url( $request_uri );
 	}
 }

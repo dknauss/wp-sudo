@@ -53,7 +53,6 @@ abstract class TestCase extends PHPUnitTestCase {
 		\WP_Sudo\Action_Registry::reset_cache();
 		\WP_Sudo\Sudo_Session::reset_cache();
 		\WP_Sudo\Admin::reset_cache();
-		\WP_Sudo\Modal::reset_cache();
 
 		Monkey\tearDown();
 		parent::tearDown();

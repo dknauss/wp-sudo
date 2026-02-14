@@ -33,7 +33,7 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 = How it works =
 
-**Browser requests (admin UI, AJAX, REST API with cookie auth):** The user sees an interstitial challenge page or modal dialog. After entering their password (and 2FA code if configured), the original request is replayed automatically.
+**Browser requests (admin UI):** The user sees an interstitial challenge page. After entering their password (and 2FA code if configured), the original request is replayed automatically. **AJAX and REST requests** receive a `sudo_required` error; an admin notice on the next page load links to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
 **Non-interactive requests (WP-CLI, Cron, XML-RPC, Application Passwords):** Configurable per-surface policies. Each can be set to Block (default) or Allow. WP-CLI in Allow mode requires the `--sudo` flag.
 
@@ -83,7 +83,7 @@ Settings are network-wide — one configuration for the entire network, managed 
 
 = How does sudo gating work? =
 
-When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init` (before WordPress processes it). The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error, a modal dialog handles reauthentication, and the original request is retried automatically.
+When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init` (before WordPress processes it). The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
 = Does this replace WordPress roles and capabilities? =
 
@@ -95,7 +95,7 @@ See the full list in the Description section above. The settings page also inclu
 
 = What about REST API and Application Passwords? =
 
-Cookie-authenticated REST requests (from the block editor, admin AJAX) get the interactive modal flow. Application Password and bearer-token REST requests are governed by a separate policy setting (Block or Allow, default Block). When blocked, these requests receive a 403 error with a `sudo_blocked` code.
+Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting (Block or Allow, default Block). When blocked, these requests receive a 403 error with a `sudo_blocked` code.
 
 = What about WP-CLI, Cron, and XML-RPC? =
 
@@ -155,7 +155,7 @@ Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filte
 1. Challenge page — a gated action triggers a reauthentication interstitial with the action description and password field.
 2. Active sudo session — the admin bar shows a green countdown timer (M:SS). Turns red in the final 60 seconds.
 3. Settings page — configure session duration and entry point policies. View all gated actions and mu-plugin status.
-4. Modal dialog — AJAX and REST operations trigger an in-page reauthentication dialog that retries the original request on success.
+4. Admin notice — when an AJAX or REST operation is blocked, an admin notice links to the challenge page for session activation.
 
 == Changelog ==
 
@@ -163,7 +163,7 @@ Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filte
 Complete rewrite. Action-gated reauthentication replaces role-based privilege escalation.
 
 * **New model** — gates dangerous operations behind reauthentication for any user, regardless of role. No custom role, no capability escalation.
-* **Full attack surface coverage** — admin UI (stash-challenge-replay), AJAX (error + modal + retry), REST API (cookie-auth modal, app-password policy), WP-CLI, Cron, XML-RPC.
+* **Full attack surface coverage** — admin UI (stash-challenge-replay), AJAX (error + admin notice + session activation), REST API (cookie-auth challenge, app-password policy), WP-CLI, Cron, XML-RPC.
 * **Action Registry** — 20 gated rules across 7 categories (plugins, themes, users, editors, options, updates, tools), plus 8 multisite-specific rules. Extensible via `wp_sudo_gated_actions` filter.
 * **Entry point policies** — configurable Block/Allow for REST Application Passwords, WP-CLI, Cron, and XML-RPC.
 * **2FA browser binding** — challenge cookie prevents cross-browser 2FA replay.

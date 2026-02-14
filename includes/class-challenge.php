@@ -127,18 +127,25 @@ class Challenge {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing data only.
 		$stash_key = isset( $_GET['stash_key'] ) ? sanitize_text_field( wp_unslash( $_GET['stash_key'] ) ) : '';
 
-		$cancel_url = is_network_admin() ? network_admin_url() : admin_url();
+		$default_url = is_network_admin() ? network_admin_url() : admin_url();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing data only.
+		$return_url = isset( $_GET['return_url'] ) ? sanitize_url( wp_unslash( $_GET['return_url'] ) ) : '';
+		$cancel_url = $return_url
+			? wp_validate_redirect( $return_url, $default_url )
+			: $default_url;
 
 		wp_localize_script(
 			'wp-sudo-challenge',
 			'wpSudoChallenge',
 			array(
-				'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
-				'nonce'      => wp_create_nonce( self::NONCE_ACTION ),
-				'stashKey'   => $stash_key,
-				'authAction' => self::AJAX_AUTH_ACTION,
-				'tfaAction'  => self::AJAX_2FA_ACTION,
-				'cancelUrl'  => $cancel_url,
+				'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
+				'nonce'       => wp_create_nonce( self::NONCE_ACTION ),
+				'stashKey'    => $stash_key,
+				'authAction'  => self::AJAX_AUTH_ACTION,
+				'tfaAction'   => self::AJAX_2FA_ACTION,
+				'cancelUrl'   => $cancel_url,
+				'sessionOnly' => empty( $stash_key ),
 			)
 		);
 	}
@@ -156,15 +163,24 @@ class Challenge {
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing data only.
-		$stash_key = isset( $_GET['stash_key'] ) ? sanitize_text_field( wp_unslash( $_GET['stash_key'] ) ) : '';
-		$stash     = $this->stash->get( $stash_key, $user_id );
+		$stash_key    = isset( $_GET['stash_key'] ) ? sanitize_text_field( wp_unslash( $_GET['stash_key'] ) ) : '';
+		$session_only = empty( $stash_key );
 
-		if ( ! $stash ) {
-			wp_die( esc_html__( 'Invalid or expired challenge. Please try again.', 'wp-sudo' ), 403 );
+		if ( $session_only ) {
+			// Session-only mode: no stash, just activate a sudo session.
+			$stash        = null;
+			$action_label = __( 'Activate sudo session', 'wp-sudo' );
+		} else {
+			$stash = $this->stash->get( $stash_key, $user_id );
+
+			if ( ! $stash ) {
+				wp_die( esc_html__( 'Invalid or expired challenge. Please try again.', 'wp-sudo' ), 403 );
+			}
+
+			$action_label = $stash['label'] ?? $stash['rule_id'] ?? __( 'this action', 'wp-sudo' );
 		}
 
-		$action_label = $stash['label'] ?? $stash['rule_id'] ?? __( 'this action', 'wp-sudo' );
-		$is_locked    = Sudo_Session::is_locked_out( $user_id );
+		$is_locked = Sudo_Session::is_locked_out( $user_id );
 
 		?>
 		<div class="wrap">
@@ -302,7 +318,7 @@ class Challenge {
 		$stash_key = isset( $_POST['stash_key'] ) ? sanitize_text_field( wp_unslash( $_POST['stash_key'] ) ) : '';
 
 		// Verify the stash exists — only when a stash_key is provided (challenge page flow).
-		// Modal auth sends no stash_key (session activation only, no replay).
+		// Session-only auth sends no stash_key (session activation only, no replay).
 		if ( $stash_key && ! $this->stash->exists( $stash_key, $user_id ) ) {
 			wp_send_json_error(
 				array( 'message' => __( 'Your challenge session has expired. Please try again.', 'wp-sudo' ) ),
@@ -317,7 +333,7 @@ class Challenge {
 				if ( $stash_key ) {
 					$this->replay_stash( $user_id, $stash_key );
 				} else {
-					// Modal flow — session is now active, intercept JS handles the retry.
+					// Session-only flow — session is now active, user retries manually.
 					wp_send_json_success( array( 'code' => 'authenticated' ) );
 				}
 				break; // replay_stash / wp_send_json_success terminate the request.
@@ -425,7 +441,7 @@ class Challenge {
 		if ( $stash_key ) {
 			$this->replay_stash( $user_id, $stash_key );
 		} else {
-			// Modal flow — session is now active, intercept JS handles the retry.
+			// Session-only flow — session is now active, user retries manually.
 			wp_send_json_success( array( 'code' => 'authenticated' ) );
 		}
 	}

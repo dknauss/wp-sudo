@@ -56,6 +56,8 @@ class GateTest extends TestCase {
 			$_POST['role'],
 			$_POST['approve'],
 			$_POST['super_admin'],
+			$_POST['slug'],
+			$_POST['plugin'],
 			$_GET['download'],
 			$_SERVER['REQUEST_METHOD'],
 			$GLOBALS['pagenow']
@@ -1189,8 +1191,8 @@ class GateTest extends TestCase {
 	 * Test intercept sends JSON error for gated AJAX request.
 	 *
 	 * Verifies that when a gated AJAX request arrives without an active
-	 * sudo session, the Gate returns a sudo_required JSON error so the
-	 * browser JS can show the modal dialog.
+	 * sudo session, the Gate returns a sudo_required JSON error and
+	 * sets a blocked-action transient for the admin notice.
 	 */
 	public function test_intercept_blocks_ajax_with_json_error(): void {
 		Functions\when( 'get_current_user_id' )->justReturn( 3 );
@@ -1200,11 +1202,64 @@ class GateTest extends TestCase {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'apply_filters' )->returnArg( 2 );
 		Functions\when( 'set_transient' )->justReturn( true );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
 
 		// No active session.
 		Functions\when( 'get_user_meta' )->justReturn( 0 );
 
 		$_REQUEST['action'] = 'delete-plugin';
+
+		// No HTTP status param — wp_send_json_error() defaults to 200 so
+		// wp.ajax.send() parses the response through .done() instead of .fail().
+		Functions\expect( 'wp_send_json_error' )
+			->once()
+			->with(
+				\Mockery::on( function ( $data ) {
+					return is_array( $data )
+						&& 'sudo_required' === $data['code']
+						&& 'plugin.delete' === $data['rule_id']
+						&& 'sudo_required' === $data['errorCode']
+						// Includes keyboard shortcut hint and no HTML.
+						&& ( false !== strpos( $data['errorMessage'], 'Ctrl+Shift+S' )
+							|| false !== strpos( $data['errorMessage'], 'Cmd+Shift+S' ) )
+						&& false === strpos( $data['errorMessage'], '<a ' );
+				} )
+			);
+
+		Actions\expectDone( 'wp_sudo_action_gated' )
+			->once()
+			->with( 3, 'plugin.delete', 'ajax' );
+
+		$this->gate->intercept();
+	}
+
+	/**
+	 * Test block_ajax includes slug and plugin from $_POST.
+	 *
+	 * WordPress core's wp.updates error handlers (installThemeError,
+	 * updatePluginError, etc.) use response.slug to locate the DOM
+	 * element and reset the button/spinner state. Without slug, the
+	 * spinner spins forever.
+	 */
+	public function test_intercept_ajax_includes_slug_and_plugin(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 3 );
+		Functions\when( 'wp_doing_ajax' )->justReturn( true );
+		Functions\when( 'wp_doing_cron' )->justReturn( false );
+		Functions\when( 'is_admin' )->justReturn( true );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'set_transient' )->justReturn( true );
+		Functions\when( 'sanitize_key' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		// No active session.
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		$_REQUEST['action'] = 'delete-plugin';
+		$_POST['slug']      = 'my-plugin';
+		$_POST['plugin']    = 'my-plugin/my-plugin.php';
 
 		Functions\expect( 'wp_send_json_error' )
 			->once()
@@ -1212,9 +1267,10 @@ class GateTest extends TestCase {
 				\Mockery::on( function ( $data ) {
 					return is_array( $data )
 						&& 'sudo_required' === $data['code']
-						&& 'plugin.delete' === $data['rule_id'];
-				} ),
-				403
+						&& 'my-plugin' === $data['slug']
+						&& 'my-plugin/my-plugin.php' === $data['plugin']
+						&& ! empty( $data['errorMessage'] );
+				} )
 			);
 
 		Actions\expectDone( 'wp_sudo_action_gated' )
@@ -1562,5 +1618,361 @@ class GateTest extends TestCase {
 
 		$this->assertNotNull( $rule );
 		$this->assertSame( 'network.settings', $rule['id'] );
+	}
+
+	// ── render_blocked_notice() ──────────────────────────────────────
+
+	/**
+	 * Test blocked notice skips anonymous users.
+	 */
+	public function test_blocked_notice_skips_anonymous(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+
+		// Should not call get_transient.
+		Functions\expect( 'get_transient' )->never();
+
+		$this->gate->render_blocked_notice();
+		$this->assertTrue( true );
+	}
+
+	/**
+	 * Test blocked notice skips when sudo is active.
+	 */
+	public function test_blocked_notice_skips_active_session(): void {
+		$user_id = 5;
+		$token   = 'notice-test-token';
+
+		Functions\when( 'get_current_user_id' )->justReturn( $user_id );
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		Functions\expect( 'get_transient' )->never();
+
+		$this->gate->render_blocked_notice();
+		$this->assertTrue( true );
+
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+	}
+
+	/**
+	 * Test blocked notice skips without transient.
+	 */
+	public function test_blocked_notice_skips_without_transient(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'get_transient' )->justReturn( false );
+
+		// Should not call delete_transient.
+		Functions\expect( 'delete_transient' )->never();
+
+		$this->gate->render_blocked_notice();
+		$this->assertTrue( true );
+	}
+
+	/**
+	 * Test blocked notice consumes transient.
+	 */
+	public function test_blocked_notice_consumes_transient(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'get_transient' )->justReturn( array( 'label' => 'Install theme' ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/admin.php' );
+		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/admin.php?page=wp-sudo-challenge' );
+
+		Functions\expect( 'delete_transient' )
+			->once()
+			->with( Gate::BLOCKED_TRANSIENT_PREFIX . '1' );
+
+		$this->expectOutputRegex( '/Install theme/' );
+
+		$this->gate->render_blocked_notice();
+	}
+
+	/**
+	 * Test blocked notice renders with challenge link.
+	 */
+	public function test_blocked_notice_renders_with_challenge_link(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'get_transient' )->justReturn( array( 'label' => 'Delete plugin' ) );
+		Functions\when( 'delete_transient' )->justReturn( true );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/admin.php' );
+		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/admin.php?page=wp-sudo-challenge' );
+
+		$this->expectOutputRegex( '/wp-sudo-challenge/' );
+
+		$this->gate->render_blocked_notice();
+	}
+
+	// ── render_gate_notice() ─────────────────────────────────────────
+
+	/**
+	 * Test gate notice skips anonymous users.
+	 */
+	public function test_gate_notice_skips_anonymous(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+
+		$this->gate->render_gate_notice();
+		$this->expectOutputString( '' );
+	}
+
+	/**
+	 * Test gate notice skips when sudo is active.
+	 */
+	public function test_gate_notice_skips_active_session(): void {
+		$user_id = 5;
+		$token   = 'gate-notice-token';
+
+		Functions\when( 'get_current_user_id' )->justReturn( $user_id );
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		$this->gate->render_gate_notice();
+		$this->expectOutputString( '' );
+
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+	}
+
+	/**
+	 * Test gate notice skips non-gated pages.
+	 */
+	public function test_gate_notice_skips_non_gated_page(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		$GLOBALS['pagenow'] = 'edit.php';
+
+		$this->gate->render_gate_notice();
+		$this->expectOutputString( '' );
+	}
+
+	/**
+	 * Test gate notice renders on plugins.php.
+	 */
+	public function test_gate_notice_renders_on_plugins_page(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/admin.php' );
+		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/admin.php?page=wp-sudo-challenge' );
+
+		$GLOBALS['pagenow'] = 'plugins.php';
+
+		$this->expectOutputRegex( '/wp-sudo-challenge/' );
+
+		$this->gate->render_gate_notice();
+	}
+
+	/**
+	 * Test gate notice renders on theme-install.php.
+	 */
+	public function test_gate_notice_renders_on_theme_install_page(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/admin.php' );
+		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/admin.php?page=wp-sudo-challenge' );
+
+		$GLOBALS['pagenow'] = 'theme-install.php';
+
+		$this->expectOutputRegex( '/Confirm your identity/' );
+
+		$this->gate->render_gate_notice();
+	}
+
+	/**
+	 * Test gate notice is not dismissible.
+	 */
+	public function test_gate_notice_is_not_dismissible(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/admin.php' );
+		Functions\when( 'add_query_arg' )->justReturn( 'https://example.com/wp-admin/admin.php?page=wp-sudo-challenge' );
+
+		$GLOBALS['pagenow'] = 'themes.php';
+
+		ob_start();
+		$this->gate->render_gate_notice();
+		$output = ob_get_clean();
+
+		// Non-dismissible: no "is-dismissible" class.
+		$this->assertStringNotContainsString( 'is-dismissible', $output );
+		$this->assertStringContainsString( 'notice notice-warning', $output );
+	}
+
+	// ── filter_plugin_action_links() ─────────────────────────────────
+
+	/**
+	 * Test plugin action links are disabled when no sudo session.
+	 */
+	public function test_filter_plugin_action_links_disables_gated(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'wp_strip_all_tags' )->alias( 'strip_tags' );
+		Functions\when( 'esc_html' )->returnArg();
+
+		$actions = array(
+			'activate'   => '<a href="#">Activate</a>',
+			'deactivate' => '<a href="#">Deactivate</a>',
+			'delete'     => '<a href="#">Delete</a>',
+			'details'    => '<a href="#">View details</a>',
+		);
+
+		$result = $this->gate->filter_plugin_action_links( $actions, 'test/test.php' );
+
+		// Gated actions should be replaced with disabled spans.
+		$this->assertStringContainsString( 'wp-sudo-disabled', $result['activate'] );
+		$this->assertStringContainsString( 'wp-sudo-disabled', $result['deactivate'] );
+		$this->assertStringContainsString( 'wp-sudo-disabled', $result['delete'] );
+		$this->assertStringContainsString( 'aria-disabled="true"', $result['activate'] );
+
+		// Non-gated "details" should be untouched.
+		$this->assertStringContainsString( '<a href', $result['details'] );
+	}
+
+	/**
+	 * Test plugin action links pass through with active session.
+	 */
+	public function test_filter_plugin_action_links_passes_with_session(): void {
+		$user_id = 5;
+		$token   = 'filter-test-token';
+
+		Functions\when( 'get_current_user_id' )->justReturn( $user_id );
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		$actions = array(
+			'activate' => '<a href="#">Activate</a>',
+			'delete'   => '<a href="#">Delete</a>',
+		);
+
+		$result = $this->gate->filter_plugin_action_links( $actions, 'test/test.php' );
+
+		// Actions should be unchanged.
+		$this->assertSame( $actions, $result );
+
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+	}
+
+	/**
+	 * Test plugin action links pass through for anonymous users.
+	 */
+	public function test_filter_plugin_action_links_passes_anonymous(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+
+		$actions = array(
+			'activate' => '<a href="#">Activate</a>',
+		);
+
+		$result = $this->gate->filter_plugin_action_links( $actions, 'test/test.php' );
+
+		$this->assertSame( $actions, $result );
+	}
+
+	// ── filter_theme_action_links() ──────────────────────────────────
+
+	/**
+	 * Test theme action links are disabled when no sudo session.
+	 */
+	public function test_filter_theme_action_links_disables_gated(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'wp_strip_all_tags' )->alias( 'strip_tags' );
+		Functions\when( 'esc_html' )->returnArg();
+
+		$theme = new \stdClass();
+
+		$actions = array(
+			'activate' => '<a href="#">Activate</a>',
+			'delete'   => '<a href="#">Delete</a>',
+			'preview'  => '<a href="#">Live Preview</a>',
+		);
+
+		$result = $this->gate->filter_theme_action_links( $actions, $theme );
+
+		$this->assertStringContainsString( 'wp-sudo-disabled', $result['activate'] );
+		$this->assertStringContainsString( 'wp-sudo-disabled', $result['delete'] );
+
+		// Preview should be untouched.
+		$this->assertStringContainsString( '<a href', $result['preview'] );
+	}
+
+	/**
+	 * Test theme action links pass through with active session.
+	 */
+	public function test_filter_theme_action_links_passes_with_session(): void {
+		$user_id = 5;
+		$token   = 'theme-filter-token';
+
+		Functions\when( 'get_current_user_id' )->justReturn( $user_id );
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		$theme = new \stdClass();
+
+		$actions = array(
+			'activate' => '<a href="#">Activate</a>',
+			'delete'   => '<a href="#">Delete</a>',
+		);
+
+		$result = $this->gate->filter_theme_action_links( $actions, $theme );
+
+		$this->assertSame( $actions, $result );
+
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
 	}
 }
