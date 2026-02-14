@@ -3,7 +3,8 @@
  * Runs when the plugin is uninstalled via the WordPress admin.
  *
  * On a standard single-site install, all plugin data is removed:
- * the Site Manager role, plugin options, and user-meta session data.
+ * plugin options and user-meta session data. The v1 Site Manager role
+ * is also removed in case the 2.0.0 migration never ran.
  *
  * On multisite, per-site data (role, options) is cleaned for every
  * site that had the plugin active. Network-wide user meta is only
@@ -23,6 +24,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
  * @return void
  */
 function wp_sudo_cleanup_site(): void {
+	// Remove the v1 Site Manager role (safe no-op if it doesn't exist).
 	remove_role( 'site_manager' );
 
 	delete_option( 'wp_sudo_settings' );
@@ -50,7 +52,7 @@ if ( is_multisite() ) {
 			'fields'     => 'ids',
 			'number'     => 0,
 			'network_id' => get_current_network_id(),
-		) 
+		)
 	);
 
 	$plugin_basename = plugin_basename( __DIR__ . '/wp-sudo.php' );
@@ -82,11 +84,16 @@ if ( is_multisite() ) {
 		restore_current_blog();
 	}
 
-	// Only delete network-wide user meta when no site still has
+	// Only delete network-wide data when no site still has
 	// the plugin active. User meta is stored in a shared table,
 	// so removing it would break sudo on any remaining sites.
 	if ( ! $other_site_active ) {
 		wp_sudo_cleanup_user_meta();
+
+		// Clean up network-wide options (stored in wp_sitemeta).
+		delete_site_option( 'wp_sudo_settings' );
+		delete_site_option( 'wp_sudo_db_version' );
+		delete_site_option( 'wp_sudo_activated' );
 	}
 } else {
 	// Single-site: clean up everything.

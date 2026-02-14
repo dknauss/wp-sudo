@@ -12,7 +12,7 @@
 define( 'ABSPATH', '/tmp/fake-wordpress/' );
 
 // ── Plugin constants (normally defined in wp-sudo.php) ───────────────
-define( 'WP_SUDO_VERSION', '1.2.1' );
+define( 'WP_SUDO_VERSION', '2.0.0' );
 define( 'WP_SUDO_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WP_SUDO_PLUGIN_URL', 'https://example.com/wp-content/plugins/wp-sudo/' );
 define( 'WP_SUDO_PLUGIN_BASENAME', 'wp-sudo/wp-sudo.php' );
@@ -46,16 +46,108 @@ if ( ! class_exists( 'WP_User' ) ) {
 	}
 }
 
-if ( ! class_exists( 'WP_Role' ) ) {
-	class WP_Role {
-		public string $name         = '';
-		public array  $capabilities = [];
+if ( ! class_exists( 'WP_Admin_Bar' ) ) {
+	class WP_Admin_Bar {
+		private array $nodes = [];
+
+		public function add_node( array $args ): void {
+			$id = $args['id'] ?? '';
+			if ( $id ) {
+				$this->nodes[ $id ] = $args;
+			}
+		}
+
+		public function get_nodes(): array {
+			return $this->nodes;
+		}
 	}
 }
 
-if ( ! class_exists( 'WP_Admin_Bar' ) ) {
-	class WP_Admin_Bar {
-		public function add_node( array $args ): void {}
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		private string $code;
+		private string $message;
+		private array  $data;
+
+		public function __construct( string $code = '', string $message = '', $data = array() ) {
+			$this->code    = $code;
+			$this->message = $message;
+			$this->data    = is_array( $data ) ? $data : array();
+		}
+
+		public function get_error_code(): string {
+			return $this->code;
+		}
+
+		public function get_error_message(): string {
+			return $this->message;
+		}
+
+		public function get_error_data() {
+			return $this->data;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	class WP_REST_Request {
+		private string $method;
+		private string $route;
+		private array  $params;
+		private array  $headers = [];
+
+		public function __construct( string $method = 'GET', string $route = '', array $params = array() ) {
+			$this->method = $method;
+			$this->route  = $route;
+			$this->params = $params;
+		}
+
+		public function get_method(): string {
+			return $this->method;
+		}
+
+		public function get_route(): string {
+			return $this->route;
+		}
+
+		public function get_params(): array {
+			return $this->params;
+		}
+
+		public function get_header( string $key ): ?string {
+			$key = strtolower( $key );
+			return $this->headers[ $key ] ?? null;
+		}
+
+		public function set_header( string $key, string $value ): void {
+			$this->headers[ strtolower( $key ) ] = $value;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_Screen' ) ) {
+	class WP_Screen {
+		private array  $help_tabs = [];
+		private string $help_sidebar = '';
+
+		public function add_help_tab( array $args ): void {
+			$id = $args['id'] ?? '';
+			if ( $id ) {
+				$this->help_tabs[ $id ] = $args;
+			}
+		}
+
+		public function set_help_sidebar( string $content ): void {
+			$this->help_sidebar = $content;
+		}
+
+		public function get_help_tabs(): array {
+			return $this->help_tabs;
+		}
+
+		public function get_help_sidebar(): string {
+			return $this->help_sidebar;
+		}
 	}
 }
 
