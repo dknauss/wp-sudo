@@ -39,6 +39,7 @@ class UpgraderTest extends TestCase {
 		Functions\when( 'get_option' )->justReturn( '0.0.0' );
 		Functions\when( 'remove_role' )->justReturn( null );
 		Functions\when( 'delete_option' )->justReturn( true );
+		Functions\when( 'get_role' )->justReturn( null );
 
 		Functions\expect( 'update_option' )
 			->once()
@@ -63,6 +64,7 @@ class UpgraderTest extends TestCase {
 
 		Functions\when( 'update_option' )->justReturn( true );
 		Functions\when( 'delete_option' )->justReturn( true );
+		Functions\when( 'get_role' )->justReturn( null );
 
 		Functions\expect( 'remove_role' )
 			->once()
@@ -90,6 +92,7 @@ class UpgraderTest extends TestCase {
 
 		Functions\when( 'remove_role' )->justReturn( null );
 		Functions\when( 'delete_option' )->justReturn( true );
+		Functions\when( 'get_role' )->justReturn( null );
 
 		// Should update settings without allowed_roles.
 		Functions\expect( 'update_option' )
@@ -124,6 +127,7 @@ class UpgraderTest extends TestCase {
 
 		Functions\when( 'remove_role' )->justReturn( null );
 		Functions\when( 'update_option' )->justReturn( true );
+		Functions\when( 'get_role' )->justReturn( null );
 
 		Functions\expect( 'delete_option' )
 			->once()
@@ -148,6 +152,7 @@ class UpgraderTest extends TestCase {
 
 		Functions\when( 'remove_role' )->justReturn( null );
 		Functions\when( 'delete_option' )->justReturn( true );
+		Functions\when( 'get_role' )->justReturn( null );
 
 		// Should only update the version stamp, not the settings.
 		Functions\expect( 'update_option' )
@@ -202,6 +207,49 @@ class UpgraderTest extends TestCase {
 		Functions\expect( 'update_site_option' )
 			->once()
 			->with( Upgrader::VERSION_OPTION, WP_SUDO_VERSION );
+
+		$upgrader = new Upgrader();
+		$upgrader->maybe_upgrade();
+	}
+
+	// ── 2.1.0 migration ─────────────────────────────────────────────
+
+	public function test_210_strips_unfiltered_html_from_editor(): void {
+		Functions\when( 'get_option' )->alias( function ( $key, $default = false ) {
+			if ( Upgrader::VERSION_OPTION === $key ) {
+				return '2.0.0';
+			}
+			return $default;
+		} );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		$role = \Mockery::mock( 'WP_Role' );
+		$role->shouldReceive( 'remove_cap' )
+			->once()
+			->with( 'unfiltered_html' );
+
+		Functions\expect( 'get_role' )
+			->once()
+			->with( 'editor' )
+			->andReturn( $role );
+
+		$upgrader = new Upgrader();
+		$upgrader->maybe_upgrade();
+	}
+
+	public function test_210_skips_on_multisite(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		Functions\expect( 'get_site_option' )
+			->once()
+			->with( Upgrader::VERSION_OPTION, '0.0.0' )
+			->andReturn( '2.0.0' );
+
+		Functions\when( 'update_site_option' )->justReturn( true );
+
+		// On multisite, strip_editor_unfiltered_html is a no-op,
+		// so get_role should never be called.
+		Functions\expect( 'get_role' )->never();
 
 		$upgrader = new Upgrader();
 		$upgrader->maybe_upgrade();

@@ -27,6 +27,12 @@ function wp_sudo_cleanup_site(): void {
 	// Remove the v1 Site Manager role (safe no-op if it doesn't exist).
 	remove_role( 'site_manager' );
 
+	// Restore unfiltered_html to editors (removed by WP Sudo on activation).
+	$editor = get_role( 'editor' );
+	if ( $editor ) {
+		$editor->add_cap( 'unfiltered_html' );
+	}
+
 	delete_option( 'wp_sudo_settings' );
 	delete_option( 'wp_sudo_activated' );
 	delete_option( 'wp_sudo_role_version' );

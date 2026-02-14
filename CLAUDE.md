@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WP Sudo is a WordPress plugin that provides safe, time-limited privilege escalation for designated users. It creates a "Site Manager" role (Editor + select admin capabilities) and lets eligible users temporarily gain full admin privileges after reauthentication.
+WP Sudo is a WordPress plugin that provides action-gated reauthentication. Dangerous operations (plugin activation, user deletion, critical settings changes, etc.) require password confirmation before they proceed — regardless of user role.
 
 **Requirements:** WordPress 6.2+, PHP 8.0+
 
@@ -30,19 +30,30 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 
 **Entry point:** `wp-sudo.php` — defines constants, registers an SPL autoloader (maps `WP_Sudo\Class_Name` to `includes/class-class-name.php`), and wires lifecycle hooks. The `wp_sudo()` function returns the singleton Plugin instance.
 
-**Bootstrap sequence:** `plugins_loaded` → `Plugin::init()` → loads translations, runs upgrader, registers role, sets up sudo session, initializes admin UI.
+**Bootstrap sequence:** `plugins_loaded` → `Plugin::init()` → loads translations, runs upgrader, registers gate, sets up challenge page, initializes admin UI.
 
 ### Core Classes (all in `includes/`, namespace `WP_Sudo`)
 
-- **Plugin** — Orchestrator. Creates and owns the four component instances. Handles activation/deactivation hooks.
-- **Sudo_Session** — Core security logic. Manages reauthentication flow, session tokens (user meta + httponly cookies), rate limiting (5 attempts → 5-min lockout), and scoped escalation (admin panel only — blocks REST, XML-RPC, AJAX, Cron, CLI, App Passwords). The capability floor constant `MIN_CAPABILITY` (`edit_others_posts`) prevents low-privilege roles from being configured as eligible.
-- **Site_Manager_Role** — Creates/syncs the `site_manager` role. Grants Editor caps plus `switch_themes`, `activate_plugins`, `list_users`, `update_*`, etc. Explicitly withholds `edit_users`, `promote_users`, `manage_options`, and `unfiltered_html` (only available during sudo).
-- **Admin** — Settings page at Settings → Sudo. Two settings: session duration (1–15 min) and allowed roles. Option key: `wp_sudo_settings`.
-- **Upgrader** — Version-aware migration runner (currently no migrations defined).
+- **Plugin** — Orchestrator. Creates and owns the component instances. Handles activation/deactivation hooks. Strips `unfiltered_html` from editors on activation and restores it on deactivation.
+- **Gate** — Multi-surface interceptor. Matches incoming requests against the Action Registry and gates them via reauthentication (admin UI), error response (AJAX/REST), or policy (CLI/Cron/XML-RPC/App Passwords).
+- **Action_Registry** — Defines all gated rules (28 rules across 7 categories + multisite). Extensible via `wp_sudo_gated_actions` filter.
+- **Challenge** — Interstitial reauthentication page. Handles password verification, 2FA integration, request stash/replay.
+- **Sudo_Session** — Session management. Cryptographic token (user meta + httponly cookie), rate limiting (5 attempts → 5-min lockout), session binding.
+- **Request_Stash** — Stashes and replays intercepted admin requests using transients.
+- **Admin** — Settings page at Settings → Sudo. Settings: session duration (1–15 min), entry point policies (Block/Allow for REST/CLI/Cron/XML-RPC). Option key: `wp_sudo_settings`.
+- **Admin_Bar** — Live countdown timer in admin bar during active sessions.
+- **Site_Health** — WordPress Site Health integration (status tests and debug info).
+- **Upgrader** — Version-aware migration runner. Runs sequential upgrade routines when the stored version is older than the plugin version.
+
+### Capability Restriction
+
+On single-site, WP Sudo removes the `unfiltered_html` capability from the Editor role on activation. This ensures KSES content filtering is always active for editors. Administrators retain the capability. The capability is restored on deactivation or uninstall. On multisite, WordPress core already restricts `unfiltered_html` to Super Admins.
+
+As a tamper-detection canary, `Plugin::enforce_editor_unfiltered_html()` runs at `init` priority 1 on every request. If the capability reappears on the Editor role (e.g. via direct `wp_user_roles` database modification), it is stripped and the `wp_sudo_capability_tampered` action fires for audit logging.
 
 ### Audit Hooks
 
-The plugin fires actions for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`.
+The plugin fires 9 action hooks for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_blocked`, `wp_sudo_action_allowed`, `wp_sudo_action_replayed`, `wp_sudo_capability_tampered`.
 
 ## Testing
 
@@ -56,4 +67,4 @@ PHPUnit strict mode is enabled: tests must assert something, produce no output, 
 
 ## Uninstall
 
-`uninstall.php` handles multisite-safe cleanup: removes the Site Manager role, deletes `wp_sudo_settings` option, and cleans user meta (`_wp_sudo_*` keys) across all sites in a network.
+`uninstall.php` handles multisite-safe cleanup: restores `unfiltered_html` to editors, removes the v1 Site Manager role (if present), deletes `wp_sudo_settings` option, and cleans user meta (`_wp_sudo_*` keys) across all sites in a network.

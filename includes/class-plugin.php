@@ -110,6 +110,9 @@ class Plugin {
 		$this->admin_bar = new Admin_Bar();
 		$this->admin_bar->register();
 
+		// Enforce unfiltered_html restriction on every request (tamper detection).
+		add_action( 'init', array( $this, 'enforce_editor_unfiltered_html' ), 1 );
+
 		// Keyboard shortcut: enqueue on admin pages when no active session.
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_shortcut' ) );
 
@@ -234,6 +237,55 @@ class Plugin {
 	}
 
 	/**
+	 * Enforce the unfiltered_html restriction on every request.
+	 *
+	 * Acts as a tamper-detection canary: if the Editor role has the
+	 * unfiltered_html capability (e.g. because `wp_user_roles` was modified
+	 * directly in the database), this method strips it and fires the
+	 * `wp_sudo_capability_tampered` action so logging plugins like
+	 * Stream or WP Activity Log can record the event.
+	 *
+	 * Hooked at `init` priority 1, before `kses_init` (priority 10),
+	 * so KSES is always correctly configured.
+	 *
+	 * On multisite this is a no-op — WordPress core restricts
+	 * unfiltered_html to Super Admins.
+	 *
+	 * @since 2.1.0
+	 * @return void
+	 */
+	public function enforce_editor_unfiltered_html(): void {
+		if ( is_multisite() ) {
+			return;
+		}
+
+		$editor = get_role( 'editor' );
+
+		if ( ! $editor ) {
+			return;
+		}
+
+		// Check if the capability is present on the role.
+		if ( empty( $editor->capabilities['unfiltered_html'] ) ) {
+			return;
+		}
+
+		// Tamper detected — strip the capability and fire an audit hook.
+		$editor->remove_cap( 'unfiltered_html' );
+
+		/**
+		 * Fires when a capability that should have been removed is detected
+		 * on a role, indicating possible database tampering.
+		 *
+		 * @since 2.1.0
+		 *
+		 * @param string $role       The role slug (e.g. 'editor').
+		 * @param string $capability The capability that was re-added (e.g. 'unfiltered_html').
+		 */
+		do_action( 'wp_sudo_capability_tampered', 'editor', 'unfiltered_html' );
+	}
+
+	/**
 	 * Plugin activation callback.
 	 *
 	 * @return void
@@ -242,6 +294,9 @@ class Plugin {
 		// Run the upgrader to stamp the version on fresh installs.
 		$upgrader = new Upgrader();
 		$upgrader->maybe_upgrade();
+
+		// Remove unfiltered_html from editors (single-site only).
+		self::strip_editor_unfiltered_html();
 
 		// Set a flag so we know the plugin has been activated.
 		update_option( 'wp_sudo_activated', true );
@@ -252,6 +307,9 @@ class Plugin {
 	 *
 	 * Settings and the version stamp are stored as network-wide options,
 	 * so a single upgrader run covers all sites.
+	 *
+	 * WordPress core already restricts unfiltered_html to Super Admins on
+	 * multisite, so no capability changes are needed here.
 	 *
 	 * @return void
 	 */
@@ -270,6 +328,9 @@ class Plugin {
 	 * @return void
 	 */
 	public function deactivate(): void {
+		// Restore unfiltered_html to editors (single-site only).
+		self::restore_editor_unfiltered_html();
+
 		if ( is_multisite() ) {
 			delete_site_option( 'wp_sudo_activated' );
 		} else {
@@ -329,5 +390,52 @@ class Plugin {
 		$request_uri = sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) );
 
 		return home_url( $request_uri );
+	}
+
+	/**
+	 * Remove the unfiltered_html capability from the Editor role.
+	 *
+	 * On single-site WordPress, editors have unfiltered_html by default,
+	 * which lets them embed scripts, iframes, and other non-whitelisted
+	 * HTML in post content. This method removes that capability so KSES
+	 * content filtering is always active for editors.
+	 *
+	 * On multisite, WordPress core already restricts unfiltered_html to
+	 * Super Admins, so this is a no-op.
+	 *
+	 * @since 2.1.0
+	 * @return void
+	 */
+	public static function strip_editor_unfiltered_html(): void {
+		if ( is_multisite() ) {
+			return;
+		}
+
+		$editor = get_role( 'editor' );
+
+		if ( $editor ) {
+			$editor->remove_cap( 'unfiltered_html' );
+		}
+	}
+
+	/**
+	 * Restore the unfiltered_html capability to the Editor role.
+	 *
+	 * Called on plugin deactivation and uninstall to leave the site in
+	 * its original state.
+	 *
+	 * @since 2.1.0
+	 * @return void
+	 */
+	public static function restore_editor_unfiltered_html(): void {
+		if ( is_multisite() ) {
+			return;
+		}
+
+		$editor = get_role( 'editor' );
+
+		if ( $editor ) {
+			$editor->add_cap( 'unfiltered_html' );
+		}
 	}
 }

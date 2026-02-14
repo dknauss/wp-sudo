@@ -5,7 +5,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      6.7
 Requires PHP:      8.0
-Stable tag:        2.0.0
+Stable tag:        2.1.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -125,6 +125,7 @@ Install [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) 
 * `wp_sudo_action_blocked( $user_id, $rule_id, $surface )` — denied by policy.
 * `wp_sudo_action_allowed( $user_id, $rule_id, $surface )` — permitted by policy.
 * `wp_sudo_action_replayed( $user_id, $rule_id )` — stashed request replayed after reauth.
+* `wp_sudo_capability_tampered( $role, $capability )` — a removed capability was re-detected on a role (possible database tampering).
 
 = Does it support two-factor authentication? =
 
@@ -158,6 +159,10 @@ Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filte
 4. Admin notice — when an AJAX or REST operation is blocked, an admin notice links to the challenge page for session activation.
 
 == Changelog ==
+
+= 2.1.0 =
+* Removes the `unfiltered_html` capability from the Editor role. Editors can no longer embed scripts, iframes, or other non-whitelisted HTML — KSES sanitization is always active for editors. Administrators retain `unfiltered_html`. The capability is restored if the plugin is deactivated or uninstalled.
+* Adds tamper detection: if `unfiltered_html` reappears on the Editor role (e.g. via database modification), it is stripped automatically and the `wp_sudo_capability_tampered` action fires for audit logging.
 
 = 2.0.0 =
 Complete rewrite. Action-gated reauthentication replaces role-based privilege escalation.

@@ -297,10 +297,57 @@ class PluginTest extends TestCase {
 
 	public function test_activate_stamps_version_and_sets_flag(): void {
 		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'get_role' )->justReturn( null );
 
 		Functions\expect( 'update_option' )
 			->once()
 			->with( 'wp_sudo_activated', true );
+
+		$plugin = new Plugin();
+		$plugin->activate();
+	}
+
+	public function test_activate_strips_unfiltered_html_from_editor(): void {
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		$role = \Mockery::mock( 'WP_Role' );
+		$role->shouldReceive( 'remove_cap' )
+			->once()
+			->with( 'unfiltered_html' );
+
+		Functions\expect( 'get_role' )
+			->once()
+			->with( 'editor' )
+			->andReturn( $role );
+
+		$plugin = new Plugin();
+		$plugin->activate();
+	}
+
+	public function test_activate_skips_strip_when_no_editor_role(): void {
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		Functions\expect( 'get_role' )
+			->once()
+			->with( 'editor' )
+			->andReturn( null );
+
+		$plugin = new Plugin();
+		$plugin->activate();
+
+		// No error — null role is handled gracefully.
+		$this->assertTrue( true );
+	}
+
+	public function test_activate_skips_strip_on_multisite(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'get_site_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'update_option' )->justReturn( true );
+
+		Functions\expect( 'get_role' )->never();
 
 		$plugin = new Plugin();
 		$plugin->activate();
@@ -311,12 +358,108 @@ class PluginTest extends TestCase {
 	// -----------------------------------------------------------------
 
 	public function test_deactivate_removes_flag(): void {
+		Functions\when( 'get_role' )->justReturn( null );
+
 		Functions\expect( 'delete_option' )
 			->once()
 			->with( 'wp_sudo_activated' );
 
 		$plugin = new Plugin();
 		$plugin->deactivate();
+	}
+
+	public function test_deactivate_restores_unfiltered_html_to_editor(): void {
+		Functions\when( 'delete_option' )->justReturn( true );
+
+		$role = \Mockery::mock( 'WP_Role' );
+		$role->shouldReceive( 'add_cap' )
+			->once()
+			->with( 'unfiltered_html' );
+
+		Functions\expect( 'get_role' )
+			->once()
+			->with( 'editor' )
+			->andReturn( $role );
+
+		$plugin = new Plugin();
+		$plugin->deactivate();
+	}
+
+	public function test_deactivate_skips_restore_on_multisite(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+		Functions\when( 'delete_site_option' )->justReturn( true );
+
+		Functions\expect( 'get_role' )->never();
+
+		$plugin = new Plugin();
+		$plugin->deactivate();
+	}
+
+	// -----------------------------------------------------------------
+	// enforce_editor_unfiltered_html()
+	// -----------------------------------------------------------------
+
+	public function test_enforce_strips_cap_and_fires_hook_when_tampered(): void {
+		$role               = \Mockery::mock( 'WP_Role' );
+		$role->capabilities = array( 'unfiltered_html' => true );
+
+		$role->shouldReceive( 'remove_cap' )
+			->once()
+			->with( 'unfiltered_html' );
+
+		Functions\when( 'get_role' )->justReturn( $role );
+
+		Functions\expect( 'do_action' )
+			->once()
+			->with( 'wp_sudo_capability_tampered', 'editor', 'unfiltered_html' );
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+	}
+
+	public function test_enforce_skips_when_cap_not_present(): void {
+		$role               = \Mockery::mock( 'WP_Role' );
+		$role->capabilities = array();
+
+		$role->shouldNotReceive( 'remove_cap' );
+
+		Functions\when( 'get_role' )->justReturn( $role );
+
+		Functions\expect( 'do_action' )
+			->with( 'wp_sudo_capability_tampered', \Mockery::any(), \Mockery::any() )
+			->never();
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+	}
+
+	public function test_enforce_skips_when_no_editor_role(): void {
+		Functions\when( 'get_role' )->justReturn( null );
+
+		Functions\expect( 'do_action' )
+			->with( 'wp_sudo_capability_tampered', \Mockery::any(), \Mockery::any() )
+			->never();
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+
+		// No error — null role is handled gracefully.
+		$this->assertTrue( true );
+	}
+
+	public function test_enforce_skips_on_multisite(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		Functions\expect( 'get_role' )->never();
+
+		Functions\expect( 'do_action' )
+			->with( 'wp_sudo_capability_tampered', \Mockery::any(), \Mockery::any() )
+			->never();
+
+		$plugin = new Plugin();
+		$plugin->enforce_editor_unfiltered_html();
+
+		$this->assertTrue( true );
 	}
 
 	// -----------------------------------------------------------------

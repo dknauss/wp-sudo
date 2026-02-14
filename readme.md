@@ -193,6 +193,9 @@ do_action( 'wp_sudo_action_gated', int $user_id, string $rule_id, string $surfac
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_allowed', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_replayed', int $user_id, string $rule_id );
+
+// Tamper detection.
+do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 ```
 
 ### Filters
@@ -224,6 +227,11 @@ do_action( 'wp_sudo_action_replayed', int $user_id, string $rule_id );
    ![Admin notice](assets/screenshot-4.png)
 
 ## Changelog
+
+### 2.1.0
+
+- Removes the `unfiltered_html` capability from the Editor role. Editors can no longer embed scripts, iframes, or other non-whitelisted HTML — KSES sanitization is always active for editors. Administrators retain `unfiltered_html`. The capability is restored if the plugin is deactivated or uninstalled.
+- Adds tamper detection: if `unfiltered_html` reappears on the Editor role (e.g. via database modification), it is stripped automatically and the `wp_sudo_capability_tampered` action fires for audit logging.
 
 ### 2.0.0
 
