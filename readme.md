@@ -1,3 +1,5 @@
+_This exploratory plugin is not production-ready. Please test it and share your feedback on what works and what doesn't._
+
 # Sudo for WordPress
 
 **Action-gated reauthentication for WordPress.** Potentially dangerous operations require password confirmation before they proceed — regardless of user role.
