@@ -27,6 +27,8 @@
 		}
 
 		button.disabled = true;
+		button.setAttribute( 'aria-busy', 'true' );
+
 		if ( spinner ) {
 			spinner.classList.add( 'is-active' );
 		}
@@ -50,12 +52,14 @@
 				if ( spinner ) {
 					spinner.classList.remove( 'is-active' );
 				}
+				button.setAttribute( 'aria-busy', 'false' );
 
 				var data = result.data || {};
 
 				if ( result.success ) {
 					if ( messageEl ) {
 						messageEl.textContent = data.message || '';
+						messageEl.focus();
 					}
 					// Reload the page so the status indicator updates
 					// (WP_SUDO_MU_LOADED will be defined or not on next load).
@@ -66,6 +70,7 @@
 					button.disabled = false;
 					if ( messageEl ) {
 						messageEl.textContent = data.message || 'An error occurred.';
+						messageEl.focus();
 					}
 				}
 			} )
@@ -74,8 +79,10 @@
 					spinner.classList.remove( 'is-active' );
 				}
 				button.disabled = false;
+				button.setAttribute( 'aria-busy', 'false' );
 				if ( messageEl ) {
 					messageEl.textContent = 'A network error occurred. Please try again.';
+					messageEl.focus();
 				}
 			} );
 	}

@@ -16,16 +16,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Path to the main plugin entry point.
-$wp_sudo_plugin_dir = WP_CONTENT_DIR . '/plugins/wp-sudo/';
-
-// Only proceed if the main plugin is present.
-if ( ! file_exists( $wp_sudo_plugin_dir . 'wp-sudo.php' ) ) {
-	return;
-}
-
-// Load the autoloader if constants are not yet defined.
+// Load the main plugin if not already bootstrapped. Check the constant
+// first to avoid a file_exists() call on every page load when the main
+// plugin has already been loaded via plugins_loaded.
 if ( ! defined( 'WP_SUDO_PLUGIN_DIR' ) ) {
+	$wp_sudo_plugin_dir = WP_CONTENT_DIR . '/plugins/wp-sudo/';
+
+	if ( ! file_exists( $wp_sudo_plugin_dir . 'wp-sudo.php' ) ) {
+		return;
+	}
+
 	require_once $wp_sudo_plugin_dir . 'wp-sudo.php'; // phpcs:ignore WordPressVIPMinimum.Files.IncludingFile.UsingVariable
 }
 

@@ -644,8 +644,8 @@ class Admin {
 								<?php esc_html_e( 'Install MU-Plugin', 'wp-sudo' ); ?>
 							</button>
 						<?php endif; ?>
-						<span id="wp-sudo-mu-spinner" class="spinner" aria-hidden="true"></span>
-						<p id="wp-sudo-mu-message" class="description" aria-live="polite"></p>
+						<span id="wp-sudo-mu-spinner" class="spinner" role="status" aria-label="<?php esc_attr_e( 'Processing…', 'wp-sudo' ); ?>"></span>
+						<p id="wp-sudo-mu-message" class="description" role="status" aria-live="polite" tabindex="-1"></p>
 					</td>
 				</tr>
 			</tbody>

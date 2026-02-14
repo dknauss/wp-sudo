@@ -332,6 +332,11 @@ class AdminTest extends TestCase {
 				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			}
 		);
+		Functions\when( 'esc_attr_e' )->alias(
+			function ( $text ) {
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
 		Functions\when( 'settings_fields' )->justReturn( null );
 		Functions\when( 'do_settings_sections' )->justReturn( null );
 		Functions\when( 'submit_button' )->justReturn( null );
@@ -490,6 +495,11 @@ class AdminTest extends TestCase {
 	public function test_render_mu_plugin_status_shows_not_installed(): void {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_attr_e' )->alias(
+			function ( $text ) {
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
 		Functions\when( 'esc_html_e' )->alias(
 			function ( $text ) {
 				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -507,6 +517,10 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'Not installed', $output );
 		$this->assertStringContainsString( 'wp-sudo-mu-install', $output );
 		$this->assertStringContainsString( 'Install MU-Plugin', $output );
+
+		// Accessibility: spinner has role="status", message has role="status" + tabindex.
+		$this->assertStringContainsString( 'role="status"', $output );
+		$this->assertStringContainsString( 'tabindex="-1"', $output );
 	}
 
 	// -----------------------------------------------------------------
