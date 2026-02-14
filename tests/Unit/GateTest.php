@@ -1422,27 +1422,14 @@ class GateTest extends TestCase {
 	// ── gate_cli() ───────────────────────────────────────────────────
 
 	/**
-	 * Test gate_cli with block policy blocks all WP-CLI operations immediately.
+	 * Test gate_cli with block policy registers admin_init hook.
 	 */
-	public function test_gate_cli_block_dies_immediately(): void {
+	public function test_gate_cli_block_registers_hook(): void {
 		Functions\when( 'get_option' )->justReturn( array() );
 
-		// Mock translation function.
-		Functions\when( 'esc_html__' )->returnArg();
-
-		// Should fire the wp_sudo_action_blocked hook before dying.
-		Actions\expectDone( 'wp_sudo_action_blocked' )
+		Actions\expectAdded( 'admin_init' )
 			->once()
-			->with( 0, '', 'cli' );
-
-		// Mock wp_die to prevent actual exit.
-		Functions\expect( 'wp_die' )
-			->once()
-			->with(
-				\Mockery::type( 'string' ),
-				'',
-				array( 'response' => 403 )
-			);
+			->with( \Mockery::type( 'Closure' ), 0 );
 
 		$this->gate->gate_cli();
 	}
