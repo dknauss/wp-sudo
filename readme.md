@@ -8,9 +8,9 @@
 
 ## Description
 
-**Sudo** gates destructive WordPress admin operations behind a reauthentication step. When any user — administrator, editor, or custom role — attempts a dangerous action, they must confirm their identity before proceeding.
+**Sudo** brings zero-trust reauthentication to WordPress. Destructive admin operations are gated behind an identity challenge — no user is trusted by default, regardless of role. When any user — administrator, editor, or custom role — attempts a dangerous action, they must confirm their identity before proceeding.
 
-This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
+This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
 ### What Gets Gated?
 
@@ -36,7 +36,8 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 ### Security Features
 
-- **Role-agnostic** — any user attempting a gated action is challenged, including administrators and compromised accounts.
+- **Zero-trust architecture** — a valid login session is never sufficient on its own. Dangerous operations require explicit identity confirmation every time, with time-bounded sessions that cannot be extended.
+- **Role-agnostic** — any user attempting a gated action is challenged, including administrators and compromised accounts. No role is implicitly trusted.
 - **Full attack surface** — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and Application Passwords are all covered.
 - **Session binding** — sudo sessions are cryptographically bound to the browser via a secure httponly cookie token.
 - **2FA browser binding** — the two-factor challenge is bound to the originating browser with a one-time challenge cookie, preventing cross-browser replay.
@@ -49,6 +50,8 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 Sudo works on its own, but these plugins add significant value:
 
 - **[Two Factor](https://wordpress.org/plugins/two-factor/)** — Strongly recommended. When installed, the sudo challenge becomes a two-step process: password + verification code (TOTP, email, backup codes). This is the difference between "confirm you know the password" and "confirm you possess the device." Third-party 2FA plugins can integrate via the `wp_sudo_requires_two_factor`, `wp_sudo_validate_two_factor`, and `wp_sudo_render_two_factor_fields` hooks.
+
+- **[WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)** — Recommended alongside Two Factor. Adds passkey and security key (FIDO2/WebAuthn) support. Administrators can reauthenticate with a hardware key or platform passkey instead of a TOTP code.
 
 - **[WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/)** or **[Stream](https://wordpress.org/plugins/stream/)** — Recommended for audit visibility. Sudo fires 8 action hooks covering session lifecycle, gated actions, policy decisions, and lockouts. A logging plugin turns these hooks into a searchable audit trail so you can answer "who did what, and did they reauthenticate?"
 
@@ -122,10 +125,11 @@ Install [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) 
 - `wp_sudo_action_blocked( $user_id, $rule_id, $surface )` — denied by policy.
 - `wp_sudo_action_allowed( $user_id, $rule_id, $surface )` — permitted by policy.
 - `wp_sudo_action_replayed( $user_id, $rule_id )` — stashed request replayed after reauth.
+- `wp_sudo_capability_tampered( $role, $capability )` — a removed capability was re-detected on a role (possible database tampering).
 
 ### Does it support two-factor authentication?
 
-Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is installed and the user has 2FA enabled, the sudo challenge becomes a two-step process: password first, then the configured 2FA method (TOTP, email code, backup codes, etc.). A visible countdown timer shows how long the user has to enter their code. Third-party 2FA plugins can integrate via filter hooks.
+Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is installed and the user has 2FA enabled, the sudo challenge becomes a two-step process: password first, then the configured 2FA method (TOTP, email code, backup codes, etc.). For passkey and security key support, add the [WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/) plugin. A visible countdown timer shows how long the user has to enter their code. Third-party 2FA plugins can integrate via filter hooks.
 
 ### Does it work on multisite?
 
