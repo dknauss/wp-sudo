@@ -166,6 +166,14 @@ class Challenge {
 		$stash_key    = isset( $_GET['stash_key'] ) ? sanitize_text_field( wp_unslash( $_GET['stash_key'] ) ) : '';
 		$session_only = empty( $stash_key );
 
+		// Compute cancel URL — mirrors enqueue_assets() logic.
+		$default_url = is_network_admin() ? network_admin_url() : admin_url();
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing data only.
+		$return_url = isset( $_GET['return_url'] ) ? sanitize_url( wp_unslash( $_GET['return_url'] ) ) : '';
+		$cancel_url = $return_url
+			? wp_validate_redirect( $return_url, $default_url )
+			: $default_url;
+
 		if ( $session_only ) {
 			// Session-only mode: no stash, just activate a sudo session.
 			$stash        = null;
@@ -239,7 +247,7 @@ class Challenge {
 								<?php disabled( $is_locked ); ?>>
 								<?php esc_html_e( 'Confirm & Continue', 'wp-sudo' ); ?>
 							</button>
-							<a href="<?php echo esc_url( is_network_admin() ? network_admin_url() : admin_url() ); ?>" class="button">
+							<a href="<?php echo esc_url( $cancel_url ); ?>" class="button">
 								<?php esc_html_e( 'Cancel', 'wp-sudo' ); ?>
 							</a>
 						</p>
@@ -281,7 +289,7 @@ class Challenge {
 								id="wp-sudo-challenge-2fa-submit">
 								<?php esc_html_e( 'Verify & Continue', 'wp-sudo' ); ?>
 							</button>
-							<a href="<?php echo esc_url( is_network_admin() ? network_admin_url() : admin_url() ); ?>" class="button">
+							<a href="<?php echo esc_url( $cancel_url ); ?>" class="button">
 								<?php esc_html_e( 'Cancel', 'wp-sudo' ); ?>
 							</a>
 						</p>

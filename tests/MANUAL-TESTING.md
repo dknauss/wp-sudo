@@ -27,6 +27,7 @@ real WordPress environment before each release.
 - [ ] A second user account exists for role-change and delete-user tests.
 - [ ] Browser DevTools are open to the **Console** and **Network** tabs
       for observing errors and REST responses.
+- [ ] The user conduting the tests has a role of Administrator or Super Administrator (on Multisite).
 
 ---
 
@@ -79,108 +80,141 @@ real WordPress environment before each release.
 
 ## 2. Admin UI Gating (Stash-Challenge-Replay)
 
-For each test below, ensure **no sudo session is active**.
+For each test below, log in with an Administrator account, and ensure **no sudo session is active** when you start.
 
-### 2.1 Activate Plugin
+### 2.1 Activate Plugins
 
-1. Go to **Plugins**.
-2. Click **Activate** on an inactive plugin.
-3. **Expected:** Redirected to challenge page with label "Activate
-   plugin."
-4. Authenticate.
-5. **Expected:** Redirected back to Plugins. The plugin is now active.
+1. Go to **Plugins** on single instance sites or any plugins screen on a multisite network — for an individual site or the network itself. 
+2. It should not be possible to click the grayed-out (disabled) **(Network) Activate** links on inactive plugins.
+3. A notification should be visible at the top of the screen with a link and the keyboard command for starting a sudo session. **Use either method.**
+4. **Expected:** Redirected to challenge page with a password prompt followed by a 2FA challenge if 2FA is installed and active. Canceling will redirect back to the originating Plugins screen.
+5. **Authenticate.**
+6. **Expected:** Redirected back to Plugins on successful reauthentication. It is now possible the activate inactive plugins freely, until the sudo session expires. 
 
-### 2.2 Deactivate Plugin
+### 2.2 Deactivate Plugins
 
-1. Click **Deactivate** on an active plugin (not WP Sudo itself).
-2. **Expected:** Challenge page with label "Deactivate plugin."
-3. Authenticate.
-4. **Expected:** Plugin is deactivated.
+1. Go to **Plugins** on single instance sites or any plugins screen on a multisite network — for an individual site or the network itself. 
+2. It should not be possible to click the grayed-out (disabled) **(Network) Deactivate** links on active plugins.
+3. A notification should be visible at the top of the screen with a link and the keyboard command for starting a sudo session. Use either method.
+4. **Expected:** Redirected to challenge page with a password prompt followed by a 2FA challenge if 2FA is installed and active. Canceling will redirect back to the originating Plugins screen.
+5. **Authenticate.**
+6. **Expected:** Redirected back to originating Plugins screen on successful reauthentication. If the latter, it is now possible the deactivate active plugins freely, until the sudo session expires. 
 
-### 2.3 Delete Plugin
+### 2.3 Delete Plugins
 
-1. Deactivate a plugin first (with sudo active), then let the session
-   expire.
-2. Click **Delete** on the deactivated plugin.
-3. **Expected:** Challenge with "Delete plugin."
-4. Authenticate.
-5. **Expected:** Plugin is deleted.
+1. Go to **Plugins** on single instance sites or the plugins screen for the network root in a multisite network. 
+2. Deactivate a plugin first (with sudo active), then let the session expire. It should not be possible to click the grayed-out (disabled) **(Network) Delete** links on inactive plugins.
+3. A notification should be visible at the top of the screen with a link and the keyboard command for starting a sudo session. **Use either method.**
+4. **Expected:** Redirected to challenge page with a password prompt followed by a 2FA challenge if 2FA is installed and active. Canceling will redirect back to the originating Plugins screen. 
+5. **Authenticate.**
+6. **Expected:** Redirected back to Plugins when authentication is successful. It is now possible to delete inactive plugins freely, until the sudo session expires. 
 
-### 2.4 Switch Theme
+### 2.4 Activate / Deactivate Themes
 
-1. Go to **Appearance > Themes**.
-2. Activate a different theme.
-3. **Expected:** Challenge with "Switch theme."
+#### Multisite
+
+1. Go to **Appearance > Themes** on the network root in a multisite network. 
+2. Click **Network Enable** on any network disabled theme with sudo inactive.
+3. **Expected:** Redirected to challenge page with a password prompt followed by a 2FA challenge if 2FA is installed and active. Redirected back to originating Themes page on cancel.
+4. **Authenticate.**
+5. **Expected:** If authentication is successful, it is now possible to activate inactive themes per site or activate and deactivate network themes freely, until the sudo session expires. 
+
+#### Single Instance or Subsite on Multisite Network
+
+1. Go to **Appearance > Themes** on a single instance site or any single site in a multisite network.
+2. It should not be possible to click the grayed-out (disabled) **Activate** button on inactive theme unless sudo is active. A notification should be visible at the top of the screen with a link and the keyboard command for starting a sudo session. **Use either method.**
+3. **Expected:** Redirected to challenge page with a password prompt followed by a 2FA challenge if 2FA is installed and active. Redirected back to originating Themes page on cancel. 
+4. **Authenticate.** 
+5. **Expected:** If authentication is successful, it is now possible to activate inactive themes and deactivate active themes freely, until the sudo session expires. 
 
 ### 2.5 Delete User
 
-1. Go to **Users**.
+1. Go to **Users** on any single instance site, a multisite network subsite, or the multisite network users screen.
 2. Hover over a non-admin user, click **Delete**.
-3. **Expected:** Challenge with "Delete user."
+3. **Expected:** Redirected to confirmation screen. 
+4. Click **Confirm Deletion**.
+5. **Expected:** Redirected to challenge page with a password prompt followed by a 2FA challenge if 2FA is installed and active. Canceling will redirect back to the originating Users screen.
+6. **Authenticate.**
+6. **Expected:** If authentication is successful, it is now possible to delete other users freely, until the sudo session expires. 
 
 ### 2.6 Change User Role
 
-1. Go to **Users**.
+1. Go to **Users** on a single-instance site or subsite within a multisite network. 
 2. Select a user via checkbox, choose a new role from the "Change role
-   to" dropdown, click **Change**.
-3. **Expected:** Challenge with "Change user role."
+   to" dropdown, click **Change**. This can also be achieved from individual user profile pages, using the role selection dropdown. 
+3. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. *Note that it’s not possible to change your own user role if the result would demote you to a role that can’t re-promote itself to your current level.*
+4. **Authenticate.**
+5. **Expected:** Redirected to originating page with confirmation notice about changed user role.
 
 ### 2.7 Create User
 
 1. Go to **Users > Add New**.
 2. Fill in the form and submit.
-3. **Expected:** Challenge with "Create new user."
+3. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. 
+4. **Authenticate.**
+5. **Expected:** Redirected to originating page with confirmation notice about newly created user.
 
-### 2.8 Change Critical Site Setting
+### 2.8 Change a Critical Site Setting
 
 1. Go to **Settings > General**.
-2. Change the **Administration Email Address** and save.
-3. **Expected:** Challenge with "Change critical site setting."
+2. Change the **Administration Email Address** (or anything else on this screen) and save.
+3. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. 
+4. **Authenticate.**
+5. **Expected:** Redirected to originating page with confirmation notice about changed settings.
+
 
 ### 2.9 Change WP Sudo Settings (Self-Protection)
 
 1. Go to **Settings > Sudo** and change any value. Save.
-2. **Expected:** Challenge with "Change WP Sudo settings."
+2. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. 
+3. **Authenticate.**
+4. **Expected:** Redirected to originating page with confirmation notice about changed settings.
 
 ### 2.10 Export Site Data
 
 1. Go to **Tools > Export**.
 2. Click **Download Export File**.
-3. **Expected:** Challenge with "Export site data."
+3. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. 
+4. **Authenticate.**
+5. **Expected:** Redirected to originating page with confirmation notice about export as export file is downloaded.
 
 ### 2.11 Edit Plugin/Theme File
 
-1. Go to **Plugins > Plugin File Editor** (or Theme File Editor).
+1. Go to **Plugins > Plugin File Editor** (or Theme File Editor) if this is availabie — often it is (and should be) disabled.
 2. Edit a file and click **Update File**.
-3. **Expected:** Challenge with "Edit plugin file" (or "Edit theme
-   file").
+3. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. 
+4. **Authenticate.**
+5. **Expected:** Redirected to theme/file editor.
 
-### 2.12 Bypass with Active Session
+### 2.12 Bypass Reauth Challenges with Active Session
 
-1. Activate sudo (via shortcut or challenge).
+1. Activate sudo yourself by any method.
 2. Repeat any test above.
-3. **Expected:** Action proceeds immediately with no challenge.
+3. **Expected:** Action proceeds immediately with no additional reauth challenge as long as you have time remaining in an active sudo session.
 
 ---
 
-## 3. AJAX Gating
+## 3. AJAX Gating (Plugin and Theme Installers)
 
-### 3.1 Install Plugin via Search
+### 3.1 Install Plugin via Search (Multisite Network, Subsite, or Single-Instance Site)
 
 1. Ensure no sudo session is active.
-2. Go to **Plugins > Add New**.
-3. Search for a plugin (e.g. "Classic Editor") and click **Install
-   Now**.
-4. **Expected:** An inline error appears. On the next page reload, a
-   yellow admin notice reads: "Your recent action (Install plugin) was
-   blocked because it requires reauthentication" with a link to the
-   challenge page.
+2. Go to **Plugins > Add Plugin**.
+3. Search for a plugin (e.g. "Classic Editor") and confirm all **Install Now** buttons are grayed out and inoperable.
+4. A notice at the top of the screen should read: “Installing, activating, updating, and deleting themes and plugins requires an active sudo session. Confirm your identity [link] or press Cmd+Shift+S to start one.” Follow either method.
+5. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. 
+6. **Authenticate.** 
+7. **Expected:** Redirected to originating screen. **Install Now** buttons are now operable. Click one.
+8. **Expected:** Plugin installs successfully with success message. 
 
-### 3.2 Delete Theme via AJAX
+### 3.2 Delete Theme via AJAX (Multisite Network, Subsite, or Single-Instance Site)
 
-1. Go to **Appearance > Themes**, hover over an inactive theme, click
-   **Theme Details**, then **Delete**.
-2. **Expected:** Error dialog. Admin notice on next page load.
+1. Go to **Appearance > Themes**, and look for an inactive theme. Any visible **Delete** links should be grayed-out and inoperable. 
+2. A notice at the top of the screen should read: “Installing, activating, updating, and deleting themes and plugins requires an active sudo session. Confirm your identity [link] or press Cmd+Shift+S to start one.” Follow either method.
+3. **Expected:** Redirected to sudo reauthorization challenge followed by 2FA challenge if one is active. Canceling the process should redirect back to the originating page. 
+4. **Authenticate.** 
+5. **Expected:** Redirected to originating screen. **Delete** links are operable now. Click one.
+8. **Expected:** Theme is deleted with success confirmation message. 
 
 ---
 
@@ -194,8 +228,7 @@ UI communicates with the REST API.
 1. Ensure no sudo session is active.
 2. Go to **Users > Profile**, scroll to Application Passwords.
 3. Enter a name, click **Add New Application Password**.
-4. **Expected:** Error notice: "This action (Create application
-   password) requires reauthentication."
+4. **Expected:** Error notice: "This action (Create application password) requires reauthentication. Please confirm your identity."
 5. Activate sudo (Cmd+Shift+S or challenge page).
 6. Retry step 3.
 7. **Expected:** Password is created successfully. The new password is

@@ -843,12 +843,20 @@ class Gate {
 	private function block_rest( array $matched_rule ): \WP_Error {
 		$this->set_blocked_transient( $matched_rule );
 
+		// phpcs:disable WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___SERVER__HTTP_USER_AGENT__ -- UI hint only.
+		$is_mac = isset( $_SERVER['HTTP_USER_AGENT'] )
+			&& false !== strpos( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 'Mac' );
+		// phpcs:enable WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___SERVER__HTTP_USER_AGENT__
+
+		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
+
 		return new \WP_Error(
 			'sudo_required',
 			sprintf(
-				/* translators: %s: action label (e.g. "Delete plugin") */
-				__( 'This action (%s) requires reauthentication. Please confirm your identity.', 'wp-sudo' ),
-				$matched_rule['label'] ?? $matched_rule['id']
+				/* translators: 1: action label (e.g. "Delete plugin"), 2: keyboard shortcut */
+				__( 'This action (%1$s) requires reauthentication. Press %2$s or reload the page to confirm your identity.', 'wp-sudo' ),
+				$matched_rule['label'] ?? $matched_rule['id'],
+				$shortcut
 			),
 			array(
 				'status'  => 403,
@@ -872,13 +880,20 @@ class Gate {
 			? network_admin_url( 'admin.php' )
 			: admin_url( 'admin.php' );
 
-		$challenge_url = add_query_arg(
-			array(
-				'page'      => 'wp-sudo-challenge',
-				'stash_key' => $stash_key,
-			),
-			$base_url
+		// Build the return URL so the cancel button returns to the originating page.
+		$return_url = isset( $_SERVER['HTTP_REFERER'] )
+			? sanitize_url( wp_unslash( $_SERVER['HTTP_REFERER'] ) )
+			: '';
+
+		$query_args = array(
+			'page'      => 'wp-sudo-challenge',
+			'stash_key' => $stash_key,
 		);
+		if ( $return_url ) {
+			$query_args['return_url'] = rawurlencode( $return_url );
+		}
+
+		$challenge_url = add_query_arg( $query_args, $base_url );
 
 		wp_safe_redirect( $challenge_url );
 		exit;
