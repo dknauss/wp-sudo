@@ -11,11 +11,12 @@ Lint: Clean (1 pre-existing VIP warning: `HTTP_USER_AGENT` in class-gate.php)
 
 1. [Project Overview](#project-overview)
 2. [Architecture](#architecture)
-3. [Current State](#current-state)
-4. [Development History](#development-history)
-5. [Git Log](#git-log)
-6. [Codebase Metrics](#codebase-metrics)
-7. [Dev Environments](#dev-environments)
+3. [Gate Logic Flowchart](#gate-logic-flowchart)
+4. [Current State](#current-state)
+5. [Development History](#development-history)
+6. [Git Log](#git-log)
+7. [Codebase Metrics](#codebase-metrics)
+8. [Dev Environments](#dev-environments)
 
 **Appendices:**
 
@@ -78,6 +79,161 @@ WP Sudo is a WordPress plugin that provides action-gated reauthentication. Dange
 ### Testing Stack
 
 Brain\Monkey (WordPress function/hook mocking), Mockery (object mocking), Patchwork (redefining `setcookie`/`header`). PHPUnit strict mode enabled.
+
+---
+
+## Gate Logic Flowchart
+
+The Gate class (`class-gate.php`) is the heart of WP Sudo. Every incoming request is classified by surface and routed through the appropriate interception path.
+
+```
+                         ┌──────────────────┐
+                         │  Incoming Request │
+                         └────────┬─────────┘
+                                  │
+                         ┌────────▼─────────┐
+                         │  detect_surface() │
+                         └────────┬─────────┘
+                                  │
+              ┌───────┬───────┬───┴───┬────────┬─────────┐
+              │       │       │       │        │         │
+           ┌──▼──┐ ┌──▼──┐ ┌─▼──┐ ┌──▼───┐ ┌──▼───┐ ┌──▼──┐
+           │admin│ │ajax │ │rest│ │ cli  │ │ cron │ │xmlrpc│
+           └──┬──┘ └──┬──┘ └─┬──┘ └──┬───┘ └──┬───┘ └──┬──┘
+              │       │      │       │        │        │
+              │       │      │       └────┬───┘────────┘
+              │       │      │            │
+              │       │      │   ┌────────▼──────────┐
+              │       │      │   │ gate_non_interactive()  │
+              │       │      │   │  (init priority 0) │
+              │       │      │   └────────┬──────────┘
+              │       │      │            │
+              │       │      │   ┌────────▼──────────┐
+              │       │      │   │   get_policy()    │
+              │       │      │   └────────┬──────────┘
+              │       │      │            │
+              │       │      │     ┌──────┼──────┐
+              │       │      │     │      │      │
+              │       │      │  disabled limited unrestricted
+              │       │      │     │      │      │
+              │       │      │  wp_die/  hook    pass
+              │       │      │  exit   function  through
+              │       │      │         actions
+              │       │      │            │
+              │       │      │   register_function_hooks()
+              │       │      │     activate_plugin
+              │       │      │     pre_update_option_active_plugins
+              │       │      │     delete_plugin / delete_theme
+              │       │      │     upgrader_pre_install
+              │       │      │     delete_user / set_user_role
+              │       │      │     pre_update_option_{critical}
+              │       │      │     export_wp
+              │       │      │            │
+              │       │      │         wp_die
+              │       │      │    + wp_sudo_action_blocked
+              │       │      │
+              │       │      │
+      ┌───────▼───────▼──┐  │
+      │   intercept()    │  │
+      │(admin_init pri 1)│  │
+      └───────┬──────────┘  │
+              │             │
+      ┌───────▼──────────┐  │  ┌────────────────────┐
+      │  logged in?      │  │  │  intercept_rest()   │
+      │  (user_id > 0)   │  │  │(rest_request_before │
+      └───────┬──────────┘  │  │    _callbacks)      │
+          no  │  yes        │  └────────┬───────────┘
+          │   │             │           │
+       return │             │  ┌────────▼──────────┐
+              │             │  │   logged in?       │
+      ┌───────▼──────────┐  │  └────────┬──────────┘
+      │ match_request()  │  │       no  │  yes
+      │ for surface      │  │       │   │
+      └───────┬──────────┘  │    return │
+              │             │           │
+      ┌───────▼──────────┐  │  ┌────────▼──────────┐
+      │  rule matched?   │  │  │ match_request()   │
+      └───────┬──────────┘  │  │ for 'rest'        │
+          no  │  yes        │  └────────┬──────────┘
+          │   │             │           │
+       return │             │  ┌────────▼──────────┐
+              │             │  │  rule matched?     │
+      ┌───────▼──────────┐  │  └────────┬──────────┘
+      │ sudo session     │  │      no   │  yes
+      │ active?          │  │      │    │
+      └───────┬──────────┘  │   return  │
+         yes  │  no         │           │
+          │   │             │  ┌────────▼──────────┐
+       return │             │  │ sudo session      │
+              │             │  │ active?           │
+      ┌───────▼──────────┐  │  └────────┬──────────┘
+      │wp_sudo_action_   │  │     yes   │  no
+      │  gated (hook)    │  │      │    │
+      └───────┬──────────┘  │   return  │
+              │             │           │
+        ┌─────┴──────┐     │  ┌────────▼──────────┐
+        │            │     │  │ cookie auth?       │
+     ┌──▼───┐  ┌────▼──┐  │  │ (X-WP-Nonce valid) │
+     │admin │  │ ajax  │  │  └────────┬──────────┘
+     └──┬───┘  └───┬───┘  │     yes   │  no
+        │          │      │      │    │
+  ┌─────▼─────┐    │      │      │  ┌─▼────────────────┐
+  │  stash    │    │      │      │  │ App Password /    │
+  │  request  │    │      │      │  │ Bearer policy     │
+  └─────┬─────┘    │      │      │  └─┬────────────────┘
+        │          │      │      │    │
+  ┌─────▼─────┐    │      │      │  ┌─┼──────┬──────────┐
+  │ redirect  │    │      │      │  │ │      │          │
+  │ to        │    │      │   disabled limited unrestricted
+  │ challenge │    │      │      │  │ │      │          │
+  │ page      │    │      │      │  │ │    wp_sudo_   return
+  └───────────┘    │      │      │  │ │    action_      │
+                   │      │      │  │ │    blocked     pass
+            ┌──────▼───┐  │      │  sudo_    │       through
+            │ JSON     │  │      │  disabled sudo_
+            │ error    │  │      │    403   blocked
+            │ sudo_    │  │      │           403
+            │ required │  │      │
+            └──────┬───┘  │   ┌──▼──────────┐
+                   │      │   │wp_sudo_     │
+            ┌──────▼───┐  │   │action_gated │
+            │ set      │  │   └──┬──────────┘
+            │ blocked  │  │      │
+            │ transient│  │   ┌──▼──────────┐
+            └──────────┘  │   │ sudo_       │
+                          │   │ required    │
+                          │   │ WP_Error    │
+                          │   │ + blocked   │
+                          │   │ transient   │
+                          │   └─────────────┘
+                          │
+```
+
+### Rule Matching
+
+```
+matches_admin():
+  pagenow ∈ rule.admin.pagenow[]
+  $_REQUEST[action] ∈ rule.admin.actions[]
+  REQUEST_METHOD = rule.admin.method (or ANY)
+  rule.admin.callback() if set
+
+matches_ajax():
+  $_REQUEST[action] ∈ rule.ajax.actions[]
+
+matches_rest():
+  route ~ rule.rest.route (regex)
+  method ∈ rule.rest.methods[]
+  rule.rest.callback($request) if set
+```
+
+### Key Paths
+
+1. **Admin UI** (form submissions) → match rule → no sudo → stash POST → redirect to challenge page → authenticate → replay stashed request
+2. **AJAX** (plugin/theme installers) → match rule → no sudo → JSON error `sudo_required` → set transient → admin notice on next page load with challenge link
+3. **REST cookie-auth** (browser) → match rule → no sudo → `WP_Error` `sudo_required` → admin notice fallback
+4. **REST app-password** → match rule → no sudo → check policy → `sudo_disabled` / `sudo_blocked` / pass through
+5. **CLI / Cron / XML-RPC** → check policy → disabled kills everything; limited hooks into WordPress function-level actions and `wp_die()`s when they fire; unrestricted passes through
 
 ---
 
