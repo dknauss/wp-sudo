@@ -40,13 +40,13 @@ class AdminTest extends TestCase {
 		$this->assertArrayHasKey( 'xmlrpc_policy', $defaults );
 	}
 
-	public function test_defaults_policies_are_block(): void {
+	public function test_defaults_policies_are_limited(): void {
 		$defaults = Admin::defaults();
 
-		$this->assertSame( Gate::POLICY_BLOCK, $defaults['rest_app_password_policy'] );
-		$this->assertSame( Gate::POLICY_BLOCK, $defaults['cli_policy'] );
-		$this->assertSame( Gate::POLICY_BLOCK, $defaults['cron_policy'] );
-		$this->assertSame( Gate::POLICY_BLOCK, $defaults['xmlrpc_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $defaults['rest_app_password_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $defaults['cli_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $defaults['cron_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $defaults['xmlrpc_policy'] );
 	}
 
 	public function test_defaults_no_allowed_roles_key(): void {
@@ -114,16 +114,16 @@ class AdminTest extends TestCase {
 		$admin  = new Admin();
 		$result = $admin->sanitize_settings( array(
 			'session_duration'         => 15,
-			'cli_policy'               => 'allow',
-			'cron_policy'              => 'block',
-			'xmlrpc_policy'            => 'allow',
-			'rest_app_password_policy' => 'block',
+			'cli_policy'               => 'disabled',
+			'cron_policy'              => 'limited',
+			'xmlrpc_policy'            => 'unrestricted',
+			'rest_app_password_policy' => 'disabled',
 		) );
 
-		$this->assertSame( 'allow', $result['cli_policy'] );
-		$this->assertSame( 'block', $result['cron_policy'] );
-		$this->assertSame( 'allow', $result['xmlrpc_policy'] );
-		$this->assertSame( 'block', $result['rest_app_password_policy'] );
+		$this->assertSame( 'disabled', $result['cli_policy'] );
+		$this->assertSame( 'limited', $result['cron_policy'] );
+		$this->assertSame( 'unrestricted', $result['xmlrpc_policy'] );
+		$this->assertSame( 'disabled', $result['rest_app_password_policy'] );
 	}
 
 	public function test_sanitize_rejects_invalid_policy_values(): void {
@@ -136,20 +136,20 @@ class AdminTest extends TestCase {
 			'cron_policy'      => 'something',
 		) );
 
-		$this->assertSame( 'block', $result['cli_policy'] );
-		$this->assertSame( 'block', $result['cron_policy'] );
+		$this->assertSame( 'limited', $result['cli_policy'] );
+		$this->assertSame( 'limited', $result['cron_policy'] );
 	}
 
-	public function test_sanitize_defaults_missing_policies_to_block(): void {
+	public function test_sanitize_defaults_missing_policies_to_limited(): void {
 		Functions\when( 'absint' )->alias( fn( $val ) => abs( (int) $val ) );
 
 		$admin  = new Admin();
 		$result = $admin->sanitize_settings( array( 'session_duration' => 15 ) );
 
-		$this->assertSame( 'block', $result['cli_policy'] );
-		$this->assertSame( 'block', $result['cron_policy'] );
-		$this->assertSame( 'block', $result['xmlrpc_policy'] );
-		$this->assertSame( 'block', $result['rest_app_password_policy'] );
+		$this->assertSame( 'limited', $result['cli_policy'] );
+		$this->assertSame( 'limited', $result['cron_policy'] );
+		$this->assertSame( 'limited', $result['xmlrpc_policy'] );
+		$this->assertSame( 'limited', $result['rest_app_password_policy'] );
 	}
 
 	// -----------------------------------------------------------------

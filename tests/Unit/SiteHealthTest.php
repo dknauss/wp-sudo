@@ -104,14 +104,14 @@ class SiteHealthTest extends TestCase {
 
 	// ── test_policy_review() ─────────────────────────────────────────
 
-	public function test_policy_review_returns_good_when_all_block(): void {
+	public function test_policy_review_returns_good_when_all_limited(): void {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'get_option' )->justReturn(
 			array(
-				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_BLOCK,
-				Gate::SETTING_CLI_POLICY           => Gate::POLICY_BLOCK,
-				Gate::SETTING_CRON_POLICY          => Gate::POLICY_BLOCK,
-				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_BLOCK,
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_LIMITED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_LIMITED,
 			)
 		);
 
@@ -121,15 +121,32 @@ class SiteHealthTest extends TestCase {
 		$this->assertSame( 'wp_sudo_policies', $result['test'] );
 	}
 
-	public function test_policy_review_returns_recommended_when_some_allow(): void {
+	public function test_policy_review_returns_good_when_all_disabled(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_DISABLED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_DISABLED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_DISABLED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_DISABLED,
+			)
+		);
+
+		$result = $this->health->test_policy_review();
+
+		$this->assertSame( 'good', $result['status'] );
+		$this->assertSame( 'wp_sudo_policies', $result['test'] );
+	}
+
+	public function test_policy_review_returns_recommended_when_some_unrestricted(): void {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'esc_html' )->returnArg();
 		Functions\when( 'get_option' )->justReturn(
 			array(
-				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_ALLOW,
-				Gate::SETTING_CLI_POLICY           => Gate::POLICY_BLOCK,
-				Gate::SETTING_CRON_POLICY          => Gate::POLICY_BLOCK,
-				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_BLOCK,
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_UNRESTRICTED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_LIMITED,
 			)
 		);
 

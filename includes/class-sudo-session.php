@@ -331,7 +331,7 @@ class Sudo_Session {
 				$challenge_nonce,
 				array(
 					'expires'  => $expires_at,
-					'path'     => ADMIN_COOKIE_PATH,
+					'path'     => COOKIEPATH,
 					'domain'   => COOKIE_DOMAIN,
 					'secure'   => is_ssl(),
 					'httponly' => true,
@@ -451,7 +451,7 @@ class Sudo_Session {
 			'',
 			array(
 				'expires'  => time() - YEAR_IN_SECONDS,
-				'path'     => ADMIN_COOKIE_PATH,
+				'path'     => COOKIEPATH,
 				'domain'   => COOKIE_DOMAIN,
 				'secure'   => is_ssl(),
 				'httponly' => true,
@@ -505,13 +505,31 @@ class Sudo_Session {
 
 		$duration = (int) Admin::get( 'session_duration', 15 );
 
+		// Expire any stale cookie from the old ADMIN_COOKIE_PATH scope.
+		// Without this, browsers that still hold the old /wp-admin cookie
+		// may send it instead of (or alongside) the new COOKIEPATH one,
+		// causing verify_token() to fail on admin pages.
+		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
+		setcookie(
+			self::TOKEN_COOKIE,
+			'',
+			array(
+				'expires'  => time() - YEAR_IN_SECONDS,
+				'path'     => ADMIN_COOKIE_PATH,
+				'domain'   => COOKIE_DOMAIN,
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Strict',
+			)
+		);
+
 		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
 		setcookie(
 			self::TOKEN_COOKIE,
 			$token,
 			array(
 				'expires'  => time() + ( $duration * MINUTE_IN_SECONDS ),
-				'path'     => ADMIN_COOKIE_PATH,
+				'path'     => COOKIEPATH,
 				'domain'   => COOKIE_DOMAIN,
 				'secure'   => is_ssl(),
 				'httponly' => true,
@@ -556,20 +574,23 @@ class Sudo_Session {
 		delete_user_meta( $user_id, self::META_KEY );
 		delete_user_meta( $user_id, self::TOKEN_META_KEY );
 
-		// Expire the cookie.
-		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-		setcookie(
-			self::TOKEN_COOKIE,
-			'',
-			array(
-				'expires'  => time() - YEAR_IN_SECONDS,
-				'path'     => ADMIN_COOKIE_PATH,
-				'domain'   => COOKIE_DOMAIN,
-				'secure'   => is_ssl(),
-				'httponly' => true,
-				'samesite' => 'Strict',
-			)
-		);
+		// Expire cookies on both paths — clears the current COOKIEPATH cookie
+		// and any stale cookie from the old ADMIN_COOKIE_PATH scope.
+		foreach ( array( COOKIEPATH, ADMIN_COOKIE_PATH ) as $path ) {
+			// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
+			setcookie(
+				self::TOKEN_COOKIE,
+				'',
+				array(
+					'expires'  => time() - YEAR_IN_SECONDS,
+					'path'     => $path,
+					'domain'   => COOKIE_DOMAIN,
+					'secure'   => is_ssl(),
+					'httponly' => true,
+					'samesite' => 'Strict',
+				)
+			);
+		}
 
 		unset( $_COOKIE[ self::TOKEN_COOKIE ] ); // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
 	}

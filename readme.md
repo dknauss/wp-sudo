@@ -34,7 +34,7 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 **Browser requests (admin UI):** The user sees an interstitial challenge page. After entering their password (and 2FA code if configured), the original request is replayed automatically. **AJAX and REST requests** receive a `sudo_required` error; an admin notice on the next page load links to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
-**Non-interactive requests (WP-CLI, Cron, XML-RPC, Application Passwords):** Configurable per-surface policies. Each can be set to Block (default) or Allow. WP-CLI in Allow mode requires the `--sudo` flag.
+**Non-interactive requests (WP-CLI, Cron, XML-RPC, Application Passwords):** Configurable per-surface policies with three modes: **Disabled** (shuts off the surface entirely), **Limited** (default — gated actions are blocked, non-gated work proceeds normally), and **Unrestricted** (everything passes through as if WP Sudo isn't installed).
 
 ### Security Features
 
@@ -97,11 +97,11 @@ See the table in the Description section above. The settings page also includes 
 
 ### What about REST API and Application Passwords?
 
-Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting (Block or Allow, default Block). When blocked, these requests receive a 403 error with a `sudo_blocked` code.
+Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting with three modes: Disabled (returns `sudo_disabled`), Limited (default — returns `sudo_blocked`), and Unrestricted (passes through with no checks).
 
 ### What about WP-CLI, Cron, and XML-RPC?
 
-Each has its own policy setting (Block or Allow, default Block). WP-CLI in Allow mode requires the `--sudo` flag. Blocked operations are logged via audit hooks.
+Each has its own three-tier policy setting: Disabled, Limited (default), or Unrestricted. In Limited mode, gated actions are blocked and logged via audit hooks while non-gated commands work normally. When CLI is Limited or Unrestricted, `wp cron` subcommands still respect the Cron policy — if Cron is Disabled, those commands are blocked even when CLI allows other operations.
 
 ### How does session binding work?
 
@@ -214,6 +214,12 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 | `wp_sudo_validate_two_factor` | Validate a 2FA code (for third-party 2FA plugins). |
 | `wp_sudo_render_two_factor_fields` | Render 2FA input fields (for third-party 2FA plugins). |
 
+## Testing
+
+Automated tests: `composer test` runs the PHPUnit suite (see [CLAUDE.md](CLAUDE.md) for commands).
+
+Manual testing: [`tests/MANUAL-TESTING.md`](tests/MANUAL-TESTING.md) contains step-by-step verification procedures for all gated surfaces — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and entry point policies. Run these against a real WordPress environment before each release.
+
 ## Screenshots
 
 1. **Challenge page** — reauthentication interstitial with password field. Triggered by a gated action or proactively via the keyboard shortcut.
@@ -246,6 +252,17 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 
 ## Changelog
 
+### 2.2.0
+
+- **Three-tier entry point policies** — replaces the binary Block/Allow toggle with three modes per surface: Disabled (shuts off the protocol entirely), Limited (default — gated actions blocked, non-gated work proceeds normally), and Unrestricted (everything passes through).
+- **Function-level gating for non-interactive surfaces** — WP-CLI, Cron, and XML-RPC now hook into WordPress function-level actions (`activate_plugin`, `delete_plugin`, `set_user_role`, etc.) instead of matching request parameters. This makes gating reliable regardless of how the operation is triggered.
+- **CLI enforces Cron policy** — `wp cron` subcommands respect the Cron policy even when CLI is Limited or Unrestricted. If Cron is Disabled, `wp cron event run` is blocked.
+- **REST API policy split** — Disabled returns `sudo_disabled` (surface is off), Limited returns `sudo_blocked` (gated action denied), clearly distinguishing the two rejection reasons.
+- **Automatic upgrade migration** — existing `block` settings migrate to `limited`, `allow` to `unrestricted`. Multisite-aware.
+- **Site Health updated** — Disabled is treated as valid hardening (Good status). Unrestricted triggers a Recommended notice.
+- **Manual testing guide** — comprehensive step-by-step verification procedures in `tests/MANUAL-TESTING.md`.
+- **327 unit tests, 752 assertions.**
+
 ### 2.1.0
 
 - Removes the `unfiltered_html` capability from the Editor role. Editors can no longer embed scripts, iframes, or other non-whitelisted HTML — KSES sanitization is always active for editors. Administrators retain `unfiltered_html`. The capability is restored if the plugin is deactivated or uninstalled.
@@ -260,7 +277,7 @@ Complete rewrite. Action-gated reauthentication replaces role-based privilege es
 - **New model** — gates dangerous operations behind reauthentication for any user, regardless of role. No custom role, no capability escalation.
 - **Full attack surface coverage** — admin UI (stash-challenge-replay), AJAX (error + admin notice + session activation), REST API (cookie-auth challenge, app-password policy), WP-CLI, Cron, XML-RPC.
 - **Action Registry** — 20 gated rules across 7 categories (plugins, themes, users, editors, options, updates, tools), plus 8 multisite-specific rules. Extensible via `wp_sudo_gated_actions` filter.
-- **Entry point policies** — configurable Block/Allow for REST Application Passwords, WP-CLI, Cron, and XML-RPC.
+- **Entry point policies** — three-tier Disabled/Limited/Unrestricted policies for REST Application Passwords, WP-CLI, Cron, and XML-RPC.
 - **2FA browser binding** — challenge cookie prevents cross-browser 2FA replay.
 - **2FA countdown timer** — visible countdown during the verification step; configurable window via `wp_sudo_two_factor_window` filter.
 - **Self-protection** — WP Sudo settings changes are gated.

@@ -237,6 +237,198 @@ class UpgraderTest extends TestCase {
 		$upgrader->maybe_upgrade();
 	}
 
+	// ── 2.2.0 migration ─────────────────────────────────────────────
+
+	public function test_220_migrates_block_to_limited(): void {
+		$old_settings = array(
+			'session_duration'         => 10,
+			'cli_policy'               => 'block',
+			'cron_policy'              => 'block',
+			'xmlrpc_policy'            => 'block',
+			'rest_app_password_policy' => 'block',
+		);
+
+		Functions\when( 'get_option' )->alias( function ( $key, $default = false ) use ( $old_settings ) {
+			if ( Upgrader::VERSION_OPTION === $key ) {
+				return '2.1.0';
+			}
+			if ( Admin::OPTION_KEY === $key ) {
+				return $old_settings;
+			}
+			return $default;
+		} );
+
+		Functions\when( 'get_role' )->justReturn( null );
+
+		Functions\expect( 'update_option' )
+			->with(
+				Admin::OPTION_KEY,
+				\Mockery::on( function ( $settings ) {
+					return 'limited' === $settings['cli_policy']
+						&& 'limited' === $settings['cron_policy']
+						&& 'limited' === $settings['xmlrpc_policy']
+						&& 'limited' === $settings['rest_app_password_policy']
+						&& 10 === $settings['session_duration'];
+				} )
+			)
+			->once();
+
+		Functions\expect( 'update_option' )
+			->with( Upgrader::VERSION_OPTION, WP_SUDO_VERSION )
+			->once();
+
+		$upgrader = new Upgrader();
+		$upgrader->maybe_upgrade();
+	}
+
+	public function test_220_migrates_allow_to_unrestricted(): void {
+		$old_settings = array(
+			'session_duration'         => 15,
+			'cli_policy'               => 'allow',
+			'cron_policy'              => 'allow',
+			'xmlrpc_policy'            => 'allow',
+			'rest_app_password_policy' => 'allow',
+		);
+
+		Functions\when( 'get_option' )->alias( function ( $key, $default = false ) use ( $old_settings ) {
+			if ( Upgrader::VERSION_OPTION === $key ) {
+				return '2.1.0';
+			}
+			if ( Admin::OPTION_KEY === $key ) {
+				return $old_settings;
+			}
+			return $default;
+		} );
+
+		Functions\when( 'get_role' )->justReturn( null );
+
+		Functions\expect( 'update_option' )
+			->with(
+				Admin::OPTION_KEY,
+				\Mockery::on( function ( $settings ) {
+					return 'unrestricted' === $settings['cli_policy']
+						&& 'unrestricted' === $settings['cron_policy']
+						&& 'unrestricted' === $settings['xmlrpc_policy']
+						&& 'unrestricted' === $settings['rest_app_password_policy'];
+				} )
+			)
+			->once();
+
+		Functions\expect( 'update_option' )
+			->with( Upgrader::VERSION_OPTION, WP_SUDO_VERSION )
+			->once();
+
+		$upgrader = new Upgrader();
+		$upgrader->maybe_upgrade();
+	}
+
+	public function test_220_preserves_already_valid_values(): void {
+		$settings = array(
+			'session_duration'         => 10,
+			'cli_policy'               => 'limited',
+			'cron_policy'              => 'disabled',
+			'xmlrpc_policy'            => 'unrestricted',
+			'rest_app_password_policy' => 'limited',
+		);
+
+		Functions\when( 'get_option' )->alias( function ( $key, $default = false ) use ( $settings ) {
+			if ( Upgrader::VERSION_OPTION === $key ) {
+				return '2.1.0';
+			}
+			if ( Admin::OPTION_KEY === $key ) {
+				return $settings;
+			}
+			return $default;
+		} );
+
+		Functions\when( 'get_role' )->justReturn( null );
+
+		// No changes needed — should only stamp the version.
+		Functions\expect( 'update_option' )
+			->once()
+			->with( Upgrader::VERSION_OPTION, WP_SUDO_VERSION );
+
+		$upgrader = new Upgrader();
+		$upgrader->maybe_upgrade();
+	}
+
+	public function test_220_skips_update_when_no_changes_needed(): void {
+		$settings = array(
+			'session_duration'         => 15,
+			'cli_policy'               => 'disabled',
+			'cron_policy'              => 'limited',
+			'xmlrpc_policy'            => 'limited',
+			'rest_app_password_policy' => 'unrestricted',
+		);
+
+		Functions\when( 'get_option' )->alias( function ( $key, $default = false ) use ( $settings ) {
+			if ( Upgrader::VERSION_OPTION === $key ) {
+				return '2.1.0';
+			}
+			if ( Admin::OPTION_KEY === $key ) {
+				return $settings;
+			}
+			return $default;
+		} );
+
+		Functions\when( 'get_role' )->justReturn( null );
+
+		// Should only update the version stamp, not settings.
+		Functions\expect( 'update_option' )
+			->once()
+			->with( Upgrader::VERSION_OPTION, WP_SUDO_VERSION );
+
+		$upgrader = new Upgrader();
+		$upgrader->maybe_upgrade();
+	}
+
+	public function test_220_multisite_uses_site_option(): void {
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		$old_settings = array(
+			'session_duration'         => 15,
+			'cli_policy'               => 'block',
+			'cron_policy'              => 'allow',
+			'xmlrpc_policy'            => 'block',
+			'rest_app_password_policy' => 'allow',
+		);
+
+		Functions\when( 'get_site_option' )->alias( function ( $key, $default = false ) use ( $old_settings ) {
+			if ( Upgrader::VERSION_OPTION === $key ) {
+				return '2.1.0';
+			}
+			if ( Admin::OPTION_KEY === $key ) {
+				return $old_settings;
+			}
+			return $default;
+		} );
+
+		Functions\when( 'get_role' )->justReturn( null );
+
+		$updated_settings = null;
+		$version_stamped  = false;
+
+		Functions\when( 'update_site_option' )->alias( function ( $key, $value ) use ( &$updated_settings, &$version_stamped ) {
+			if ( Admin::OPTION_KEY === $key ) {
+				$updated_settings = $value;
+			}
+			if ( Upgrader::VERSION_OPTION === $key ) {
+				$version_stamped = true;
+			}
+			return true;
+		} );
+
+		$upgrader = new Upgrader();
+		$upgrader->maybe_upgrade();
+
+		$this->assertNotNull( $updated_settings, 'Settings should have been updated via update_site_option.' );
+		$this->assertSame( 'limited', $updated_settings['cli_policy'] );
+		$this->assertSame( 'unrestricted', $updated_settings['cron_policy'] );
+		$this->assertSame( 'limited', $updated_settings['xmlrpc_policy'] );
+		$this->assertSame( 'unrestricted', $updated_settings['rest_app_password_policy'] );
+		$this->assertTrue( $version_stamped, 'Version should have been stamped via update_site_option.' );
+	}
+
 	public function test_210_skips_on_multisite(): void {
 		Functions\when( 'is_multisite' )->justReturn( true );
 

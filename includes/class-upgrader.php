@@ -48,6 +48,7 @@ class Upgrader {
 	private const UPGRADES = array(
 		'2.0.0' => 'upgrade_2_0_0',
 		'2.1.0' => 'upgrade_2_1_0',
+		'2.2.0' => 'upgrade_2_2_0',
 	);
 
 	/**
@@ -148,5 +149,64 @@ class Upgrader {
 	 */
 	private function upgrade_2_1_0(): void {
 		Plugin::strip_editor_unfiltered_html();
+	}
+
+	/**
+	 * 2.2.0 migration: convert entry-point policies to three-tier model.
+	 *
+	 * Maps the old binary values to the new three-tier equivalents:
+	 * - 'block' → 'limited'
+	 * - 'allow' → 'unrestricted'
+	 *
+	 * Already-valid values ('disabled', 'limited', 'unrestricted') are
+	 * preserved. Skips the database write if no changes are needed.
+	 *
+	 * @since 2.2.0
+	 *
+	 * @return void
+	 */
+	private function upgrade_2_2_0(): void {
+		$settings = is_multisite()
+			? get_site_option( Admin::OPTION_KEY, array() )
+			: get_option( Admin::OPTION_KEY, array() );
+
+		if ( ! is_array( $settings ) ) {
+			return;
+		}
+
+		$policy_keys = array(
+			Gate::SETTING_REST_APP_PASS_POLICY,
+			Gate::SETTING_CLI_POLICY,
+			Gate::SETTING_CRON_POLICY,
+			Gate::SETTING_XMLRPC_POLICY,
+		);
+
+		$migration_map = array(
+			'block' => Gate::POLICY_LIMITED,
+			'allow' => Gate::POLICY_UNRESTRICTED,
+		);
+
+		$changed = false;
+
+		foreach ( $policy_keys as $key ) {
+			if ( ! isset( $settings[ $key ] ) ) {
+				continue;
+			}
+
+			if ( isset( $migration_map[ $settings[ $key ] ] ) ) {
+				$settings[ $key ] = $migration_map[ $settings[ $key ] ];
+				$changed          = true;
+			}
+		}
+
+		if ( $changed ) {
+			if ( is_multisite() ) {
+				update_site_option( Admin::OPTION_KEY, $settings );
+			} else {
+				update_option( Admin::OPTION_KEY, $settings );
+			}
+
+			Admin::reset_cache();
+		}
 	}
 }

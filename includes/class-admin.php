@@ -235,7 +235,12 @@ class Admin {
 					'<h3>' . __( 'Session Duration', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'This setting controls how long the sudo window stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Entry Point Policies', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Each non-interactive entry point can be set to Block or Allow. When set to Block, all gated operations on that entry point are denied. WP-CLI in Allow mode requires the --sudo flag. All actions are logged regardless of policy.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Each non-interactive entry point has three modes:', 'wp-sudo' ) . '</p>'
+					. '<ul>'
+					. '<li>' . __( '<strong>Disabled</strong> — Shuts off the entire surface/protocol. No requests are processed, no checks run, nothing is logged.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Limited</strong> (default) — Only gated (dangerous) actions are blocked and logged. Non-gated operations work normally.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Unrestricted</strong> — Everything passes through as if WP Sudo is not installed. No checks, no logging.', 'wp-sudo' ) . '</li>'
+					. '</ul>'
 					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'
@@ -249,7 +254,7 @@ class Admin {
 				'title'   => __( 'Extending', 'wp-sudo' ),
 				'content' =>
 					'<h3>' . __( 'Custom Gated Actions', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Developers can add custom rules via the <code>wp_sudo_gated_actions</code> filter. Each rule defines matching criteria for admin UI, AJAX, and REST surfaces. Custom rules appear in the Gated Actions table. All rules — including custom rules — are automatically protected on non-interactive surfaces (CLI, Cron, XML-RPC, App Passwords) via policy settings, even if they don\'t define AJAX or REST criteria.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Developers can add custom rules via the <code>wp_sudo_gated_actions</code> filter. Each rule defines matching criteria for admin UI, AJAX, and REST surfaces. Custom rules appear in the Gated Actions table. All rules — including custom rules — are automatically protected on non-interactive surfaces (CLI, Cron, XML-RPC, App Passwords) via the three-tier policy settings (Disabled, Limited, Unrestricted), even if they don\'t define AJAX or REST criteria.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( '2FA Verification Window', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'The default 2FA window is 10 minutes. Use the <code>wp_sudo_two_factor_window</code> filter to adjust it (value in seconds). A visible countdown timer is shown during the verification step.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Third-Party 2FA Integration', 'wp-sudo' ) . '</h3>'
@@ -270,8 +275,8 @@ class Admin {
 					. '<li><code>wp_sudo_reauth_failed</code> — ' . __( 'Wrong password.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_lockout</code> — ' . __( 'Too many failures.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_gated</code> — ' . __( 'Intercepted, challenge shown.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_action_blocked</code> — ' . __( 'Denied by policy.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_action_allowed</code> — ' . __( 'Permitted by policy.', 'wp-sudo' ) . '</li>'
+					. '<li><code>wp_sudo_action_blocked</code> — ' . __( 'Denied by Limited policy.', 'wp-sudo' ) . '</li>'
+					. '<li><code>wp_sudo_action_allowed</code> — ' . __( 'Permitted by policy (legacy; not fired by current three-tier model).', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_replayed</code> — ' . __( 'Stashed request replayed.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_capability_tampered</code> — ' . __( 'Removed capability re-detected (possible database tampering).', 'wp-sudo' ) . '</li>'
 					. '</ul>',
@@ -353,7 +358,7 @@ class Admin {
 			'wp_sudo_policies',
 			array(
 				'key'         => Gate::SETTING_REST_APP_PASS_POLICY,
-				'description' => __( 'Whether gated operations are permitted via Application Passwords and Bearer tokens.', 'wp-sudo' ),
+				'description' => __( 'Controls non-cookie-auth REST requests (Application Passwords, Bearer tokens, OAuth). Cookie-auth browser requests always get the sudo challenge.', 'wp-sudo' ),
 			)
 		);
 
@@ -365,7 +370,7 @@ class Admin {
 			'wp_sudo_policies',
 			array(
 				'key'         => Gate::SETTING_CLI_POLICY,
-				'description' => __( 'Whether gated operations are permitted via WP-CLI. Allow mode requires the --sudo flag.', 'wp-sudo' ),
+				'description' => __( 'Disabled blocks all WP-CLI commands. Limited blocks only gated operations. Unrestricted allows everything. The wp cron subcommand also respects the Cron policy.', 'wp-sudo' ),
 			)
 		);
 
@@ -377,7 +382,7 @@ class Admin {
 			'wp_sudo_policies',
 			array(
 				'key'         => Gate::SETTING_CRON_POLICY,
-				'description' => __( 'Whether gated operations are permitted when triggered by WP-Cron.', 'wp-sudo' ),
+				'description' => __( 'Disabled stops all cron execution (WP-Cron and server-level cron). Limited blocks only gated scheduled events. Unrestricted allows everything.', 'wp-sudo' ),
 			)
 		);
 
@@ -389,7 +394,7 @@ class Admin {
 			'wp_sudo_policies',
 			array(
 				'key'         => Gate::SETTING_XMLRPC_POLICY,
-				'description' => __( 'Whether gated operations are permitted via XML-RPC.', 'wp-sudo' ),
+				'description' => __( 'Disabled shuts off the entire XML-RPC protocol. Limited blocks only gated operations. Unrestricted allows everything.', 'wp-sudo' ),
 			)
 		);
 	}
@@ -402,10 +407,10 @@ class Admin {
 	public static function defaults(): array {
 		return array(
 			'session_duration'         => 15,
-			'rest_app_password_policy' => Gate::POLICY_BLOCK,
-			'cli_policy'               => Gate::POLICY_BLOCK,
-			'cron_policy'              => Gate::POLICY_BLOCK,
-			'xmlrpc_policy'            => Gate::POLICY_BLOCK,
+			'rest_app_password_policy' => Gate::POLICY_LIMITED,
+			'cli_policy'               => Gate::POLICY_LIMITED,
+			'cron_policy'              => Gate::POLICY_LIMITED,
+			'xmlrpc_policy'            => Gate::POLICY_LIMITED,
 		);
 	}
 
@@ -455,7 +460,7 @@ class Admin {
 			$sanitized['session_duration'] = 15;
 		}
 
-		// Entry point policies: block or allow.
+		// Entry point policies: disabled, limited, or unrestricted.
 		$policy_keys = array(
 			Gate::SETTING_REST_APP_PASS_POLICY,
 			Gate::SETTING_CLI_POLICY,
@@ -463,9 +468,11 @@ class Admin {
 			Gate::SETTING_XMLRPC_POLICY,
 		);
 
+		$valid_policies = array( Gate::POLICY_DISABLED, Gate::POLICY_LIMITED, Gate::POLICY_UNRESTRICTED );
+
 		foreach ( $policy_keys as $key ) {
-			$value             = sanitize_text_field( $input[ $key ] ?? Gate::POLICY_BLOCK );
-			$sanitized[ $key ] = Gate::POLICY_ALLOW === $value ? Gate::POLICY_ALLOW : Gate::POLICY_BLOCK;
+			$value             = sanitize_text_field( $input[ $key ] ?? Gate::POLICY_LIMITED );
+			$sanitized[ $key ] = in_array( $value, $valid_policies, true ) ? $value : Gate::POLICY_LIMITED;
 		}
 
 		return $sanitized;
@@ -812,7 +819,7 @@ class Admin {
 	 * @return void
 	 */
 	public function render_section_policies(): void {
-		echo '<p>' . esc_html__( 'Control whether gated operations are permitted on non-interactive entry points. Browser-based requests (admin UI, AJAX, REST with cookie auth) always get the reauthentication challenge. All actions are logged regardless of policy.', 'wp-sudo' ) . '</p>';
+		echo '<p>' . esc_html__( 'Control how non-interactive entry points handle gated operations. Disabled shuts off the entire surface. Limited (default) blocks only gated actions and logs them. Unrestricted lets everything through with no checks or logging. Browser-based requests (admin UI, AJAX, REST with cookie auth) always get the interactive reauthentication challenge regardless of these settings.', 'wp-sudo' ) . '</p>';
 	}
 
 	/**
@@ -831,14 +838,14 @@ class Admin {
 	}
 
 	/**
-	 * Render a policy toggle field (Block / Allow).
+	 * Render a policy select field (Disabled / Limited / Unrestricted).
 	 *
 	 * @param array<string, string> $args Field arguments (key, description).
 	 * @return void
 	 */
 	public function render_field_policy( array $args ): void {
 		$key   = $args['key'] ?? '';
-		$value = self::get( $key, Gate::POLICY_BLOCK );
+		$value = self::get( $key, Gate::POLICY_LIMITED );
 
 		printf(
 			'<select id="%1$s" name="%2$s[%1$s]">',
@@ -846,14 +853,19 @@ class Admin {
 			esc_attr( self::OPTION_KEY )
 		);
 		printf(
-			'<option value="block" %s>%s</option>',
-			selected( $value, Gate::POLICY_BLOCK, false ),
-			esc_html__( 'Block (default)', 'wp-sudo' )
+			'<option value="disabled" %s>%s</option>',
+			selected( $value, Gate::POLICY_DISABLED, false ),
+			esc_html__( 'Disabled', 'wp-sudo' )
 		);
 		printf(
-			'<option value="allow" %s>%s</option>',
-			selected( $value, Gate::POLICY_ALLOW, false ),
-			esc_html__( 'Allow', 'wp-sudo' )
+			'<option value="limited" %s>%s</option>',
+			selected( $value, Gate::POLICY_LIMITED, false ),
+			esc_html__( 'Limited (default)', 'wp-sudo' )
+		);
+		printf(
+			'<option value="unrestricted" %s>%s</option>',
+			selected( $value, Gate::POLICY_UNRESTRICTED, false ),
+			esc_html__( 'Unrestricted', 'wp-sudo' )
 		);
 		echo '</select>';
 

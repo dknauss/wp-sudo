@@ -28,18 +28,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Gate {
 
 	/**
-	 * Policy value: block all gated operations on this surface.
+	 * Policy value: shut off the entire surface/protocol.
 	 *
+	 * No gating checks, no logging, nothing runs through it.
+	 *
+	 * @since 2.2.0
 	 * @var string
 	 */
-	public const POLICY_BLOCK = 'block';
+	public const POLICY_DISABLED = 'disabled';
 
 	/**
-	 * Policy value: allow gated operations on this surface.
+	 * Policy value: gated actions are blocked and logged;
+	 * non-gated operations work normally.
 	 *
+	 * @since 2.2.0
 	 * @var string
 	 */
-	public const POLICY_ALLOW = 'allow';
+	public const POLICY_LIMITED = 'limited';
+
+	/**
+	 * Policy value: everything passes through as if WP Sudo
+	 * is not installed. No checks, no logging.
+	 *
+	 * @since 2.2.0
+	 * @var string
+	 */
+	public const POLICY_UNRESTRICTED = 'unrestricted';
 
 	/**
 	 * Settings key for WP-CLI policy.
@@ -166,154 +180,320 @@ class Gate {
 	/**
 	 * Gate WP-CLI operations.
 	 *
-	 * Policy "block" (default): deny all gated operations.
-	 * Policy "allow": permit only with --sudo flag.
+	 * Three modes:
+	 * - Disabled: block ALL CLI commands immediately.
+	 * - Limited:  block only gated operations; non-gated commands work normally.
+	 * - Unrestricted: no checks, no logging.
+	 *
+	 * In Limited and Unrestricted modes, `wp cron` subcommands also
+	 * respect the Cron policy — if Cron is Disabled, `wp cron event run`
+	 * is blocked even when CLI itself is open.
+	 *
+	 * @since 2.0.0
+	 * @since 2.2.0 Three-tier model; --sudo flag removed.
 	 *
 	 * @return void
 	 */
 	public function gate_cli(): void {
 		$policy = $this->get_policy( self::SETTING_CLI_POLICY );
 
-		if ( self::POLICY_ALLOW === $policy ) {
-			// Allow mode: only permit if --sudo flag is present.
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- CLI argv is a string array; no user input.
-			$argv     = $_SERVER['argv'] ?? array();
-			$has_flag = in_array( '--sudo', (array) $argv, true );
-
-			if ( $has_flag ) {
-				/**
-				 * Fires when a gated action is allowed by policy on a non-interactive surface.
-				 *
-				 * @since 2.0.0
-				 *
-				 * @param int    $user_id Always 0 for CLI/Cron.
-				 * @param string $rule_id Empty string — CLI blocks all gated ops generically.
-				 * @param string $surface The surface: 'cli'.
-				 */
-				do_action( 'wp_sudo_action_allowed', 0, '', 'cli' );
-				return;
-			}
+		// Disabled: kill all CLI immediately.
+		if ( self::POLICY_DISABLED === $policy ) {
+			wp_die(
+				esc_html__( 'WP-CLI is disabled by WP Sudo policy.', 'wp-sudo' ),
+				'',
+				array( 'response' => 403 )
+			);
+			return; // @codeCoverageIgnore
 		}
 
-		// Block: register a pre-command hook to deny gated actions.
-		add_action(
-			'admin_init',
-			function () {
-				$matched = $this->match_request( 'admin' );
-				if ( $matched ) {
-					/**
-					 * Fires when a gated action is blocked by policy.
-					 *
-					 * @since 2.0.0
-					 *
-					 * @param int    $user_id Always 0 for CLI.
-					 * @param string $rule_id The rule ID that matched.
-					 * @param string $surface Always 'cli'.
-					 */
-					do_action( 'wp_sudo_action_blocked', 0, $matched['id'], 'cli' );
-					wp_die(
-						esc_html(
-							sprintf(
-								/* translators: %s: action label */
-								__( 'This operation (%s) requires sudo. Use the admin UI or pass --sudo.', 'wp-sudo' ),
-								$matched['label'] ?? $matched['id']
-							)
-						),
-						'',
-						array( 'response' => 403 )
-					);
-				}
-			},
-			0
-		);
+		// Limited or Unrestricted: enforce Cron policy on wp cron subcommands.
+		$this->enforce_cron_policy_on_cli();
+
+		if ( self::POLICY_UNRESTRICTED === $policy ) {
+			return;
+		}
+
+		// Limited: hook into WordPress function-level actions to deny gated operations.
+		$this->register_function_hooks( 'cli' );
+	}
+
+	/**
+	 * Enforce the Cron policy when running `wp cron` via WP-CLI.
+	 *
+	 * Prevents `wp cron event run` from bypassing a Disabled cron policy
+	 * even when CLI itself is Limited or Unrestricted.
+	 *
+	 * @since 2.2.0
+	 *
+	 * @return void
+	 */
+	private function enforce_cron_policy_on_cli(): void {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- CLI argv is a string array; no user input.
+		$argv = $_SERVER['argv'] ?? array();
+
+		if ( ! in_array( 'cron', (array) $argv, true ) ) {
+			return;
+		}
+
+		$cron_policy = $this->get_policy( self::SETTING_CRON_POLICY );
+
+		if ( self::POLICY_DISABLED === $cron_policy ) {
+			wp_die(
+				esc_html__( 'WP-Cron is disabled by WP Sudo policy. The wp cron command is not available.', 'wp-sudo' ),
+				'',
+				array( 'response' => 403 )
+			);
+		}
 	}
 
 	/**
 	 * Gate Cron operations.
 	 *
-	 * Policy "block" (default): silently deny gated operations.
-	 * Policy "allow": let them through.
+	 * Three modes:
+	 * - Disabled: exit immediately — kills the entire cron request.
+	 *   Covers both WP-Cron (page-load trigger) and server-level cron
+	 *   jobs hitting wp-cron.php directly, since both set DOING_CRON
+	 *   before init fires.
+	 * - Limited:  block only gated operations; non-gated events run normally.
+	 * - Unrestricted: no checks, no logging.
+	 *
+	 * @since 2.0.0
+	 * @since 2.2.0 Three-tier model.
 	 *
 	 * @return void
 	 */
 	public function gate_cron(): void {
 		$policy = $this->get_policy( self::SETTING_CRON_POLICY );
 
-		if ( self::POLICY_ALLOW === $policy ) {
-			/**
-			 * Fires when gated actions are allowed by policy on the cron surface.
-			 *
-			 * @since 2.0.0
-			 *
-			 * @param int    $user_id Always 0 for Cron.
-			 * @param string $rule_id Empty — cron allows all.
-			 * @param string $surface Always 'cron'.
-			 */
-			do_action( 'wp_sudo_action_allowed', 0, '', 'cron' );
+		// Disabled: kill the entire cron request immediately.
+		if ( self::POLICY_DISABLED === $policy ) {
+			exit;
+		}
+
+		if ( self::POLICY_UNRESTRICTED === $policy ) {
 			return;
 		}
 
-		// Block: silently prevent gated operations.
-		add_action(
-			'admin_init',
-			function () {
-				$matched = $this->match_request( 'admin' );
-				if ( $matched ) {
-					/** This action is documented in includes/class-gate.php */
-					do_action( 'wp_sudo_action_blocked', 0, $matched['id'], 'cron' );
-					// Silently exit — cron jobs shouldn't produce visible errors.
-					exit;
-				}
-			},
-			0
-		);
+		// Limited: hook into WordPress function-level actions to deny gated operations.
+		$this->register_function_hooks( 'cron' );
 	}
 
 	/**
 	 * Gate XML-RPC operations.
 	 *
-	 * Policy "block" (default): return XML-RPC error for gated operations.
-	 * Policy "allow": let them through.
+	 * Three modes:
+	 * - Disabled: shut off the entire XML-RPC protocol.
+	 * - Limited:  block only gated operations; non-gated methods work normally.
+	 * - Unrestricted: no checks, no logging.
+	 *
+	 * @since 2.0.0
+	 * @since 2.2.0 Three-tier model.
 	 *
 	 * @return void
 	 */
 	public function gate_xmlrpc(): void {
 		$policy = $this->get_policy( self::SETTING_XMLRPC_POLICY );
 
-		if ( self::POLICY_ALLOW === $policy ) {
-			/**
-			 * Fires when gated actions are allowed by policy on the XML-RPC surface.
-			 *
-			 * @since 2.0.0
-			 *
-			 * @param int    $user_id Always 0 for XML-RPC (at init time).
-			 * @param string $rule_id Empty — xmlrpc allows all.
-			 * @param string $surface Always 'xmlrpc'.
-			 */
-			do_action( 'wp_sudo_action_allowed', 0, '', 'xmlrpc' );
+		// Disabled: kill the entire XML-RPC protocol.
+		if ( self::POLICY_DISABLED === $policy ) {
+			add_filter( 'xmlrpc_enabled', '__return_false' );
 			return;
 		}
 
-		// Block: intercept at admin_init and return error.
+		if ( self::POLICY_UNRESTRICTED === $policy ) {
+			return;
+		}
+
+		// Limited: hook into WordPress function-level actions to deny gated operations.
+		$this->register_function_hooks( 'xmlrpc' );
+	}
+
+	/**
+	 * Register WordPress function-level hooks for non-interactive gating.
+	 *
+	 * Instead of trying to match admin UI request patterns (which don't work
+	 * on CLI, Cron, or XML-RPC), this method hooks into the WordPress actions
+	 * and filters that fire before each gated operation takes effect. These
+	 * fire regardless of which surface triggers the operation.
+	 *
+	 * @since 2.2.0
+	 *
+	 * @param string $surface The surface label: 'cli', 'cron', or 'xmlrpc'.
+	 * @return void
+	 */
+	public function register_function_hooks( string $surface ): void {
+		$block = function ( string $rule_id, string $label ) use ( $surface ): void {
+			/**
+			 * Fires when a gated action is blocked by policy.
+			 *
+			 * @since 2.0.0
+			 *
+			 * @param int    $user_id Always 0 for non-interactive surfaces.
+			 * @param string $rule_id The rule ID that matched.
+			 * @param string $surface The surface: 'cli', 'cron', or 'xmlrpc'.
+			 */
+			do_action( 'wp_sudo_action_blocked', 0, $rule_id, $surface );
+
+			if ( 'cron' === $surface ) {
+				// Silently exit — cron jobs shouldn't produce visible errors.
+				exit;
+			}
+
+			wp_die(
+				esc_html(
+					sprintf(
+						/* translators: 1: action label, 2: surface name */
+						__( 'This operation (%1$s) requires sudo and cannot be performed via %2$s.', 'wp-sudo' ),
+						$label,
+						'cli' === $surface ? 'WP-CLI' : 'XML-RPC'
+					)
+				),
+				'',
+				array( 'response' => 403 )
+			);
+		};
+
+		// ── Plugin activate ──────────────────────────────────────────
+		// Fires inside activate_plugin() before the plugin is added to active_plugins.
 		add_action(
-			'admin_init',
-			function () {
-				$matched = $this->match_request( 'admin' );
-				if ( $matched ) {
-					/** This action is documented in includes/class-gate.php */
-					do_action( 'wp_sudo_action_blocked', 0, $matched['id'], 'xmlrpc' );
-					wp_die(
-						esc_html(
-							sprintf(
-								/* translators: %s: action label */
-								__( 'This operation (%s) requires sudo and cannot be performed via XML-RPC.', 'wp-sudo' ),
-								$matched['label'] ?? $matched['id']
-							)
-						),
-						'',
-						array( 'response' => 403 )
-					);
+			'activate_plugin',
+			function () use ( $block ) {
+				$block( 'plugin.activate', __( 'Activate plugin', 'wp-sudo' ) );
+			},
+			0
+		);
+
+		// ── Plugin deactivate ────────────────────────────────────────
+		// No generic 'deactivate_plugin' action exists — the hook is dynamic:
+		// deactivate_{$plugin_file}. We intercept at the option level instead.
+		add_filter(
+			'pre_update_option_active_plugins',
+			function ( $new_value, $old_value ) use ( $block ) {
+				// Only block when plugins are being removed (deactivation).
+				if ( is_array( $new_value ) && is_array( $old_value )
+					&& count( $new_value ) < count( $old_value )
+				) {
+					$block( 'plugin.deactivate', __( 'Deactivate plugin', 'wp-sudo' ) );
 				}
+				return $new_value;
+			},
+			0,
+			2
+		);
+
+		// ── Plugin delete ────────────────────────────────────────────
+		// Fires inside delete_plugins() before files are removed.
+		add_action(
+			'delete_plugin',
+			function () use ( $block ) {
+				$block( 'plugin.delete', __( 'Delete plugin', 'wp-sudo' ) );
+			},
+			0
+		);
+
+		// ── Theme switch ─────────────────────────────────────────────
+		// No pre-switch hook exists. Intercept at the option level.
+		add_filter(
+			'pre_update_option_stylesheet',
+			function ( $new_value, $old_value ) use ( $block ) {
+				if ( $new_value !== $old_value ) {
+					$block( 'theme.switch', __( 'Switch theme', 'wp-sudo' ) );
+				}
+				return $new_value;
+			},
+			0,
+			2
+		);
+
+		// ── Theme delete ─────────────────────────────────────────────
+		// Fires inside delete_theme() before files are removed.
+		add_action(
+			'delete_theme',
+			function () use ( $block ) {
+				$block( 'theme.delete', __( 'Delete theme', 'wp-sudo' ) );
+			},
+			0
+		);
+
+		// ── Plugin/Theme install and update ──────────────────────────
+		// Fires inside WP_Upgrader::install_package() before extraction.
+		add_filter(
+			'upgrader_pre_install',
+			function ( $response ) use ( $block ) {
+				if ( is_wp_error( $response ) ) {
+					return $response;
+				}
+				// Block all installs/updates on gated surfaces.
+				$block( 'plugin.install', __( 'Install or update plugin/theme', 'wp-sudo' ) );
+				return $response; // @codeCoverageIgnore
+			},
+			0
+		);
+
+		// ── User delete ──────────────────────────────────────────────
+		// Fires inside wp_delete_user() before the record is removed.
+		add_action(
+			'delete_user',
+			function () use ( $block ) {
+				$block( 'user.delete', __( 'Delete user', 'wp-sudo' ) );
+			},
+			0
+		);
+
+		// ── User create ──────────────────────────────────────────────
+		// Fires inside wp_insert_user() before the database insert.
+		add_filter(
+			'wp_pre_insert_user_data',
+			function ( $data ) use ( $block ) {
+				// Only block new user creation, not updates.
+				// wp_insert_user sets $update internally; we detect it by
+				// checking if user_login is being inserted (new) vs ID exists.
+				if ( is_array( $data ) && ! empty( $data['user_login'] ) ) {
+					// Check if this is a creation by seeing if user_login already exists.
+					$existing = get_user_by( 'login', $data['user_login'] );
+					if ( ! $existing ) {
+						$block( 'user.create', __( 'Create new user', 'wp-sudo' ) );
+					}
+				}
+				return $data;
+			},
+			0
+		);
+
+		// ── User role change ─────────────────────────────────────────
+		// set_user_role fires AFTER the change but before the request completes.
+		// On CLI/Cron, wp_die() here still prevents the success output.
+		add_action(
+			'set_user_role',
+			function () use ( $block ) {
+				$block( 'user.promote', __( 'Change user role', 'wp-sudo' ) );
+			},
+			0
+		);
+
+		// ── Critical options ─────────────────────────────────────────
+		$critical_options = Action_Registry::critical_option_names();
+		foreach ( $critical_options as $opt ) {
+			add_filter(
+				"pre_update_option_{$opt}",
+				function ( $new_value, $old_value ) use ( $block ) {
+					if ( $new_value !== $old_value ) {
+						$block( 'options.critical', __( 'Change critical site setting', 'wp-sudo' ) );
+					}
+					return $new_value;
+				},
+				0,
+				2
+			);
+		}
+
+		// ── Export ────────────────────────────────────────────────────
+		// Fires inside export_wp() before headers are sent.
+		add_action(
+			'export_wp',
+			function () use ( $block ) {
+				$block( 'tools.export', __( 'Export site data', 'wp-sudo' ) );
 			},
 			0
 		);
@@ -322,18 +502,21 @@ class Gate {
 	/**
 	 * Get a policy setting value.
 	 *
+	 * @since 2.0.0
+	 * @since 2.2.0 Three-tier model: disabled, limited, unrestricted.
+	 *
 	 * @param string $key The policy setting key.
-	 * @return string The policy value ('block' or 'allow').
+	 * @return string The policy value ('disabled', 'limited', or 'unrestricted').
 	 */
 	public function get_policy( string $key ): string {
-		$policy = Admin::get( $key, self::POLICY_BLOCK );
+		$policy = Admin::get( $key, self::POLICY_LIMITED );
+		$valid  = array( self::POLICY_DISABLED, self::POLICY_LIMITED, self::POLICY_UNRESTRICTED );
 
-		// Ensure valid value.
-		if ( self::POLICY_ALLOW !== $policy ) {
-			return self::POLICY_BLOCK;
+		if ( ! in_array( $policy, $valid, true ) ) {
+			return self::POLICY_LIMITED;
 		}
 
-		return self::POLICY_ALLOW;
+		return $policy;
 	}
 
 	/**
@@ -573,12 +756,21 @@ class Gate {
 			// Non-browser auth (app-password, bearer, etc.) — check policy.
 			$policy = $this->get_policy( self::SETTING_REST_APP_PASS_POLICY );
 
-			if ( self::POLICY_ALLOW === $policy ) {
-				/** This action is documented in includes/class-gate.php */
-				do_action( 'wp_sudo_action_allowed', $user_id, $matched_rule['id'], 'rest_app_password' );
+			// Unrestricted: pass through, no checks, no logging.
+			if ( self::POLICY_UNRESTRICTED === $policy ) {
 				return $response;
 			}
 
+			// Disabled: block without logging.
+			if ( self::POLICY_DISABLED === $policy ) {
+				return new \WP_Error(
+					'sudo_disabled',
+					__( 'This REST API operation is disabled by WP Sudo policy.', 'wp-sudo' ),
+					array( 'status' => 403 )
+				);
+			}
+
+			// Limited: block with logging.
 			/** This action is documented in includes/class-gate.php */
 			do_action( 'wp_sudo_action_blocked', $user_id, $matched_rule['id'], 'rest_app_password' );
 			return new \WP_Error(

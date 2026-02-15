@@ -229,8 +229,9 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 		Functions\when( 'is_ssl' )->justReturn( false );
 
+		// Clears cookies on both COOKIEPATH and ADMIN_COOKIE_PATH (stale cleanup).
 		Functions\expect( 'setcookie' )
-			->once()
+			->twice()
 			->with(
 				Sudo_Session::TOKEN_COOKIE,
 				'',

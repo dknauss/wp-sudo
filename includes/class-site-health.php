@@ -7,7 +7,7 @@
  * 1. **MU-plugin status** — whether the optional mu-plugin is installed.
  * 2. **Session audit** — whether any users have stale sudo tokens.
  * 3. **Entry-point policy review** — whether non-interactive surfaces
- *    are set to the recommended "block" policy.
+ *    use the recommended "limited" or "disabled" policy (warns on "unrestricted").
  *
  * @package WP_Sudo
  */
@@ -105,7 +105,12 @@ class Site_Health {
 	 * Test: Entry-point policy review.
 	 *
 	 * Verifies that non-interactive entry points (REST App Passwords,
-	 * WP-CLI, Cron, XML-RPC) use the recommended "block" policy.
+	 * WP-CLI, Cron, XML-RPC) use a secure policy. "Limited" (default)
+	 * and "Disabled" are both considered secure. "Unrestricted" is flagged
+	 * as a recommendation to tighten.
+	 *
+	 * @since 2.1.0
+	 * @since 2.2.0 Three-tier model: disabled, limited, unrestricted.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -117,39 +122,39 @@ class Site_Health {
 			Gate::SETTING_XMLRPC_POLICY        => __( 'XML-RPC', 'wp-sudo' ),
 		);
 
-		$relaxed = array();
+		$unrestricted = array();
 
 		foreach ( $policy_keys as $key => $label ) {
-			$value = Admin::get( $key, Gate::POLICY_BLOCK );
-			if ( Gate::POLICY_ALLOW === $value ) {
-				$relaxed[] = $label;
+			$value = Admin::get( $key, Gate::POLICY_LIMITED );
+			if ( Gate::POLICY_UNRESTRICTED === $value ) {
+				$unrestricted[] = $label;
 			}
 		}
 
-		if ( empty( $relaxed ) ) {
+		if ( empty( $unrestricted ) ) {
 			return array(
-				'label'       => __( 'All WP Sudo entry point policies are set to block', 'wp-sudo' ),
+				'label'       => __( 'All WP Sudo entry point policies are secure', 'wp-sudo' ),
 				'status'      => 'good',
 				'badge'       => array(
 					'label' => __( 'Security', 'wp-sudo' ),
 					'color' => 'blue',
 				),
-				'description' => '<p>' . __( 'All non-interactive entry points are set to the recommended "block" policy, preventing gated operations via CLI, Cron, XML-RPC, and Application Passwords.', 'wp-sudo' ) . '</p>',
+				'description' => '<p>' . __( 'All non-interactive entry points are set to "limited" or "disabled", preventing unrestricted access to gated operations via CLI, Cron, XML-RPC, and Application Passwords.', 'wp-sudo' ) . '</p>',
 				'test'        => 'wp_sudo_policies',
 			);
 		}
 
 		return array(
-			'label'       => __( 'Some WP Sudo entry point policies are set to allow', 'wp-sudo' ),
+			'label'       => __( 'Some WP Sudo entry point policies are unrestricted', 'wp-sudo' ),
 			'status'      => 'recommended',
 			'badge'       => array(
 				'label' => __( 'Security', 'wp-sudo' ),
 				'color' => 'orange',
 			),
 			'description' => '<p>' . sprintf(
-				/* translators: %s: comma-separated list of relaxed policy names */
-				__( 'The following entry points are set to "allow": %s. The recommended setting is "block" to prevent gated operations on non-interactive surfaces.', 'wp-sudo' ),
-				esc_html( implode( ', ', $relaxed ) )
+				/* translators: %s: comma-separated list of unrestricted policy names */
+				__( 'The following entry points are set to "unrestricted": %s. Consider using "limited" (blocks only gated actions) or "disabled" (shuts off the entire surface) for better security.', 'wp-sudo' ),
+				esc_html( implode( ', ', $unrestricted ) )
 			) . '</p>',
 			'test'        => 'wp_sudo_policies',
 		);
