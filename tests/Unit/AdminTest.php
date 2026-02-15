@@ -229,7 +229,7 @@ class AdminTest extends TestCase {
 	// add_help_tabs()
 	// -----------------------------------------------------------------
 
-	public function test_add_help_tabs_registers_six_tabs(): void {
+	public function test_add_help_tabs_registers_seven_tabs(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -239,7 +239,7 @@ class AdminTest extends TestCase {
 		$admin = new Admin();
 		$admin->add_help_tabs();
 
-		$this->assertCount( 6, $screen->get_help_tabs() );
+		$this->assertCount( 7, $screen->get_help_tabs() );
 	}
 
 	public function test_add_help_tabs_has_expected_tab_ids(): void {
@@ -257,6 +257,7 @@ class AdminTest extends TestCase {
 
 		$this->assertContains( 'wp-sudo-how-it-works', $ids );
 		$this->assertContains( 'wp-sudo-security', $ids );
+		$this->assertContains( 'wp-sudo-security-model', $ids );
 		$this->assertContains( 'wp-sudo-recommended-plugins', $ids );
 		$this->assertContains( 'wp-sudo-settings-help', $ids );
 		$this->assertContains( 'wp-sudo-extending', $ids );

@@ -65,6 +65,31 @@ Sudo works on its own, but these plugins add significant value:
 - **Accessible** — screen-reader announcements, ARIA labels, focus management, and keyboard support throughout. WCAG 2.1 AA.
 - **Contextual help** — 4 help tabs on the settings page cover how sudo works, settings, extending via filters, and audit hooks.
 
+### Security Model
+
+WP Sudo is a **hook-based interception layer**. It operates within WordPress's plugin API — `admin_init`, `pre_option_*`, `activate_plugin`, REST `permission_callback`, etc. — and is subject to the same boundaries as any WordPress plugin.
+
+**What it protects against:**
+
+- **Compromised admin sessions** — a stolen session cookie cannot perform gated actions without reauthenticating. The sudo session is cryptographically bound to the browser.
+- **Insider threats** — even legitimate administrators must prove their identity before destructive operations.
+- **Automated abuse** — headless entry points (WP-CLI, Cron, XML-RPC, Application Passwords) can be disabled entirely or restricted to non-gated operations.
+- **2FA replay** — the two-factor challenge is bound to the originating browser via a one-time cookie, preventing cross-browser replay.
+- **Capability tampering** — direct database modifications to restore `unfiltered_html` on the Editor role are detected and reversed at `init`.
+
+**What it does not protect against:**
+
+- **Direct database access** — an attacker with SQL access can modify data without triggering any WordPress hooks. WP Sudo cannot gate operations that bypass the WordPress API entirely.
+- **File system access** — PHP scripts that load `wp-load.php` and call WordPress functions directly may bypass the gate if they don't trigger the standard hook sequence.
+- **Other plugins that bypass hooks** — if a plugin calls `activate_plugin()` in a way that suppresses `do_action('activate_plugin')`, the gate won't fire. The mu-plugin mitigates this by loading the gate before other plugins.
+- **Server-level operations** — database migrations, WP-CLI commands run as root with direct PHP execution, or deployment scripts that modify files are outside WordPress's hook system.
+
+**Environmental considerations:**
+
+- **Cookies** — sudo session tokens require secure httponly cookies. Reverse proxies that strip or rewrite `Set-Cookie` headers may break session binding. Ensure the proxy passes cookies through to PHP.
+- **Object cache** — user meta reads go through `get_user_meta()`, which may be served from an object cache (Redis, Memcached). If the cache returns stale meta, a revoked session could briefly appear valid. Standard WordPress cache invalidation handles this correctly; custom cache configurations should verify meta writes propagate.
+- **Surface detection** — the gate relies on WordPress constants (`REST_REQUEST`, `DOING_CRON`, `WP_CLI`, `XMLRPC_REQUEST`) set by WordPress core before plugin code runs. These constants are stable across all standard WordPress hosting environments.
+
 ### MU-Plugin for Early Loading
 
 An optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install it with one click from the settings page, or manually copy the shim to `wp-content/mu-plugins/`. The mu-plugin is a thin stable shim that loads the current gate code from the main plugin directory, so it stays up to date automatically with regular plugin updates.
