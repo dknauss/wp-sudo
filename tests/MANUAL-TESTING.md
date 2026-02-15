@@ -228,8 +228,11 @@ UI communicates with the REST API.
 1. Ensure no sudo session is active.
 2. Go to **Users > Profile**, scroll to Application Passwords.
 3. Enter a name, click **Add New Application Password**.
-4. **Expected:** Error notice: "This action (Create application password) requires reauthentication. Please confirm your identity."
-5. Activate sudo (Cmd+Shift+S or challenge page).
+4. **Expected:** Error notice: "This action (Create application
+   password) requires reauthentication. Press Cmd+Shift+S to start a
+   sudo session, then try again."
+5. Press **Cmd+Shift+S** (or Ctrl+Shift+S on Windows/Linux) to open
+   the challenge page.
 6. Retry step 3.
 7. **Expected:** Password is created successfully. The new password is
    displayed.
