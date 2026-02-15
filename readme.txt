@@ -165,6 +165,10 @@ Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is in
 
 Yes. Settings are network-wide (one configuration for all sites). Sudo sessions use user meta (shared across the network), so authenticating on one site covers all sites. The action registry includes network-specific rules for theme enable/disable, site management, super admin grant/revoke, and network settings. The settings page appears under **Network Admin → Settings → Sudo**. On uninstall, per-site data is cleaned per-site, and user meta is only removed when no remaining site has the plugin active.
 
+= What is gated on multisite subsites? =
+
+On multisite, WordPress core already removes the most dangerous General Settings fields (site URL, home URL, membership, default role) from subsite admin pages — only Super Admins can change those at the network level. The remaining subsite settings (site title, tagline, admin email, timezone, date/time formats) are low-risk and not gated. Changing admin email also requires email confirmation by WordPress core. Network-level operations — network settings, theme management, site creation/deletion, and Super Admin grants — are all gated.
+
 = What is the mu-plugin and do I need it? =
 
 The mu-plugin is optional. It ensures Sudo's gate hooks are registered before any other regular plugin loads, preventing another plugin from deregistering the hooks or processing dangerous actions before the gate fires. You can install it with one click from the settings page. The mu-plugin is a thin shim in `wp-content/mu-plugins/` that loads the gate code from the main plugin directory — it updates automatically with regular plugin updates.

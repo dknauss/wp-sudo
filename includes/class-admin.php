@@ -218,23 +218,32 @@ class Admin {
 				'id'      => 'wp-sudo-security-model',
 				'title'   => __( 'Security Model', 'wp-sudo' ),
 				'content' =>
-					'<h3>' . __( 'Hook-Based Interception', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo operates within WordPress\'s plugin API &mdash; <code>admin_init</code>, <code>pre_option_*</code>, <code>activate_plugin</code>, REST <code>permission_callback</code>, etc. Gating is only as strong as this hook system.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'What It Protects Against', 'wp-sudo' ) . '</h3>'
+					'<p>' . __( 'WP Sudo operates within WordPress\'s plugin API (<code>admin_init</code>, <code>activate_plugin</code>, REST <code>permission_callback</code>, etc.). Gating is only as strong as this hook system.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Protects Against', 'wp-sudo' ) . '</h3>'
 					. '<ul>'
-					. '<li>' . __( '<strong>Compromised admin sessions</strong> &mdash; a stolen cookie cannot perform gated actions without reauthenticating.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Insider threats</strong> &mdash; even administrators must prove identity before destructive operations.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Automated abuse</strong> &mdash; headless entry points can be disabled entirely or restricted to non-gated operations.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Compromised sessions</strong> &mdash; stolen cookies cannot perform gated actions.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Insider threats</strong> &mdash; administrators must prove identity before destructive operations.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Automated abuse</strong> &mdash; headless entry points can be disabled or restricted.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
-					. '<h3>' . __( 'What It Does Not Protect Against', 'wp-sudo' ) . '</h3>'
+					. '<h3>' . __( 'Does Not Protect Against', 'wp-sudo' ) . '</h3>'
 					. '<ul>'
-					. '<li>' . __( '<strong>Direct database access</strong> &mdash; SQL-level changes bypass all WordPress hooks.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Direct database access</strong> &mdash; SQL changes bypass all hooks.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>File system access</strong> &mdash; scripts loading <code>wp-load.php</code> directly may bypass the gate.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Plugins that suppress hooks</strong> &mdash; the mu-plugin mitigates this by loading the gate first.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Server-level operations</strong> &mdash; deployment scripts, database migrations, and direct PHP execution are outside WordPress\'s hook system.', 'wp-sudo' ) . '</li>'
-					. '</ul>'
-					. '<h3>' . __( 'Environment Notes', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Sudo session tokens require secure httponly cookies. Reverse proxies must pass cookies through to PHP. User meta reads may be served from an object cache; standard WordPress cache invalidation handles this correctly.', 'wp-sudo' ) . '</p>',
+					. '<li>' . __( '<strong>Plugins that suppress hooks</strong> &mdash; the mu-plugin mitigates this.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Server-level operations</strong> &mdash; deployment scripts and direct PHP execution are outside hooks.', 'wp-sudo' ) . '</li>'
+					. '</ul>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-environment',
+				'title'   => __( 'Environment', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Requirements', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Sudo session tokens require secure httponly cookies. Reverse proxies must pass cookies through to PHP. User meta reads may be served from an object cache; standard WordPress cache invalidation handles this correctly.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Multisite Scope', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Network-level operations (network settings, theme management, site creation/deletion, Super Admin grants) are all gated. Subsite General Settings (site title, tagline, admin email, timezone) are not gated because WordPress core already removes the dangerous fields from subsites.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
