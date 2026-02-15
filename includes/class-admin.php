@@ -648,7 +648,8 @@ class Admin {
 		<p class="description">
 			<?php esc_html_e( 'The following actions require reauthentication before execution. The surfaces shown (Admin, AJAX, REST) reflect interactive entry points where WordPress provides APIs. All gated actions are also protected on non-interactive surfaces (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings above. Developers can add custom rules via the wp_sudo_gated_actions filter.', 'wp-sudo' ); ?>
 		</p>
-		<table class="widefat striped" role="presentation">
+		<table class="widefat striped">
+			<caption class="screen-reader-text"><?php esc_html_e( 'Gated actions requiring reauthentication, grouped by category', 'wp-sudo' ); ?></caption>
 			<thead>
 				<tr>
 					<th scope="col"><?php esc_html_e( 'Category', 'wp-sudo' ); ?></th>
@@ -774,7 +775,8 @@ class Admin {
 	public function handle_mu_install(): void {
 		check_ajax_referer( 'wp_sudo_mu_plugin', '_nonce' );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
+		$required_cap = is_multisite() ? 'manage_network_options' : 'manage_options';
+		if ( ! current_user_can( $required_cap ) ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
 		}
 
@@ -819,7 +821,8 @@ class Admin {
 	public function handle_mu_uninstall(): void {
 		check_ajax_referer( 'wp_sudo_mu_plugin', '_nonce' );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
+		$required_cap = is_multisite() ? 'manage_network_options' : 'manage_options';
+		if ( ! current_user_can( $required_cap ) ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
 		}
 

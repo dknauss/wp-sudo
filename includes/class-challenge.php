@@ -492,11 +492,14 @@ class Challenge {
 		 */
 		do_action( 'wp_sudo_action_replayed', $user_id, $stash['rule_id'] ?? '' );
 
+		$fallback_url = is_network_admin() ? network_admin_url() : admin_url();
+		$safe_url     = wp_validate_redirect( $stash['url'], $fallback_url );
+
 		if ( 'GET' === ( $stash['method'] ?? 'GET' ) ) {
 			wp_send_json_success(
 				array(
 					'code'     => 'success',
-					'redirect' => $stash['url'],
+					'redirect' => $safe_url,
 				)
 			);
 			return;
@@ -508,7 +511,7 @@ class Challenge {
 				'code'      => 'success',
 				'replay'    => true,
 				'method'    => $stash['method'],
-				'url'       => $stash['url'],
+				'url'       => $safe_url,
 				'post_data' => $stash['post'] ?? array(),
 				'get_data'  => $stash['get'] ?? array(),
 			)

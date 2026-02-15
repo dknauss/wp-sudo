@@ -1046,7 +1046,7 @@ class Gate {
 		);
 
 		printf(
-			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
+			'<div class="notice notice-warning is-dismissible" role="alert"><p>%s</p></div>',
 			sprintf(
 				/* translators: 1: action label, 2: challenge page link, 3: keyboard shortcut */
 				esc_html__( 'Your recent action (%1$s) was blocked because it requires reauthentication. %2$s to activate a sudo session, then try again. You can also press %3$s.', 'wp-sudo' ),
@@ -1113,7 +1113,7 @@ class Gate {
 		);
 
 		printf(
-			'<div class="notice notice-warning"><p>%s</p></div>',
+			'<div class="notice notice-warning" role="status"><p>%s</p></div>',
 			sprintf(
 				/* translators: 1: challenge page link, 2: keyboard shortcut */
 				esc_html__( 'Installing, activating, updating, and deleting themes and plugins requires an active sudo session. %1$s or press %2$s to start one.', 'wp-sudo' ),
@@ -1154,7 +1154,7 @@ class Gate {
 				 * disabled span. wp_strip_all_tags() safely removes the <a> wrapper.
 				 */
 				$text            = wp_strip_all_tags( $actions[ $key ] );
-				$actions[ $key ] = '<span class="wp-sudo-disabled" aria-disabled="true" style="color:#a7aaad;cursor:default">'
+				$actions[ $key ] = '<span class="wp-sudo-disabled" aria-disabled="true" style="color:#787c82;cursor:default">'
 					. esc_html( $text )
 					. '</span>';
 			}
@@ -1188,7 +1188,7 @@ class Gate {
 		foreach ( $gated_keys as $key ) {
 			if ( isset( $actions[ $key ] ) ) {
 				$text            = wp_strip_all_tags( $actions[ $key ] );
-				$actions[ $key ] = '<span class="wp-sudo-disabled" aria-disabled="true" style="color:#a7aaad;cursor:default">'
+				$actions[ $key ] = '<span class="wp-sudo-disabled" aria-disabled="true" style="color:#787c82;cursor:default">'
 					. esc_html( $text )
 					. '</span>';
 			}

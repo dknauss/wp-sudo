@@ -120,15 +120,56 @@ administration. Not relevant for single-site installs.
 See [ACCESSIBILITY-ROADMAP.md](ACCESSIBILITY-ROADMAP.md) for the full list.
 Summary:
 
-**Medium priority (4 items):**
+**Medium priority (6 items):**
 1. Challenge page Escape key navigates without warning.
 2. Challenge page 2FA step-change announcement.
 3. Settings page label-input association audit.
 4. Replay form accessible context.
+5. Localize hardcoded JavaScript strings.
+6. Challenge page auto-reload on session expiry.
 
-**Low priority (2 items):**
-5. Admin bar countdown cleanup on page unload.
-6. Settings page default value documentation.
+**Low priority (4 items):**
+7. Admin bar countdown cleanup on page unload.
+8. Settings page default value documentation.
+9. Lockout countdown timer precision for screen readers.
+10. Admin bar timer keyboard navigation.
+
+## Toolchain Candidates
+
+These tools have been evaluated and are worth adding to the project when the time is
+right. They don't block any current work but would improve quality assurance.
+
+### PHPStan (Static Analysis)
+
+Add PHPStan level 6 with `szepeviktor/phpstan-wordpress` for static type analysis
+beyond what PHPCS catches. PHPStan finds type errors, dead code, impossible
+conditions, and missing return types that PHPCS ignores. The `phpstan-wordpress`
+extension understands WordPress function signatures, hooks, and globals.
+
+**When to add:** Next time the test/lint toolchain is touched. Add a `composer
+analyse` script alongside `composer test` and `composer lint`.
+
+**Reference:** [wp-dev-prompts/testing-setup](https://github.com/courtneyr-dev/wp-dev-prompts/blob/main/prompts/core/testing-setup.md)
+recommends PHPStan level 6 as part of the standard WordPress plugin CI matrix.
+
+### UI/UX Testing Prompts
+
+Structured prompt frameworks for UI/UX validation that could be run against WP Sudo's
+admin pages:
+
+- **Heuristic evaluation** — Nielsen's 10 heuristics applied to the settings page,
+  challenge page, and admin bar timer.
+- **Navigation flow tests** — verify that gating, challenge, and replay flows don't
+  break expected WordPress navigation patterns.
+- **Responsive tests** — validate challenge page and admin bar timer across viewport
+  sizes.
+
+**When to use:** Before any major UI change or when addressing the accessibility
+roadmap items.
+
+**Reference:** [wp-dev-prompts/testing/](https://github.com/courtneyr-dev/wp-dev-prompts/tree/main/prompts/testing)
+— heuristic-evaluation.md, navigation-flow-tests.md, responsive-tests.md,
+ui-ux-audit.md.
 
 ## Declined
 
