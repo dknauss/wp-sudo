@@ -59,9 +59,46 @@ be needed.
 **Impact:** Medium — useful visibility for site administrators, but not a security
 improvement.
 
+## Open — Low Effort
+
+### 6. AI and Agentic Tool Guidance
+
+Documentation section (README + help tab) covering how AI assistants and automated
+agents interact with WP Sudo policies. AI tools don't introduce a new WordPress
+surface — they use REST API (app passwords), WP-CLI, or browser-based cookie auth,
+all of which are already gated by existing policies.
+
+Topics to cover:
+- Browser-based AI (Gutenberg sidebar assistants, Jetpack AI) → cookie-auth REST
+  path → `sudo_required` like any other browser request.
+- Headless AI agents (deployment bots, MCP-based tools, CI/CD) → app-password REST
+  or WP-CLI → governed by the REST and CLI policies.
+- Recommended policy configurations for common AI workflows.
+- Why "Limited" is the correct default: AI agents performing non-gated operations
+  (content creation, media uploads) are unaffected, while gated operations
+  (plugin activation, user deletion) are blocked.
+
+**Impact:** Medium — increasingly relevant as AI-powered site management tools
+proliferate. No code changes, just documentation.
+
+### 7. Per-Application-Password Policies
+
+Allow different REST API policies per application password. Currently, one policy
+governs all non-cookie REST auth. An AI agent's application password might warrant
+`limited` while a trusted deployment pipeline's password could be `unrestricted`.
+
+Implementation: store policy overrides keyed by application password UUID in
+`wp_sudo_settings`. Check the authenticated app password ID in `intercept_rest()`
+before falling back to the global policy. Expose per-password policy dropdowns on
+the user profile Application Passwords section.
+
+**Impact:** High — enables fine-grained control over automated access without
+weakening the default policy for all app passwords. Especially valuable when
+multiple AI tools and automation pipelines share the same site.
+
 ## Open — High Effort
 
-### 4. Gutenberg Block Editor Integration
+### 8. Gutenberg Block Editor Integration
 
 Detect block editor context and queue the reauthentication requirement instead of
 interrupting save. Show a snackbar-style notice using the `@wordpress/notices`
@@ -70,7 +107,7 @@ API. Requires specific Gutenberg awareness and testing across WordPress versions
 **Impact:** Medium — improves UX for block editor users, but the current
 stash-replay pattern already works for most editor operations.
 
-### 5. Network Policy Hierarchy for Multisite
+### 9. Network Policy Hierarchy for Multisite
 
 Super admins set minimum session duration and maximum allowed entry-point policies
 at the network level. Site admins can only tighten (not loosen) these constraints.
