@@ -1668,14 +1668,33 @@ class GateTest extends TestCase {
 		Functions\when( 'is_multisite' )->justReturn( true );
 		Functions\when( 'is_network_admin' )->justReturn( true );
 
+		// WordPress core's network/settings.php form has no hidden
+		// action=update field — $_REQUEST['action'] is empty on POST.
 		$GLOBALS['pagenow']        = 'settings.php';
-		$_REQUEST['action']        = 'update';
+		$_REQUEST['action']        = '';
 		$_SERVER['REQUEST_METHOD'] = 'POST';
 
 		$rule = $this->gate->match_request( 'admin' );
 
 		$this->assertNotNull( $rule );
 		$this->assertSame( 'network.settings', $rule['id'] );
+	}
+
+	public function test_match_request_matches_network_wp_sudo_settings(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->alias( fn( $hook, $value ) => $value );
+		Functions\when( 'is_multisite' )->justReturn( true );
+		Functions\when( 'is_network_admin' )->justReturn( true );
+
+		// Multisite settings form POSTs to edit.php?action=wp_sudo_settings.
+		$GLOBALS['pagenow']        = 'edit.php';
+		$_REQUEST['action']        = 'wp_sudo_settings';
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'options.wp_sudo', $rule['id'] );
 	}
 
 	// ── render_blocked_notice() ──────────────────────────────────────

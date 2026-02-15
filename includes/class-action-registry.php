@@ -558,11 +558,29 @@ class Action_Registry {
 				'category' => 'options',
 				'admin'    => array(
 					'pagenow'  => 'settings.php',
-					'actions'  => array( 'update' ),
+					'actions'  => array( '' ),
 					'method'   => 'POST',
 					'callback' => function (): bool {
 						return is_network_admin();
 					},
+				),
+				'ajax'     => null,
+				'rest'     => null,
+			),
+
+			// Network admin forms POST to edit.php?action={slug} — the
+			// standard WordPress pattern for custom network admin settings
+			// pages. The single-site options.wp_sudo rule only matches
+			// pagenow=options.php, which never fires on multisite where
+			// $pagenow=edit.php.
+			array(
+				'id'       => 'options.wp_sudo',
+				'label'    => __( 'Change WP Sudo settings', 'wp-sudo' ),
+				'category' => 'options',
+				'admin'    => array(
+					'pagenow' => 'edit.php',
+					'actions' => array( 'wp_sudo_settings' ),
+					'method'  => 'POST',
 				),
 				'ajax'     => null,
 				'rest'     => null,

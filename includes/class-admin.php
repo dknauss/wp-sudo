@@ -202,7 +202,7 @@ class Admin {
 		$screen->add_help_tab(
 			array(
 				'id'      => 'wp-sudo-security',
-				'title'   => __( 'Security', 'wp-sudo' ),
+				'title'   => __( 'Security Features', 'wp-sudo' ),
 				'content' =>
 					'<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, WebAuthn/passkeys, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
