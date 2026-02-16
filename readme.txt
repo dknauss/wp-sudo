@@ -7,7 +7,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      6.7
 Requires PHP:      8.0
-Stable tag:        2.2.0
+Stable tag:        2.2.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -197,6 +197,14 @@ Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filte
 
 == Changelog ==
 
+= 2.2.1 =
+* **Security hardening** — stashed redirect URLs are now validated with `wp_validate_redirect()` before replay.
+* **Accessibility** — ARIA `role="alert"` and `role="status"` added to gate notices; disabled-action text color improved to 4.6:1 contrast ratio (WCAG AA).
+* **2FA ecosystem documentation** — new integration guide (`docs/two-factor-integration.md`) and ecosystem survey (`docs/two-factor-ecosystem.md`) covering 7 major 2FA plugins with bridge patterns.
+* **WP 2FA bridge** — drop-in bridge for WP 2FA by Melapress supporting TOTP, email OTP, and backup codes (`bridges/wp-sudo-wp2fa-bridge.php`).
+* **Help tabs** — Settings tab moved to 2nd position; all four 2FA hooks documented; Security Model heading added.
+* **334 unit tests, 792 assertions.**
+
 = 2.2.0 =
 * **Three-tier entry point policies** — replaces the binary Block/Allow toggle with three modes per surface: Disabled (shuts off the protocol entirely), Limited (default — gated actions blocked, non-gated work proceeds normally), and Unrestricted (everything passes through).
 * **Function-level gating for non-interactive surfaces** — WP-CLI, Cron, and XML-RPC now hook into WordPress function-level actions (`activate_plugin`, `delete_plugin`, `set_user_role`, etc.) instead of matching request parameters. This makes gating reliable regardless of how the operation is triggered.
@@ -245,6 +253,9 @@ Complete rewrite. Action-gated reauthentication replaces role-based privilege es
 * Initial release.
 
 == Upgrade Notice ==
+
+= 2.2.1 =
+Security hardening, accessibility fixes, 2FA ecosystem documentation and WP 2FA bridge. No settings changes required.
 
 = 2.2.0 =
 Entry point policies now have three modes: Disabled, Limited, Unrestricted. Existing Block/Allow settings are migrated automatically. Review Settings > Sudo after upgrading.

@@ -281,6 +281,15 @@ Manual testing: [`tests/MANUAL-TESTING.md`](tests/MANUAL-TESTING.md) contains st
 
 ## Changelog
 
+### 2.2.1
+
+- **Security hardening** — stashed redirect URLs are now validated with `wp_validate_redirect()` before replay.
+- **Accessibility** — ARIA `role="alert"` and `role="status"` added to gate notices; disabled-action text color improved to 4.6:1 contrast ratio (WCAG AA).
+- **2FA ecosystem documentation** — new [integration guide](docs/two-factor-integration.md) and [ecosystem survey](docs/two-factor-ecosystem.md) covering 7 major 2FA plugins with bridge patterns.
+- **WP 2FA bridge** — drop-in bridge for WP 2FA by Melapress supporting TOTP, email OTP, and backup codes ([`bridges/wp-sudo-wp2fa-bridge.php`](bridges/wp-sudo-wp2fa-bridge.php)).
+- **Help tabs** — Settings tab moved to 2nd position; all four 2FA hooks documented; Security Model heading added.
+- **334 unit tests, 792 assertions.**
+
 ### 2.2.0
 
 - **Three-tier entry point policies** — replaces the binary Block/Allow toggle with three modes per surface: Disabled (shuts off the protocol entirely), Limited (default — gated actions blocked, non-gated work proceeds normally), and Unrestricted (everything passes through).
