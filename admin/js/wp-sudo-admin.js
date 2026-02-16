@@ -10,6 +10,7 @@
 ( function () {
 	'use strict';
 
+	var strings      = ( wpSudoAdmin && wpSudoAdmin.strings ) || {};
 	var installBtn   = document.getElementById( 'wp-sudo-mu-install' );
 	var uninstallBtn = document.getElementById( 'wp-sudo-mu-uninstall' );
 	var spinner      = document.getElementById( 'wp-sudo-mu-spinner' );
@@ -69,7 +70,7 @@
 				} else {
 					button.disabled = false;
 					if ( messageEl ) {
-						messageEl.textContent = data.message || 'An error occurred.';
+						messageEl.textContent = data.message || strings.genericError || '';
 						messageEl.focus();
 					}
 				}
@@ -81,7 +82,7 @@
 				button.disabled = false;
 				button.setAttribute( 'aria-busy', 'false' );
 				if ( messageEl ) {
-					messageEl.textContent = 'A network error occurred. Please try again.';
+					messageEl.textContent = strings.networkError || '';
 					messageEl.focus();
 				}
 			} );

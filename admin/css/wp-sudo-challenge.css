@@ -81,11 +81,18 @@
 
 .wp-sudo-challenge-loading:not([hidden]) {
 	display: flex;
+	flex-direction: column;
 }
 
 .wp-sudo-challenge-loading .spinner {
 	float: none;
 	margin: 0;
+}
+
+.wp-sudo-loading-text:not(:empty) {
+	margin-top: 8px;
+	font-size: 14px;
+	color: #50575e;
 }
 
 /* Screen-reader-only text */

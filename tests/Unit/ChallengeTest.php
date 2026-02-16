@@ -104,6 +104,8 @@ class ChallengeTest extends TestCase {
 		$_GET['page']      = 'wp-sudo-challenge';
 		$_GET['stash_key'] = 'testkey123';
 
+		Functions\when( '__' )->returnArg();
+
 		Functions\expect( 'wp_enqueue_style' )
 			->once()
 			->with( 'wp-sudo-challenge', \Mockery::type( 'string' ), array(), WP_SUDO_VERSION );
@@ -113,7 +115,7 @@ class ChallengeTest extends TestCase {
 			->with(
 				'wp-sudo-challenge',
 				\Mockery::type( 'string' ),
-				array(),
+				array( 'wp-a11y' ),
 				WP_SUDO_VERSION,
 				true
 			);
@@ -139,12 +141,73 @@ class ChallengeTest extends TestCase {
 							&& isset( $data['nonce'] )
 							&& 'testkey123' === $data['stashKey']
 							&& Challenge::AJAX_AUTH_ACTION === $data['authAction']
-							&& Challenge::AJAX_2FA_ACTION === $data['tfaAction'];
+							&& Challenge::AJAX_2FA_ACTION === $data['tfaAction']
+							&& isset( $data['strings'] )
+							&& is_array( $data['strings'] );
 					}
 				)
 			);
 
 		$this->challenge->enqueue_assets();
+
+		unset( $_GET['page'], $_GET['stash_key'] );
+	}
+
+	/**
+	 * Test enqueue_assets localizes all required string keys.
+	 */
+	public function test_enqueue_assets_localizes_all_string_keys(): void {
+		$_GET['page']      = 'wp-sudo-challenge';
+		$_GET['stash_key'] = 'key123';
+
+		Functions\when( '__' )->returnArg();
+
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )->once();
+
+		Functions\expect( 'admin_url' )
+			->with( 'admin-ajax.php' )
+			->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+
+		Functions\expect( 'wp_create_nonce' )
+			->with( Challenge::NONCE_ACTION )
+			->andReturn( 'test-nonce' );
+
+		$captured = null;
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-challenge',
+				'wpSudoChallenge',
+				\Mockery::on(
+					function ( $data ) use ( &$captured ) {
+						$captured = $data;
+						return true;
+					}
+				)
+			);
+
+		$this->challenge->enqueue_assets();
+
+		$this->assertIsArray( $captured['strings'] );
+		$expected_keys = array(
+			'unexpectedResponse',
+			'genericError',
+			'networkError',
+			'verificationFailed',
+			'lockoutCountdown',
+			'timeRemaining',
+			'timeRemainingWarn',
+			'sessionExpired',
+			'startOver',
+			'twoFactorRequired',
+			'replayingAction',
+			'leavingChallenge',
+		);
+		foreach ( $expected_keys as $key ) {
+			$this->assertArrayHasKey( $key, $captured['strings'], "Missing string key: $key" );
+			$this->assertNotEmpty( $captured['strings'][ $key ], "Empty string for key: $key" );
+		}
 
 		unset( $_GET['page'], $_GET['stash_key'] );
 	}
@@ -468,6 +531,8 @@ class ChallengeTest extends TestCase {
 	public function test_enqueue_assets_passes_session_only_flag(): void {
 		$_GET['page'] = 'wp-sudo-challenge';
 		// No stash_key — session-only mode.
+
+		Functions\when( '__' )->returnArg();
 
 		Functions\expect( 'wp_enqueue_style' )->once();
 		Functions\expect( 'wp_enqueue_script' )->once();
@@ -872,6 +937,8 @@ class ChallengeTest extends TestCase {
 	public function test_enqueue_assets_passes_stash_mode_flag(): void {
 		$_GET['page']      = 'wp-sudo-challenge';
 		$_GET['stash_key'] = 'abc123';
+
+		Functions\when( '__' )->returnArg();
 
 		Functions\expect( 'wp_enqueue_style' )->once();
 		Functions\expect( 'wp_enqueue_script' )->once();

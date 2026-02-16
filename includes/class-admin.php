@@ -382,7 +382,8 @@ class Admin {
 			__( 'Session Duration (minutes)', 'wp-sudo' ),
 			array( $this, 'render_field_session_duration' ),
 			self::PAGE_SLUG,
-			'wp_sudo_session'
+			'wp_sudo_session',
+			array( 'label_for' => 'session_duration' )
 		);
 
 		// Entry point policies section.
@@ -400,6 +401,7 @@ class Admin {
 			self::PAGE_SLUG,
 			'wp_sudo_policies',
 			array(
+				'label_for'   => Gate::SETTING_REST_APP_PASS_POLICY,
 				'key'         => Gate::SETTING_REST_APP_PASS_POLICY,
 				'description' => __( 'Controls non-cookie-auth REST requests (Application Passwords, Bearer tokens, OAuth). Cookie-auth browser requests always get the sudo challenge.', 'wp-sudo' ),
 			)
@@ -412,6 +414,7 @@ class Admin {
 			self::PAGE_SLUG,
 			'wp_sudo_policies',
 			array(
+				'label_for'   => Gate::SETTING_CLI_POLICY,
 				'key'         => Gate::SETTING_CLI_POLICY,
 				'description' => __( 'Disabled blocks all WP-CLI commands. Limited blocks only gated operations. Unrestricted allows everything. The wp cron subcommand also respects the Cron policy.', 'wp-sudo' ),
 			)
@@ -424,6 +427,7 @@ class Admin {
 			self::PAGE_SLUG,
 			'wp_sudo_policies',
 			array(
+				'label_for'   => Gate::SETTING_CRON_POLICY,
 				'key'         => Gate::SETTING_CRON_POLICY,
 				'description' => __( 'Disabled stops all cron execution (WP-Cron and server-level cron). Limited blocks only gated scheduled events. Unrestricted allows everything.', 'wp-sudo' ),
 			)
@@ -436,6 +440,7 @@ class Admin {
 			self::PAGE_SLUG,
 			'wp_sudo_policies',
 			array(
+				'label_for'   => Gate::SETTING_XMLRPC_POLICY,
 				'key'         => Gate::SETTING_XMLRPC_POLICY,
 				'description' => __( 'Disabled shuts off the entire XML-RPC protocol. Limited blocks only gated operations. Unrestricted allows everything.', 'wp-sudo' ),
 			)
@@ -558,6 +563,10 @@ class Admin {
 				'nonce'           => wp_create_nonce( 'wp_sudo_mu_plugin' ),
 				'installAction'   => self::AJAX_MU_INSTALL,
 				'uninstallAction' => self::AJAX_MU_UNINSTALL,
+				'strings'         => array(
+					'genericError' => __( 'An error occurred.', 'wp-sudo' ),
+					'networkError' => __( 'A network error occurred. Please try again.', 'wp-sudo' ),
+				),
 			)
 		);
 	}

@@ -6,64 +6,7 @@ The items below are Medium and Low priority improvements for a future release.
 
 ## Medium Priority
 
-### 1. Challenge page Escape key navigates without warning
-
-**File:** `admin/js/wp-sudo-challenge.js` (line 270-273)
-**WCAG:** 3.2.2 On Input
-
-Pressing Escape immediately navigates to the cancel URL with no confirmation
-or screen reader announcement. Users who accidentally press Escape lose their
-challenge state. Add a confirmation step or at minimum an `aria-live`
-announcement before navigating.
-
-### 2. Challenge page step-change announcement
-
-**File:** `admin/js/wp-sudo-challenge.js` (line 84-94)
-**WCAG:** 4.1.3 Status Messages
-
-Transitioning from the password step to the 2FA step has no screen reader
-announcement. Focus moves to the first 2FA input, but the context change is
-not communicated to AT users. Add a brief `aria-live` announcement such as
-"Password verified. Two-factor authentication required."
-
-### 3. Settings page label-input association audit
-
-**File:** `includes/class-admin.php`
-**WCAG:** 1.3.1 Info and Relationships
-
-Verify that all settings fields (session duration, entry point policies) have
-proper `<label for="">` associations. WordPress Settings API typically
-handles this, but custom field callbacks should be audited. Add `label_for`
-to `add_settings_field()` calls to ensure programmatic association.
-
-### 4. Replay form accessible context
-
-**File:** `admin/js/wp-sudo-challenge.js` (`handleReplay()`, line 209)
-**WCAG:** 4.1.3 Status Messages
-
-The self-submitting hidden form for POST replay provides no indication to the
-user that the action is being replayed. Add a visible/announced "Replaying
-your action..." status message before form submission.
-
-### 5. Localize hardcoded JavaScript strings
-
-**Files:** `admin/js/wp-sudo-challenge.js`, `admin/js/wp-sudo-admin.js`
-**WCAG:** 3.1.2 Language of Parts / i18n best practice
-
-Several user-facing strings in challenge JS are hardcoded in English
-(error messages, status text, button labels during state changes). Pass
-these through `wp_localize_script()` so they are translatable and
-consistent with the PHP-side localization.
-
-### 6. Challenge page auto-reload on session expiry
-
-**File:** `admin/js/wp-sudo-challenge.js`
-**WCAG:** 2.2.1 Timing Adjustable / 3.2.5 Change on Request
-
-The challenge page reloads automatically when the 2FA timer expires
-without warning or user confirmation. Screen reader users may lose
-context. Add an announced warning before the reload, or replace with
-a "Session expired — click to retry" message instead of automatic reload.
+All medium-priority items have been addressed. See "Already Addressed" below.
 
 ## Low Priority
 
@@ -103,6 +46,29 @@ The admin bar timer is informational only. Ensure it does not receive
 focus trap or interfere with keyboard navigation of the admin bar.
 
 ## Already Addressed
+
+- **Escape key guard (WCAG 3.2.2):** Pressing Escape on the challenge page
+  now triggers an `aria-live` announcement ("Leaving challenge page.") with a
+  600 ms delay before navigating, giving screen readers time to announce.
+
+- **Step-change announcement (WCAG 4.1.3):** Transitioning from password to
+  2FA step now announces "Password verified. Two-factor authentication
+  required." via `wp.a11y.speak()`.
+
+- **Settings label-input association (WCAG 1.3.1):** All five
+  `add_settings_field()` calls now include `label_for` matching the rendered
+  input/select `id`, ensuring proper `<label for="">` association.
+
+- **Replay status message (WCAG 4.1.3):** The POST replay now shows a visible
+  "Replaying your action..." message in the loading overlay and announces it
+  via `wp.a11y.speak()` before form submission.
+
+- **Localized JavaScript strings (i18n):** All user-facing strings in
+  `wp-sudo-challenge.js` (12 strings) and `wp-sudo-admin.js` (2 strings) are
+  now passed through `wp_localize_script()` and translatable.
+
+- **Session expiry handling (WCAG 2.2.1):** Already addressed by the
+  "Start over" button and message that replaces automatic reload.
 
 - **Reduced motion preferences:** Both CSS files (`wp-sudo-challenge.css`,
   `wp-sudo-admin-bar.css`) already include

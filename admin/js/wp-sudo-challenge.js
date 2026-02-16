@@ -15,7 +15,8 @@
 ( function () {
 	'use strict';
 
-	var config = window.wpSudoChallenge || {};
+	var config  = window.wpSudoChallenge || {};
+	var strings = config.strings || {};
 
 	if ( ! config.ajaxUrl ) {
 		return;
@@ -36,6 +37,18 @@
 	var loadingOverlay = document.getElementById( 'wp-sudo-challenge-loading' );
 
 	var countdownInterval = null;
+
+	/**
+	 * Announce a message to screen readers via wp.a11y.speak().
+	 *
+	 * @param {string} message  Text to announce.
+	 * @param {string} priority 'assertive' or 'polite' (default: 'assertive').
+	 */
+	function announce( message, priority ) {
+		if ( window.wp && wp.a11y && wp.a11y.speak ) {
+			wp.a11y.speak( message, priority || 'assertive' );
+		}
+	}
 
 	// ── Password form submission ──────────────────────────────────────
 
@@ -78,7 +91,7 @@
 						/* eslint-disable no-console */
 						console.error( 'WP Sudo auth: non-JSON response (HTTP ' + result.status + '):', result.text );
 						/* eslint-enable no-console */
-						showError( errorBox, 'The server returned an unexpected response. Check the browser console for details.' );
+						showError( errorBox, strings.unexpectedResponse );
 						return;
 					}
 
@@ -91,6 +104,7 @@
 							// Switch to 2FA step.
 							passwordStep.hidden = true;
 							twofaStep.hidden    = false;
+							announce( strings.twoFactorRequired );
 							var firstInput = twofaStep.querySelector( 'input:not([type="hidden"])' );
 							if ( firstInput ) {
 								firstInput.focus();
@@ -117,7 +131,7 @@
 					if ( data.code === 'locked_out' && data.remaining > 0 ) {
 						startLockoutCountdown( data.remaining );
 					} else {
-						showError( errorBox, data.message || 'An error occurred.' );
+						showError( errorBox, data.message || strings.genericError );
 					}
 					passwordInput.value = '';
 					passwordInput.focus();
@@ -129,7 +143,7 @@
 					/* eslint-disable no-console */
 					console.error( 'WP Sudo auth: fetch error:', err );
 					/* eslint-enable no-console */
-					showError( errorBox, 'A network error occurred. Please try again.' );
+					showError( errorBox, strings.networkError );
 				} );
 		} );
 	}
@@ -181,7 +195,7 @@
 						/* eslint-disable no-console */
 						console.error( 'WP Sudo 2FA: non-JSON response (HTTP ' + result.status + '):', result.text );
 						/* eslint-enable no-console */
-						showError( twofaErrorBox, 'The server returned an unexpected response. Check the browser console for details.' );
+						showError( twofaErrorBox, strings.unexpectedResponse );
 						return;
 					}
 
@@ -207,7 +221,7 @@
 					}
 
 					var data = response.data || {};
-					showError( twofaErrorBox, data.message || 'Verification failed.' );
+					showError( twofaErrorBox, data.message || strings.verificationFailed );
 				} )
 				.catch( function ( err ) {
 					loadingOverlay.hidden = true;
@@ -218,7 +232,7 @@
 					/* eslint-disable no-console */
 					console.error( 'WP Sudo 2FA: fetch error:', err );
 					/* eslint-enable no-console */
-					showError( twofaErrorBox, 'A network error occurred. Please try again.' );
+					showError( twofaErrorBox, strings.networkError );
 				} );
 		} );
 	}
@@ -230,8 +244,19 @@
 	 *
 	 * For GET: redirect to the original URL.
 	 * For POST: build a self-submitting hidden form.
+	 *
+	 * Shows a visible "Replaying your action…" status message and announces
+	 * it to screen readers before performing the redirect or form submit.
 	 */
 	function handleReplay( data ) {
+		// Show replay status to all users (visible + announced).
+		loadingOverlay.hidden = false;
+		var statusEl = loadingOverlay.querySelector( '.wp-sudo-loading-text' );
+		if ( statusEl ) {
+			statusEl.textContent = strings.replayingAction;
+		}
+		announce( strings.replayingAction );
+
 		if ( ! data ) {
 			window.location.href = window.location.origin + '/wp-admin/';
 			return;
@@ -290,11 +315,15 @@
 		}
 	}
 
-	// ── Escape key — navigate to cancel (dashboard) ─────────────────
+	// ── Escape key — announce then navigate to cancel URL ────────────
 
 	document.addEventListener( 'keydown', function ( e ) {
 		if ( e.key === 'Escape' && config.cancelUrl ) {
-			window.location.href = config.cancelUrl;
+			e.preventDefault();
+			announce( strings.leavingChallenge );
+			setTimeout( function () {
+				window.location.href = config.cancelUrl;
+			}, 600 );
 		}
 	} );
 
@@ -330,7 +359,7 @@
 			var m = Math.floor( remaining / 60 );
 			var s = remaining % 60;
 			var timeStr = m + ':' + ( s < 10 ? '0' : '' ) + s;
-			showError( errorBox, 'Too many failed attempts. Try again in ' + timeStr + '.' );
+			showError( errorBox, strings.lockoutCountdown.replace( '%s', timeStr ) );
 			remaining--;
 		}
 
@@ -389,10 +418,10 @@
 
 			if ( remaining <= 60 ) {
 				twofaTimer.classList.add( 'wp-sudo-expiring' );
-				twofaTimer.textContent = '\u26A0 Time remaining: ' + timeStr;
+				twofaTimer.textContent = strings.timeRemainingWarn.replace( '%s', timeStr );
 			} else {
 				twofaTimer.classList.remove( 'wp-sudo-expiring' );
-				twofaTimer.textContent = 'Time remaining: ' + timeStr;
+				twofaTimer.textContent = strings.timeRemaining.replace( '%s', timeStr );
 			}
 
 			if ( remaining <= 0 ) {
@@ -405,13 +434,13 @@
 
 				// Show expiry message with a restart button.
 				var expiredMsg = document.createElement( 'span' );
-				expiredMsg.textContent = 'Your verification session has expired. ';
+				expiredMsg.textContent = strings.sessionExpired + ' ';
 				twofaTimer.appendChild( expiredMsg );
 
 				var restartBtn = document.createElement( 'button' );
 				restartBtn.type = 'button';
 				restartBtn.className = 'button button-link';
-				restartBtn.textContent = 'Start over';
+				restartBtn.textContent = strings.startOver;
 				restartBtn.addEventListener( 'click', function () {
 					// Reload to restart the challenge from the password step.
 					window.location.reload();

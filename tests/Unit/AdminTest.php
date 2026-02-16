@@ -639,6 +639,8 @@ class AdminTest extends TestCase {
 	// -----------------------------------------------------------------
 
 	public function test_enqueue_assets_registers_admin_js(): void {
+		Functions\when( '__' )->returnArg();
+
 		Functions\expect( 'wp_enqueue_style' )->once();
 
 		Functions\expect( 'wp_enqueue_script' )
@@ -755,5 +757,92 @@ class AdminTest extends TestCase {
 		$admin->render_role_error_notice();
 
 		unset( $_GET['update'] );
+	}
+
+	// -----------------------------------------------------------------
+	// register_sections() — label_for associations
+	// -----------------------------------------------------------------
+
+	public function test_register_sections_includes_label_for_on_all_fields(): void {
+		Functions\when( '__' )->returnArg();
+
+		// Track all add_settings_field calls.
+		$fields_called = array();
+		Functions\expect( 'add_settings_section' )->zeroOrMoreTimes();
+		Functions\expect( 'register_setting' )->zeroOrMoreTimes();
+
+		Functions\expect( 'add_settings_field' )
+			->zeroOrMoreTimes()
+			->andReturnUsing(
+				function ( $id, $title, $callback, $page, $section, $args = array() ) use ( &$fields_called ) {
+					$fields_called[ $id ] = $args;
+				}
+			);
+
+		$admin = new Admin();
+		$admin->register_sections();
+
+		// Session duration must have label_for.
+		$this->assertArrayHasKey( 'session_duration', $fields_called );
+		$this->assertArrayHasKey( 'label_for', $fields_called['session_duration'] );
+		$this->assertSame( 'session_duration', $fields_called['session_duration']['label_for'] );
+
+		// All policy fields must have label_for matching their key.
+		$policy_ids = array(
+			Gate::SETTING_REST_APP_PASS_POLICY,
+			Gate::SETTING_CLI_POLICY,
+			Gate::SETTING_CRON_POLICY,
+			Gate::SETTING_XMLRPC_POLICY,
+		);
+		foreach ( $policy_ids as $id ) {
+			$this->assertArrayHasKey( $id, $fields_called, "Missing field: $id" );
+			$this->assertArrayHasKey( 'label_for', $fields_called[ $id ], "Missing label_for for: $id" );
+			$this->assertSame( $id, $fields_called[ $id ]['label_for'], "label_for mismatch for: $id" );
+		}
+	}
+
+	// -----------------------------------------------------------------
+	// enqueue_scripts() — admin JS strings
+	// -----------------------------------------------------------------
+
+	public function test_enqueue_scripts_localizes_strings(): void {
+		$_GET['page'] = Admin::PAGE_SLUG;
+
+		Functions\when( '__' )->returnArg();
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )->once();
+
+		Functions\expect( 'admin_url' )
+			->with( 'admin-ajax.php' )
+			->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+
+		Functions\expect( 'wp_create_nonce' )
+			->with( 'wp_sudo_mu_plugin' )
+			->andReturn( 'test-nonce' );
+
+		$captured = null;
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-admin',
+				'wpSudoAdmin',
+				\Mockery::on(
+					function ( $data ) use ( &$captured ) {
+						$captured = $data;
+						return true;
+					}
+				)
+			);
+
+		$admin = new Admin();
+		$admin->enqueue_assets( 'settings_page_' . Admin::PAGE_SLUG );
+
+		$this->assertArrayHasKey( 'strings', $captured );
+		$this->assertArrayHasKey( 'genericError', $captured['strings'] );
+		$this->assertArrayHasKey( 'networkError', $captured['strings'] );
+		$this->assertNotEmpty( $captured['strings']['genericError'] );
+		$this->assertNotEmpty( $captured['strings']['networkError'] );
+
+		unset( $_GET['page'] );
 	}
 }

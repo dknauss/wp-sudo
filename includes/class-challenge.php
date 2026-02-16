@@ -119,7 +119,7 @@ class Challenge {
 		wp_enqueue_script(
 			'wp-sudo-challenge',
 			WP_SUDO_PLUGIN_URL . 'admin/js/wp-sudo-challenge.js',
-			array(),
+			array( 'wp-a11y' ),
 			WP_SUDO_VERSION,
 			true
 		);
@@ -146,6 +146,23 @@ class Challenge {
 				'tfaAction'   => self::AJAX_2FA_ACTION,
 				'cancelUrl'   => $cancel_url,
 				'sessionOnly' => empty( $stash_key ),
+				'strings'     => array(
+					'unexpectedResponse' => __( 'The server returned an unexpected response. Check the browser console for details.', 'wp-sudo' ),
+					'genericError'       => __( 'An error occurred.', 'wp-sudo' ),
+					'networkError'       => __( 'A network error occurred. Please try again.', 'wp-sudo' ),
+					'verificationFailed' => __( 'Verification failed.', 'wp-sudo' ),
+					/* translators: %s: countdown timer like "4:30" */
+					'lockoutCountdown'   => __( 'Too many failed attempts. Try again in %s.', 'wp-sudo' ),
+					/* translators: %s: countdown timer like "9:30" */
+					'timeRemaining'      => __( 'Time remaining: %s', 'wp-sudo' ),
+					/* translators: %s: countdown timer like "0:45" */
+					'timeRemainingWarn'  => __( "\u26A0 Time remaining: %s", 'wp-sudo' ),
+					'sessionExpired'     => __( 'Your verification session has expired.', 'wp-sudo' ),
+					'startOver'          => __( 'Start over', 'wp-sudo' ),
+					'twoFactorRequired'  => __( 'Password verified. Two-factor authentication required.', 'wp-sudo' ),
+					'replayingAction'    => __( "Replaying your action\u2026", 'wp-sudo' ),
+					'leavingChallenge'   => __( 'Leaving challenge page.', 'wp-sudo' ),
+				),
 			)
 		);
 	}
@@ -301,6 +318,7 @@ class Challenge {
 				<div class="wp-sudo-challenge-loading" id="wp-sudo-challenge-loading" hidden role="status">
 					<span class="spinner is-active"></span>
 					<span class="wp-sudo-sr-only"><?php esc_html_e( 'Verifying…', 'wp-sudo' ); ?></span>
+					<span class="wp-sudo-loading-text"></span>
 				</div>
 			</div>
 		</div>
