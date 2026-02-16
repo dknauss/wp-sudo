@@ -391,6 +391,9 @@ class AdminTest extends TestCase {
 
 		$this->assertStringContainsString( 'wp_sudo_two_factor_window', $content );
 		$this->assertStringContainsString( 'wp_sudo_requires_two_factor', $content );
+		$this->assertStringContainsString( 'wp_sudo_render_two_factor_fields', $content );
+		$this->assertStringContainsString( 'wp_sudo_validate_two_factor', $content );
+		$this->assertStringContainsString( 'bridges/', $content );
 	}
 
 	public function test_audit_hooks_tab_mentions_logging_plugins(): void {

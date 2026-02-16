@@ -206,6 +206,7 @@ class Admin {
 				'content' =>
 					'<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor verification code. All configured providers (TOTP, email, backup codes, WebAuthn/passkeys, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Other 2FA plugins (WP 2FA, Wordfence, AIOS, etc.) can integrate through four hooks. See the Extending tab for details.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Content Sanitization', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'WP Sudo removes the <code>unfiltered_html</code> capability from the Editor role. This means KSES content filtering is always active for editors — script tags, iframes, and other potentially dangerous HTML are stripped on save. Administrators retain <code>unfiltered_html</code>. The capability is restored if the plugin is deactivated or uninstalled.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Tamper Detection', 'wp-sudo' ) . '</h3>'
@@ -292,7 +293,14 @@ class Admin {
 					. '<h3>' . __( '2FA Verification Window', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'The default 2FA window is 10 minutes. Use the <code>wp_sudo_two_factor_window</code> filter to adjust it (value in seconds). A visible countdown timer is shown during the verification step.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Third-Party 2FA Integration', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Plugins other than Two Factor can integrate via the <code>wp_sudo_requires_two_factor</code>, <code>wp_sudo_validate_two_factor</code>, and <code>wp_sudo_render_two_factor_fields</code> hooks.', 'wp-sudo' ) . '</p>',
+					. '<p>' . __( 'Plugins other than Two Factor can integrate via four hooks:', 'wp-sudo' ) . '</p>'
+					. '<ul>'
+					. '<li><code>wp_sudo_requires_two_factor</code> — ' . __( 'detect whether the user has 2FA configured.', 'wp-sudo' ) . '</li>'
+					. '<li><code>wp_sudo_render_two_factor_fields</code> — ' . __( 'render form fields for the 2FA step.', 'wp-sudo' ) . '</li>'
+					. '<li><code>wp_sudo_validate_two_factor</code> — ' . __( 'validate the submitted 2FA code.', 'wp-sudo' ) . '</li>'
+					. '<li><code>wp_sudo_two_factor_window</code> — ' . __( 'adjust the verification time window.', 'wp-sudo' ) . '</li>'
+					. '</ul>'
+					. '<p>' . __( 'A complete integration guide and a working bridge for WP 2FA by Melapress are included in the <code>docs/</code> and <code>bridges/</code> directories.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
