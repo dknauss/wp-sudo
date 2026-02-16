@@ -282,6 +282,34 @@ add_filter( 'wp_sudo_validate_two_factor', function ( $valid, $user ) {
 
 ---
 
+## Known Issues
+
+### Silent fallback to recovery codes when TOTP key is missing
+
+**Affects:** Two Factor plugin (WordPress/two-factor) 0.14.x
+**Status:** Upstream bug — to be reported to the Two Factor project.
+
+When a user enables the TOTP provider via the Two Factor profile UI but the REST API call that saves the TOTP secret (`_two_factor_totp_key`) fails silently, the plugin enters an inconsistent state:
+
+- `_two_factor_enabled_providers` lists `Two_Factor_Totp` (saved by the profile form).
+- `_two_factor_totp_key` is missing (the REST call to `POST /two-factor/1.0/totp` failed).
+
+Because `Two_Factor_Totp::is_available_for_user()` checks for the TOTP key and returns `false` when it is missing, `Two_Factor_Core::get_primary_provider_for_user()` silently falls back to the next available provider — typically `Two_Factor_Backup_Codes`. The user sees a prompt for a recovery code when they expect to enter a TOTP code from their authenticator app.
+
+**Impact on WP Sudo:** WP Sudo calls `get_primary_provider_for_user()` and renders whatever provider Two Factor returns. If Two Factor silently falls back to Backup Codes, the WP Sudo challenge page shows "enter a recovery code" instead of "enter the code from your authenticator app." The user enters a valid TOTP code, it is validated as a backup code, and validation fails with no explanation of why.
+
+**Root cause:** The Two Factor TOTP setup uses a JavaScript REST API call (`wp.apiRequest`) to save the TOTP key. If this call fails (due to REST API issues, plugin conflicts, or environment-specific problems like SQLite compatibility), the failure is not surfaced to the user. The profile form save succeeds independently, writing `_two_factor_enabled_providers` with TOTP listed but no corresponding TOTP secret in the database.
+
+**Recommended fix for Two Factor:** When `get_primary_provider_for_user()` falls back from the user's configured primary provider to a different provider, the plugin should display a visible warning — either on the login 2FA screen or on the user's profile page. A silent fallback from TOTP to recovery codes is a poor UX pattern that confuses users.
+
+**Workaround:** Verify the TOTP key exists in user meta after setup:
+```bash
+wp user meta get <user_id> _two_factor_totp_key
+```
+If empty, the TOTP setup did not complete. Delete `_two_factor_enabled_providers` and repeat the setup, watching for REST API errors in the browser console.
+
+---
+
 ## Constraints and Unsupported Patterns
 
 ### Things that won't work

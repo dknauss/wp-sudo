@@ -201,6 +201,27 @@ class Admin {
 
 		$screen->add_help_tab(
 			array(
+				'id'      => 'wp-sudo-settings-help',
+				'title'   => __( 'Settings', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Session Duration', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'This setting controls how long the sudo window stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Entry Point Policies', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Each non-interactive entry point has three modes:', 'wp-sudo' ) . '</p>'
+					. '<ul>'
+					. '<li>' . __( '<strong>Disabled</strong> — Shuts off the entire surface/protocol. No requests are processed, no checks run, nothing is logged.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Limited</strong> (default) — Only gated (dangerous) actions are blocked and logged. Non-gated operations work normally.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Unrestricted</strong> — Everything passes through as if WP Sudo is not installed. No checks, no logging.', 'wp-sudo' ) . '</li>'
+					. '</ul>'
+					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
+					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'On multisite, settings are network-wide and the settings page appears under Network Admin &rarr; Settings &rarr; Sudo. Sudo sessions are also network-wide &mdash; authenticating on one site covers all sites in the network.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
 				'id'      => 'wp-sudo-security',
 				'title'   => __( 'Security Features', 'wp-sudo' ),
 				'content' =>
@@ -219,7 +240,8 @@ class Admin {
 				'id'      => 'wp-sudo-security-model',
 				'title'   => __( 'Security Model', 'wp-sudo' ),
 				'content' =>
-					'<p>' . __( 'WP Sudo operates within WordPress\'s plugin API (<code>admin_init</code>, <code>activate_plugin</code>, REST <code>permission_callback</code>, etc.). Gating is only as strong as this hook system.', 'wp-sudo' ) . '</p>'
+					'<h3>' . __( 'Security Model', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WP Sudo operates within WordPress\'s plugin API (<code>admin_init</code>, <code>activate_plugin</code>, REST <code>permission_callback</code>, etc.). Gating is only as strong as this hook system.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Protects Against', 'wp-sudo' ) . '</h3>'
 					. '<ul>'
 					. '<li>' . __( '<strong>Compromised sessions</strong> &mdash; stolen cookies cannot perform gated actions.', 'wp-sudo' ) . '</li>'
@@ -259,27 +281,6 @@ class Admin {
 					. '<li>' . __( '<strong>WebAuthn Provider for Two Factor</strong> &mdash; recommended alongside Two Factor. Adds passkey and security key (FIDO2/WebAuthn) support so users can reauthenticate with a hardware key or platform passkey.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>WP Activity Log</strong> or <strong>Stream</strong> &mdash; recommended for audit visibility. These logging plugins capture the 9 action hooks WP Sudo fires for session lifecycle, policy decisions, gated actions, and tamper detection.', 'wp-sudo' ) . '</li>'
 					. '</ul>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-settings-help',
-				'title'   => __( 'Settings', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Session Duration', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'This setting controls how long the sudo window stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Entry Point Policies', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Each non-interactive entry point has three modes:', 'wp-sudo' ) . '</p>'
-					. '<ul>'
-					. '<li>' . __( '<strong>Disabled</strong> — Shuts off the entire surface/protocol. No requests are processed, no checks run, nothing is logged.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Limited</strong> (default) — Only gated (dangerous) actions are blocked and logged. Non-gated operations work normally.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Unrestricted</strong> — Everything passes through as if WP Sudo is not installed. No checks, no logging.', 'wp-sudo' ) . '</li>'
-					. '</ul>'
-					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'On multisite, settings are network-wide and the settings page appears under Network Admin &rarr; Settings &rarr; Sudo. Sudo sessions are also network-wide &mdash; authenticating on one site covers all sites in the network.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
