@@ -347,3 +347,10 @@ After successful 2FA, `clear_2fa_pending()` deletes both the transient and the c
 | `admin/js/wp-sudo-challenge.js` | Client-side step transition, form field handling, countdown timer, code-resent handling |
 | `admin/css/wp-sudo-challenge.css` | Timer styling, hides Two Factor plugin's own submit button |
 | `includes/class-admin.php` | Help tab documentation of 2FA hooks |
+
+---
+
+## Further Reading
+
+- **[Two-Factor Plugin Ecosystem Guide](two-factor-ecosystem.md)** — Comprehensive survey of how major WordPress 2FA plugins work internally, with bridge patterns for Wordfence, WP 2FA, and AIOS.
+- **[`bridges/wp-sudo-wp2fa-bridge.php`](../bridges/wp-sudo-wp2fa-bridge.php)** — A complete, working bridge for WP 2FA by Melapress, ready to drop into `mu-plugins/`.

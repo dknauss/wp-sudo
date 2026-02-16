@@ -36,6 +36,12 @@ class ChallengeTest extends TestCase {
 		parent::setUp();
 		$this->stash     = \Mockery::mock( Request_Stash::class );
 		$this->challenge = new Challenge( $this->stash );
+
+		// Reset Two_Factor_Core mock provider between tests.
+		\Two_Factor_Core::$mock_provider = null;
+
+		// Prevent stash_key leakage between tests.
+		unset( $_POST['stash_key'] );
 	}
 
 	/**
@@ -492,6 +498,373 @@ class ChallengeTest extends TestCase {
 
 		unset( $_GET['page'] );
 	}
+
+	// -----------------------------------------------------------------
+	// handle_ajax_2fa — invalid code returns 401
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test handle_ajax_2fa returns 401 when 2FA code is invalid.
+	 */
+	public function test_handle_ajax_2fa_rejects_invalid_code(): void {
+		$challenge_nonce = 'test-challenge-nonce-invalid';
+		$challenge_hash  = hash( 'sha256', $challenge_nonce );
+		$_COOKIE[ \WP_Sudo\Sudo_Session::CHALLENGE_COOKIE ] = $challenge_nonce;
+
+		Functions\expect( 'check_ajax_referer' )->once();
+		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+		Functions\expect( 'get_userdata' )->once()->andReturn( new \WP_User( 42 ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		// Valid pending state.
+		Functions\expect( 'get_transient' )
+			->once()
+			->with( 'wp_sudo_2fa_pending_' . $challenge_hash )
+			->andReturn( array(
+				'user_id'    => 42,
+				'expires_at' => time() + 600,
+			) );
+
+		// Two_Factor_Core not loaded — filter returns false (invalid code).
+		Functions\when( 'apply_filters' )->justReturn( false );
+
+		// Capture error calls.
+		$error_calls = array();
+		Functions\expect( 'wp_send_json_error' )
+			->atLeast()
+			->once()
+			->andReturnUsing( function ( $data, $status = 200 ) use ( &$error_calls ) {
+				$error_calls[] = array( 'data' => $data, 'status' => $status );
+			} );
+
+		// Fallthrough stubs — execution continues past wp_send_json_error in tests.
+		Functions\when( 'delete_transient' )->justReturn( true );
+		Functions\when( 'update_user_meta' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-token-abc' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+		Functions\when( 'wp_send_json_success' )->justReturn( null );
+
+		$this->challenge->handle_ajax_2fa();
+
+		// First error call should be the invalid code message with 401 status.
+		$this->assertNotEmpty( $error_calls, 'wp_send_json_error should have been called.' );
+		$this->assertSame( 401, $error_calls[0]['status'] );
+		$this->assertStringContainsString( 'Invalid', $error_calls[0]['data']['message'] );
+	}
+
+	// -----------------------------------------------------------------
+	// handle_ajax_2fa — wp_sudo_validate_two_factor filter override
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test that wp_sudo_validate_two_factor filter can override validation.
+	 *
+	 * When Two_Factor_Core is not loaded (so built-in validation returns false),
+	 * the filter alone can make validation succeed — this is the third-party
+	 * integration path.
+	 */
+	public function test_handle_ajax_2fa_respects_validate_filter(): void {
+		$challenge_nonce = 'test-challenge-nonce-filter';
+		$challenge_hash  = hash( 'sha256', $challenge_nonce );
+		$_COOKIE[ \WP_Sudo\Sudo_Session::CHALLENGE_COOKIE ] = $challenge_nonce;
+
+		Functions\expect( 'check_ajax_referer' )->once();
+		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+		Functions\expect( 'get_userdata' )->once()->andReturn( new \WP_User( 42 ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		// Valid pending state.
+		Functions\expect( 'get_transient' )
+			->once()
+			->with( 'wp_sudo_2fa_pending_' . $challenge_hash )
+			->andReturn( array(
+				'user_id'    => 42,
+				'expires_at' => time() + 600,
+			) );
+
+		// The filter is the only call to apply_filters — return true to simulate
+		// a third-party 2FA plugin validating the code.
+		Functions\when( 'apply_filters' )->justReturn( true );
+
+		// clear_2fa_pending + activate stubs.
+		Functions\expect( 'delete_transient' )->once()->with( 'wp_sudo_2fa_pending_' . $challenge_hash );
+		Functions\when( 'update_user_meta' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-token-abc' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+		Functions\when( 'wp_send_json_error' )->justReturn( null );
+
+		// Should return authenticated (session-only, no stash_key).
+		Functions\expect( 'wp_send_json_success' )
+			->once()
+			->with( \Mockery::on( function ( $data ) {
+				return is_array( $data )
+					&& isset( $data['code'] )
+					&& 'authenticated' === $data['code'];
+			} ) );
+
+		$this->challenge->handle_ajax_2fa();
+	}
+
+	// -----------------------------------------------------------------
+	// handle_ajax_2fa — stash replay after 2FA
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test handle_ajax_2fa replays stashed request after successful 2FA.
+	 */
+	public function test_handle_ajax_2fa_replays_stash_on_success(): void {
+		$challenge_nonce = 'test-challenge-nonce-replay';
+		$challenge_hash  = hash( 'sha256', $challenge_nonce );
+		$_COOKIE[ \WP_Sudo\Sudo_Session::CHALLENGE_COOKIE ] = $challenge_nonce;
+		$_POST['stash_key'] = 'test-stash-key-abc';
+
+		Functions\expect( 'check_ajax_referer' )->once();
+		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+		Functions\expect( 'get_userdata' )->once()->andReturn( new \WP_User( 42 ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		// Valid pending state.
+		Functions\expect( 'get_transient' )
+			->once()
+			->with( 'wp_sudo_2fa_pending_' . $challenge_hash )
+			->andReturn( array(
+				'user_id'    => 42,
+				'expires_at' => time() + 600,
+			) );
+
+		// 2FA valid via filter.
+		Functions\when( 'apply_filters' )->justReturn( true );
+
+		// clear_2fa_pending + activate stubs.
+		Functions\when( 'delete_transient' )->justReturn( true );
+		Functions\when( 'update_user_meta' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-token-abc' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+		Functions\when( 'wp_send_json_error' )->justReturn( null );
+
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/' );
+
+		// replay_stash() will call $this->stash->get().
+		$this->stash->shouldReceive( 'get' )
+			->once()
+			->with( 'test-stash-key-abc', 42 )
+			->andReturn( array(
+				'method'  => 'GET',
+				'url'     => 'https://example.com/wp-admin/plugins.php?action=activate&plugin=hello.php',
+				'rule_id' => 'activate_plugin',
+			) );
+
+		// replay_stash() consumes the stash.
+		$this->stash->shouldReceive( 'delete' )
+			->once()
+			->with( 'test-stash-key-abc' );
+
+		Functions\when( 'wp_validate_redirect' )->returnArg();
+
+		// Should return success with redirect for GET replay.
+		Functions\expect( 'wp_send_json_success' )
+			->once()
+			->with( \Mockery::on( function ( $data ) {
+				return is_array( $data )
+					&& 'success' === ( $data['code'] ?? '' )
+					&& isset( $data['redirect'] )
+					&& str_contains( $data['redirect'], 'plugins.php' );
+			} ) );
+
+		$this->challenge->handle_ajax_2fa();
+
+		unset( $_POST['stash_key'] );
+	}
+
+	// -----------------------------------------------------------------
+	// handle_ajax_2fa — Two Factor provider: pre_process_authentication resend
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test handle_ajax_2fa returns 2fa_resent when pre_process_authentication
+	 * returns true (e.g. the Email provider resending a code).
+	 */
+	public function test_handle_ajax_2fa_returns_resent_on_pre_process(): void {
+		$challenge_nonce = 'test-challenge-nonce-resend';
+		$challenge_hash  = hash( 'sha256', $challenge_nonce );
+		$_COOKIE[ \WP_Sudo\Sudo_Session::CHALLENGE_COOKIE ] = $challenge_nonce;
+
+		Functions\expect( 'check_ajax_referer' )->once();
+		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+		Functions\expect( 'get_userdata' )->once()->andReturn( new \WP_User( 42 ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		// Valid pending state.
+		Functions\expect( 'get_transient' )
+			->once()
+			->with( 'wp_sudo_2fa_pending_' . $challenge_hash )
+			->andReturn( array(
+				'user_id'    => 42,
+				'expires_at' => time() + 600,
+			) );
+
+		// Set up a mock provider where pre_process_authentication returns true.
+		$provider = \Mockery::mock( \Two_Factor_Provider::class );
+		$provider->shouldReceive( 'pre_process_authentication' )
+			->once()
+			->with( \Mockery::type( \WP_User::class ) )
+			->andReturn( true );
+
+		// In production, wp_send_json_success() dies so validate_authentication
+		// is never reached. In tests execution continues, so we stub it.
+		$provider->shouldReceive( 'validate_authentication' )->andReturn( false );
+
+		\Two_Factor_Core::$mock_provider = $provider;
+
+		// Capture wp_send_json_success calls so we can assert 2fa_resent was first.
+		// In production the first call dies; in tests execution continues.
+		$success_calls = array();
+		Functions\expect( 'wp_send_json_success' )
+			->atLeast()
+			->once()
+			->andReturnUsing( function ( $data ) use ( &$success_calls ) {
+				$success_calls[] = $data;
+			} );
+
+		// Fallthrough stubs.
+		Functions\when( 'apply_filters' )->justReturn( false );
+		Functions\when( 'wp_send_json_error' )->justReturn( null );
+		Functions\when( 'delete_transient' )->justReturn( true );
+		Functions\when( 'update_user_meta' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-token-abc' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+
+		$this->challenge->handle_ajax_2fa();
+
+		// First wp_send_json_success call should be the 2fa_resent response.
+		$this->assertNotEmpty( $success_calls, 'wp_send_json_success should have been called.' );
+		$this->assertSame( '2fa_resent', $success_calls[0]['code'] ?? '' );
+	}
+
+	// -----------------------------------------------------------------
+	// handle_ajax_2fa — Two Factor provider: validate_authentication
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test handle_ajax_2fa succeeds when the Two Factor provider validates.
+	 */
+	public function test_handle_ajax_2fa_succeeds_via_two_factor_provider(): void {
+		$challenge_nonce = 'test-challenge-nonce-provider';
+		$challenge_hash  = hash( 'sha256', $challenge_nonce );
+		$_COOKIE[ \WP_Sudo\Sudo_Session::CHALLENGE_COOKIE ] = $challenge_nonce;
+
+		Functions\expect( 'check_ajax_referer' )->once();
+		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+		Functions\expect( 'get_userdata' )->once()->andReturn( new \WP_User( 42 ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+
+		// Valid pending state.
+		Functions\expect( 'get_transient' )
+			->once()
+			->with( 'wp_sudo_2fa_pending_' . $challenge_hash )
+			->andReturn( array(
+				'user_id'    => 42,
+				'expires_at' => time() + 600,
+			) );
+
+		// Set up a mock provider: pre_process returns false, validate returns true.
+		$provider = \Mockery::mock( \Two_Factor_Provider::class );
+		$provider->shouldReceive( 'pre_process_authentication' )
+			->once()
+			->andReturn( false );
+		$provider->shouldReceive( 'validate_authentication' )
+			->once()
+			->andReturn( true );
+
+		\Two_Factor_Core::$mock_provider = $provider;
+
+		// apply_filters (wp_sudo_validate_two_factor) — pass through the true value.
+		Functions\when( 'apply_filters' )->justReturn( true );
+
+		// clear_2fa_pending + activate stubs.
+		Functions\expect( 'delete_transient' )->once()->with( 'wp_sudo_2fa_pending_' . $challenge_hash );
+		Functions\when( 'update_user_meta' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-token-abc' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+		Functions\when( 'wp_send_json_error' )->justReturn( null );
+
+		// Session-only success.
+		Functions\expect( 'wp_send_json_success' )
+			->once()
+			->with( \Mockery::on( function ( $data ) {
+				return is_array( $data )
+					&& 'authenticated' === ( $data['code'] ?? '' );
+			} ) );
+
+		$this->challenge->handle_ajax_2fa();
+	}
+
+	// -----------------------------------------------------------------
+	// render_page — wp_sudo_render_two_factor_fields action
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test that render_page fires the wp_sudo_render_two_factor_fields action.
+	 */
+	public function test_render_page_fires_render_two_factor_fields_action(): void {
+		$_GET['page'] = 'wp-sudo-challenge';
+
+		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+		Functions\expect( 'get_userdata' )->andReturn( new \WP_User( 42 ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html_e' )->alias( function ( $text ) {
+			echo $text;
+		} );
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_attr' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/' );
+		Functions\when( 'wp_validate_redirect' )->returnArg();
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+		Functions\when( 'disabled' )->justReturn( '' );
+		Functions\when( 'sanitize_url' )->returnArg();
+
+		Actions\expectDone( 'wp_sudo_render_two_factor_fields' )
+			->once()
+			->with( \Mockery::type( \WP_User::class ) );
+
+		// Session-only mode (no stash_key).
+		ob_start();
+		$this->challenge->render_page();
+		ob_end_clean();
+
+		unset( $_GET['page'] );
+	}
+
+	// -----------------------------------------------------------------
+	// Session-only mode (no stash key)
+	// -----------------------------------------------------------------
 
 	/**
 	 * Test enqueue_assets sets sessionOnly to false when stash key is present.

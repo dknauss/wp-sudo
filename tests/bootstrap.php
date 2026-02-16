@@ -155,5 +155,37 @@ if ( ! class_exists( 'WP_Screen' ) ) {
 	}
 }
 
+// ── Two Factor plugin stubs ──────────────────────────────────────────
+// Minimal stubs so tests can exercise the class_exists('Two_Factor_Core')
+// branches in Challenge::handle_ajax_2fa() and Challenge::render_page().
+// The static $mock_provider property controls provider availability per test.
+
+if ( ! class_exists( 'Two_Factor_Provider' ) ) {
+	class Two_Factor_Provider {
+		public function authentication_page( WP_User $user ): void {}
+		public function pre_process_authentication( WP_User $user ) {
+			return false;
+		}
+		public function validate_authentication( WP_User $user ): bool {
+			return false;
+		}
+	}
+}
+
+if ( ! class_exists( 'Two_Factor_Core' ) ) {
+	class Two_Factor_Core {
+		/** @var Two_Factor_Provider|null */
+		public static ?Two_Factor_Provider $mock_provider = null;
+
+		public static function is_user_using_two_factor( int $user_id ): bool {
+			return self::$mock_provider !== null;
+		}
+
+		public static function get_primary_provider_for_user( WP_User $user ): ?Two_Factor_Provider {
+			return self::$mock_provider;
+		}
+	}
+}
+
 // ── Composer autoloader ──────────────────────────────────────────────
 require_once dirname( __DIR__ ) . '/vendor/autoload.php';
