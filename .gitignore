@@ -2,18 +2,28 @@
 node_modules/
 vendor/
 
-# IDE / OS
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-.idea/
-.vscode/
-
 # Build artifacts
 *.zip
 
 # Test coverage
 coverage/
 .phpunit.result.cache
-wp-sudo.code-workspace
+
+# System files (IDE / OS)
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+
+# VS Code workspace files and settings
+*.code-workspace
+.vscode/
+.vscode-server/
+
+# Antigravity workspace files
+*.antigravity-workspace
+
+# This gitignore file itself
+.gitignore
