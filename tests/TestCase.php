@@ -35,6 +35,10 @@ abstract class TestCase extends PHPUnitTestCase {
 			)
 		);
 
+		// Default stub for application password UUID — null means not app-password auth.
+		// Individual tests can override with Functions\when() for specific UUIDs.
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( null );
+
 		// Default stubs for multisite functions — single-site mode.
 		// Using when() instead of stubs() so tests can re-define with when().
 		Functions\when( 'is_multisite' )->justReturn( false );

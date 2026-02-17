@@ -164,7 +164,7 @@ class AdminTest extends TestCase {
 			->once();
 
 		Actions\expectAdded( 'admin_enqueue_scripts' )
-			->once();
+			->twice();
 
 		Filters\expectAdded( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME )
 			->once();
@@ -501,7 +501,7 @@ class AdminTest extends TestCase {
 		Actions\expectAdded( 'network_admin_menu' )->once();
 		Actions\expectAdded( 'network_admin_edit_wp_sudo_settings' )->once();
 		Actions\expectAdded( 'admin_init' )->once();
-		Actions\expectAdded( 'admin_enqueue_scripts' )->once();
+		Actions\expectAdded( 'admin_enqueue_scripts' )->twice();
 
 		Filters\expectAdded( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME )->once();
 

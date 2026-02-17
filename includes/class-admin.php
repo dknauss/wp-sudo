@@ -87,6 +87,7 @@ class Admin {
 		}
 
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'maybe_enqueue_app_password_assets' ) );
 		add_filter( 'plugin_action_links_' . WP_SUDO_PLUGIN_BASENAME, array( $this, 'add_action_links' ) );
 
 		// MU-plugin install/uninstall AJAX handlers.
@@ -97,6 +98,9 @@ class Admin {
 		// a clearer message on the Users page.
 		add_action( 'load-users.php', array( $this, 'rewrite_role_error' ) );
 		add_action( 'admin_notices', array( $this, 'render_role_error_notice' ) );
+
+		// Per-application-password policy dropdowns on user profile pages.
+		add_action( 'wp_ajax_wp_sudo_app_password_policy', array( $this, 'handle_app_password_policy_save' ) );
 	}
 
 	/**
@@ -403,7 +407,7 @@ class Admin {
 			array(
 				'label_for'   => Gate::SETTING_REST_APP_PASS_POLICY,
 				'key'         => Gate::SETTING_REST_APP_PASS_POLICY,
-				'description' => __( 'Controls non-cookie-auth REST requests (Application Passwords, Bearer tokens, OAuth). Cookie-auth browser requests always get the sudo challenge.', 'wp-sudo' ),
+				'description' => __( 'Controls non-cookie-auth REST requests (Application Passwords, Bearer tokens, OAuth). Cookie-auth browser requests always get the sudo challenge. Default: Limited.', 'wp-sudo' ),
 			)
 		);
 
@@ -416,7 +420,7 @@ class Admin {
 			array(
 				'label_for'   => Gate::SETTING_CLI_POLICY,
 				'key'         => Gate::SETTING_CLI_POLICY,
-				'description' => __( 'Disabled blocks all WP-CLI commands. Limited blocks only gated operations. Unrestricted allows everything. The wp cron subcommand also respects the Cron policy.', 'wp-sudo' ),
+				'description' => __( 'Disabled blocks all WP-CLI commands. Limited blocks only gated operations. Unrestricted allows everything. The wp cron subcommand also respects the Cron policy. Default: Limited.', 'wp-sudo' ),
 			)
 		);
 
@@ -429,7 +433,7 @@ class Admin {
 			array(
 				'label_for'   => Gate::SETTING_CRON_POLICY,
 				'key'         => Gate::SETTING_CRON_POLICY,
-				'description' => __( 'Disabled stops all cron execution (WP-Cron and server-level cron). Limited blocks only gated scheduled events. Unrestricted allows everything.', 'wp-sudo' ),
+				'description' => __( 'Disabled stops all cron execution (WP-Cron and server-level cron). Limited blocks only gated scheduled events. Unrestricted allows everything. Default: Limited.', 'wp-sudo' ),
 			)
 		);
 
@@ -442,7 +446,7 @@ class Admin {
 			array(
 				'label_for'   => Gate::SETTING_XMLRPC_POLICY,
 				'key'         => Gate::SETTING_XMLRPC_POLICY,
-				'description' => __( 'Disabled shuts off the entire XML-RPC protocol. Limited blocks only gated operations. Unrestricted allows everything.', 'wp-sudo' ),
+				'description' => __( 'Disabled shuts off the entire XML-RPC protocol. Limited blocks only gated operations. Unrestricted allows everything. Default: Limited.', 'wp-sudo' ),
 			)
 		);
 	}
@@ -459,6 +463,7 @@ class Admin {
 			'cli_policy'               => Gate::POLICY_LIMITED,
 			'cron_policy'              => Gate::POLICY_LIMITED,
 			'xmlrpc_policy'            => Gate::POLICY_LIMITED,
+			'app_password_policies'    => array(),
 		);
 	}
 
@@ -522,6 +527,21 @@ class Admin {
 			$value             = sanitize_text_field( $input[ $key ] ?? Gate::POLICY_LIMITED );
 			$sanitized[ $key ] = in_array( $value, $valid_policies, true ) ? $value : Gate::POLICY_LIMITED;
 		}
+
+		// Per-application-password policy overrides (keyed by UUID).
+		$app_password_policies = array();
+		if ( isset( $input['app_password_policies'] ) && is_array( $input['app_password_policies'] ) ) {
+			foreach ( $input['app_password_policies'] as $uuid => $policy_value ) {
+				$uuid         = sanitize_text_field( $uuid );
+				$policy_value = sanitize_text_field( $policy_value );
+
+				// Only store explicit overrides; empty/default means "use global".
+				if ( ! empty( $uuid ) && in_array( $policy_value, $valid_policies, true ) ) {
+					$app_password_policies[ $uuid ] = $policy_value;
+				}
+			}
+		}
+		$sanitized['app_password_policies'] = $app_password_policies;
 
 		return $sanitized;
 	}
@@ -889,7 +909,7 @@ class Admin {
 			esc_attr( self::OPTION_KEY ),
 			absint( $value )
 		);
-		echo '<p class="description">' . esc_html__( 'How long a sudo session lasts before automatically expiring (maximum 15 minutes).', 'wp-sudo' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'How long a sudo session lasts before automatically expiring. Range: 1–15 minutes. Default: 15 minutes.', 'wp-sudo' ) . '</p>';
 	}
 
 	/**
@@ -981,5 +1001,139 @@ class Admin {
 				)
 			)
 		);
+	}
+
+	// -------------------------------------------------------------------------
+	// Per-Application-Password Policies
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Enqueue the per-application-password policy script on user profile pages.
+	 *
+	 * Hooks into admin_enqueue_scripts (already registered) and conditionally
+	 * loads on profile.php and user-edit.php.
+	 *
+	 * @since 2.3.0
+	 *
+	 * @param string $hook_suffix The current admin page hook suffix.
+	 * @return void
+	 */
+	public function maybe_enqueue_app_password_assets( string $hook_suffix ): void {
+		if ( ! in_array( $hook_suffix, array( 'profile.php', 'user-edit.php' ), true ) ) {
+			return;
+		}
+
+		$required_cap = is_multisite() ? 'manage_network_options' : 'manage_options';
+		if ( ! current_user_can( $required_cap ) ) {
+			return;
+		}
+
+		// Determine which user's profile is being viewed.
+		$profile_user_id = $this->get_profile_user_id();
+		if ( ! $profile_user_id ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'wp-sudo-app-passwords',
+			WP_SUDO_PLUGIN_URL . 'admin/js/wp-sudo-app-passwords.js',
+			array(),
+			WP_SUDO_VERSION,
+			true
+		);
+
+		$policies = self::get( 'app_password_policies', array() );
+
+		wp_localize_script(
+			'wp-sudo-app-passwords',
+			'wpSudoAppPasswords',
+			array(
+				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
+				'nonce'    => wp_create_nonce( 'wp_sudo_app_password_policy' ),
+				'policies' => is_array( $policies ) ? $policies : array(),
+				'options'  => array(
+					''             => __( 'Global default', 'wp-sudo' ),
+					'disabled'     => __( 'Disabled', 'wp-sudo' ),
+					'limited'      => __( 'Limited', 'wp-sudo' ),
+					'unrestricted' => __( 'Unrestricted', 'wp-sudo' ),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Get the user ID from the current profile page context.
+	 *
+	 * @since 2.3.0
+	 *
+	 * @return int User ID, or 0 if unavailable.
+	 */
+	private function get_profile_user_id(): int {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only context; the profile page handles its own nonce.
+		if ( isset( $_GET['user_id'] ) ) {
+			return absint( $_GET['user_id'] );
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		return get_current_user_id();
+	}
+
+	/**
+	 * Handle AJAX save of a per-application-password policy override.
+	 *
+	 * Expects POST parameters:
+	 * - uuid:   The application password UUID.
+	 * - policy: The policy value ('disabled', 'limited', 'unrestricted', or '' for global default).
+	 *
+	 * @since 2.3.0
+	 *
+	 * @return void
+	 */
+	public function handle_app_password_policy_save(): void {
+		check_ajax_referer( 'wp_sudo_app_password_policy', '_nonce' );
+
+		$required_cap = is_multisite() ? 'manage_network_options' : 'manage_options';
+		if ( ! current_user_can( $required_cap ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
+		}
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- sanitize_text_field handles slashes.
+		$uuid   = sanitize_text_field( wp_unslash( $_POST['uuid'] ?? '' ) );
+		$policy = sanitize_text_field( wp_unslash( $_POST['policy'] ?? '' ) );
+
+		if ( empty( $uuid ) ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid application password UUID.', 'wp-sudo' ) ) );
+		}
+
+		$valid_policies = array( Gate::POLICY_DISABLED, Gate::POLICY_LIMITED, Gate::POLICY_UNRESTRICTED );
+
+		// Get current settings.
+		$settings = is_multisite()
+			? get_site_option( self::OPTION_KEY, self::defaults() )
+			: get_option( self::OPTION_KEY, self::defaults() );
+
+		if ( ! is_array( $settings ) ) {
+			$settings = self::defaults();
+		}
+
+		if ( ! isset( $settings['app_password_policies'] ) || ! is_array( $settings['app_password_policies'] ) ) {
+			$settings['app_password_policies'] = array();
+		}
+
+		if ( empty( $policy ) || ! in_array( $policy, $valid_policies, true ) ) {
+			// Empty means "use global default" — remove the override.
+			unset( $settings['app_password_policies'][ $uuid ] );
+		} else {
+			$settings['app_password_policies'][ $uuid ] = $policy;
+		}
+
+		if ( is_multisite() ) {
+			update_site_option( self::OPTION_KEY, $settings );
+		} else {
+			update_option( self::OPTION_KEY, $settings );
+		}
+		self::reset_cache();
+
+		wp_send_json_success( array( 'message' => __( 'Policy saved.', 'wp-sudo' ) ) );
 	}
 }

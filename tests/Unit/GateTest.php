@@ -2052,4 +2052,123 @@ class GateTest extends TestCase {
 
 		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
 	}
+
+	// ── get_app_password_policy() — per-app-password overrides ───────
+
+	/**
+	 * Test get_app_password_policy falls back to global policy when no app password UUID.
+	 */
+	public function test_get_app_password_policy_falls_back_to_global(): void {
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( null );
+		Functions\when( 'get_option' )->justReturn( array( 'rest_app_password_policy' => 'limited' ) );
+
+		$this->assertSame( 'limited', $this->gate->get_app_password_policy() );
+	}
+
+	/**
+	 * Test get_app_password_policy returns per-password override when set.
+	 */
+	public function test_get_app_password_policy_returns_per_password_override(): void {
+		$uuid = '550e8400-e29b-41d4-a716-446655440000';
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( $uuid );
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'rest_app_password_policy' => 'limited',
+				'app_password_policies'    => array( $uuid => 'unrestricted' ),
+			)
+		);
+
+		$this->assertSame( 'unrestricted', $this->gate->get_app_password_policy() );
+	}
+
+	/**
+	 * Test get_app_password_policy falls back to global when UUID has no override.
+	 */
+	public function test_get_app_password_policy_falls_back_when_no_override_for_uuid(): void {
+		$uuid = '550e8400-e29b-41d4-a716-446655440000';
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( $uuid );
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'rest_app_password_policy' => 'disabled',
+				'app_password_policies'    => array( 'other-uuid' => 'unrestricted' ),
+			)
+		);
+
+		$this->assertSame( 'disabled', $this->gate->get_app_password_policy() );
+	}
+
+	/**
+	 * Test get_app_password_policy ignores invalid override values.
+	 */
+	public function test_get_app_password_policy_ignores_invalid_override(): void {
+		$uuid = '550e8400-e29b-41d4-a716-446655440000';
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( $uuid );
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'rest_app_password_policy' => 'limited',
+				'app_password_policies'    => array( $uuid => 'bogus_value' ),
+			)
+		);
+
+		$this->assertSame( 'limited', $this->gate->get_app_password_policy() );
+	}
+
+	/**
+	 * Test intercept_rest uses per-app-password override to allow gated request.
+	 */
+	public function test_intercept_rest_uses_per_app_password_unrestricted_override(): void {
+		$uuid = '550e8400-e29b-41d4-a716-446655440000';
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'is_wp_error' )->justReturn( false );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( $uuid );
+
+		// Global policy is limited, but this app password is unrestricted.
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'rest_app_password_policy' => 'limited',
+				'app_password_policies'    => array( $uuid => 'unrestricted' ),
+			)
+		);
+
+		$request = new \WP_REST_Request( 'DELETE', '/wp/v2/plugins/hello-dolly' );
+		// No X-WP-Nonce header — app-password auth.
+		$handler = array();
+
+		$result = $this->gate->intercept_rest( null, $handler, $request );
+
+		// Should pass through (unrestricted override), not block.
+		$this->assertNull( $result );
+	}
+
+	/**
+	 * Test intercept_rest uses per-app-password disabled override to block.
+	 */
+	public function test_intercept_rest_uses_per_app_password_disabled_override(): void {
+		$uuid = '550e8400-e29b-41d4-a716-446655440000';
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'is_wp_error' )->justReturn( false );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( $uuid );
+
+		// Global policy is unrestricted, but this app password is disabled.
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'rest_app_password_policy' => 'unrestricted',
+				'app_password_policies'    => array( $uuid => 'disabled' ),
+			)
+		);
+
+		$request = new \WP_REST_Request( 'DELETE', '/wp/v2/plugins/hello-dolly' );
+		$handler = array();
+
+		$result = $this->gate->intercept_rest( null, $handler, $request );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
+	}
 }

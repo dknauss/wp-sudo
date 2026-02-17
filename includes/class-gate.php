@@ -522,6 +522,38 @@ class Gate {
 	}
 
 	/**
+	 * Get the effective REST API policy for the current application password.
+	 *
+	 * Checks for a per-application-password policy override first. If the
+	 * current request was authenticated via an Application Password and a
+	 * per-password override exists, that override is returned. Otherwise,
+	 * falls back to the global REST API (App Passwords) policy.
+	 *
+	 * @since 2.3.0
+	 *
+	 * @return string The policy value ('disabled', 'limited', or 'unrestricted').
+	 */
+	public function get_app_password_policy(): string {
+		// Check if this request was authenticated via an application password.
+		$app_password_uuid = rest_get_authenticated_app_password();
+
+		if ( $app_password_uuid ) {
+			$overrides = Admin::get( 'app_password_policies', array() );
+
+			if ( is_array( $overrides ) && isset( $overrides[ $app_password_uuid ] ) ) {
+				$valid = array( self::POLICY_DISABLED, self::POLICY_LIMITED, self::POLICY_UNRESTRICTED );
+
+				if ( in_array( $overrides[ $app_password_uuid ], $valid, true ) ) {
+					return $overrides[ $app_password_uuid ];
+				}
+			}
+		}
+
+		// Fall back to the global REST App Password policy.
+		return $this->get_policy( self::SETTING_REST_APP_PASS_POLICY );
+	}
+
+	/**
 	 * Main interception entry point at admin_init priority 1.
 	 *
 	 * Determines the surface (admin UI vs AJAX) and routes accordingly.
@@ -722,9 +754,9 @@ class Gate {
 	 * Cookie-auth (browser) requests get a soft block (sudo_required).
 	 * An admin notice on the next page load links to the challenge page.
 	 *
-	 * @param mixed            $response Response to replace the requested response.
-	 * @param array            $handler  Route handler info.
-	 * @param \WP_REST_Request $request  REST request object.
+	 * @param mixed                $response Response to replace the requested response.
+	 * @param array<string, mixed> $handler Route handler info.
+	 * @param \WP_REST_Request     $request  REST request object.
 	 * @return mixed|\WP_Error Original response or WP_Error to block.
 	 */
 	public function intercept_rest( $response, $handler, \WP_REST_Request $request ) {
@@ -756,7 +788,8 @@ class Gate {
 
 		if ( ! $is_cookie_auth ) {
 			// Non-browser auth (app-password, bearer, etc.) — check policy.
-			$policy = $this->get_policy( self::SETTING_REST_APP_PASS_POLICY );
+			// Per-app-password override takes precedence over the global policy.
+			$policy = $this->get_app_password_policy();
 
 			// Unrestricted: pass through, no checks, no logging.
 			if ( self::POLICY_UNRESTRICTED === $policy ) {
@@ -1027,8 +1060,10 @@ class Gate {
 			? $blocked['label']
 			: __( 'a protected action', 'wp-sudo' );
 
-		$is_mac   = isset( $_SERVER['HTTP_USER_AGENT'] )
+		// phpcs:disable WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___SERVER__HTTP_USER_AGENT__ -- UI hint only.
+		$is_mac = isset( $_SERVER['HTTP_USER_AGENT'] )
 			&& false !== strpos( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 'Mac' );
+		// phpcs:enable WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___SERVER__HTTP_USER_AGENT__
 		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
 
 		$current_url = isset( $_SERVER['REQUEST_URI'] )
