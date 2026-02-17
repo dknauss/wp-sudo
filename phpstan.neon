@@ -1,0 +1,21 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 6
+    paths:
+        - wp-sudo.php
+        - includes/
+        - uninstall.php
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # Unreachable code after wp_die()/exit/wp_send_json_* is intentional
+        # defensive coding — PHPStan can't know these functions don't return.
+        -
+            identifier: deadCode.unreachable
+        # Gate::$session is used for future extensibility and may be
+        # accessed by subclasses or filters.
+        -
+            identifier: property.onlyWritten

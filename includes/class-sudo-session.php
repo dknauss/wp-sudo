@@ -248,7 +248,7 @@ class Sudo_Session {
 	 *
 	 * @param int    $user_id  User ID.
 	 * @param string $password The user's password.
-	 * @return array{code: string, remaining?: int} Result with status code.
+	 * @return array{code: string, remaining?: int, expires_at?: int, delay?: int} Result with status code.
 	 */
 	public static function attempt_activation( int $user_id, string $password ): array {
 		if ( self::is_locked_out( $user_id ) ) {
@@ -278,6 +278,8 @@ class Sudo_Session {
 			);
 
 			// Check if this attempt triggered a lockout.
+			// phpcs:ignore Squiz.Commenting.InlineComment.InvalidEndChar -- PHPStan ignore syntax.
+			// @phpstan-ignore if.alwaysFalse (lockout state changes via user meta inside record_failed_attempt)
 			if ( self::is_locked_out( $user_id ) ) {
 				return array(
 					'code'      => 'locked_out',

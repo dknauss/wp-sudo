@@ -49,8 +49,8 @@ class Request_Stash {
 	/**
 	 * Save the current request into a transient.
 	 *
-	 * @param int   $user_id      The user ID.
-	 * @param array $matched_rule The action registry rule that was matched.
+	 * @param int                  $user_id      The user ID.
+	 * @param array<string, mixed> $matched_rule The action registry rule that was matched.
 	 * @return string Stash key for use in the challenge URL.
 	 */
 	public function save( int $user_id, array $matched_rule ): string {
@@ -199,8 +199,8 @@ class Request_Stash {
 	 * because they will be replayed to the same WordPress handler that
 	 * originally expected them.
 	 *
-	 * @param array $params Raw request parameters.
-	 * @return array Sanitized parameters.
+	 * @param array<string, mixed> $params Raw request parameters.
+	 * @return array<string, mixed> Sanitized parameters.
 	 */
 	private function sanitize_params( array $params ): array {
 		// We store verbatim because these parameters will be replayed

@@ -162,6 +162,7 @@ class Challenge {
 					'twoFactorRequired'  => __( 'Password verified. Two-factor authentication required.', 'wp-sudo' ),
 					'replayingAction'    => __( "Replaying your action\u2026", 'wp-sudo' ),
 					'leavingChallenge'   => __( 'Leaving challenge page.', 'wp-sudo' ),
+					'lockoutExpired'     => __( 'Lockout expired. You may try again.', 'wp-sudo' ),
 				),
 			)
 		);

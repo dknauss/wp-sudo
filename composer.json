@@ -10,7 +10,9 @@
         "automattic/vipwpcs": "^3.0",
         "brain/monkey": "^2.7",
         "mockery/mockery": "^1.6",
-        "phpunit/phpunit": "^9.6"
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^9.6",
+        "szepeviktor/phpstan-wordpress": "^2.0"
     },
     "autoload": {
         "classmap": [
@@ -31,6 +33,7 @@
     "scripts": {
         "lint": "phpcs",
         "lint:fix": "phpcbf",
-        "test": "phpunit"
+        "test": "phpunit",
+        "analyse": "phpstan analyse"
     }
 }
