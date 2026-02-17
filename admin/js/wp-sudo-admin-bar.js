@@ -43,7 +43,7 @@
 	// Track which milestones have been announced.
 	var milestones = { 60: false, 30: false, 10: false, 0: false };
 
-	setInterval( function () {
+	var intervalId = setInterval( function () {
 		r--;
 		if ( r <= 0 ) {
 			sr.textContent = 'Sudo session expired.';
@@ -71,6 +71,11 @@
 			sr.textContent   = 'Sudo session: 10 seconds remaining.';
 		}
 	}, 1000 );
+
+	// Clean up interval on page unload to prevent bfcache issues.
+	window.addEventListener( 'pagehide', function () {
+		clearInterval( intervalId );
+	} );
 
 	// Keyboard shortcut: Ctrl+Shift+S / Cmd+Shift+S flashes the
 	// admin bar node to acknowledge the session is already active.

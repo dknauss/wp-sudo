@@ -346,12 +346,24 @@
 
 		submitBtn.disabled = true;
 
+		// Suppress per-second screen reader announcements during countdown.
+		// The error box has role="alert" which would announce every update.
+		// Instead, we set aria-live="off" and announce only at milestones.
+		if ( errorBox ) {
+			errorBox.setAttribute( 'aria-live', 'off' );
+		}
+
 		function tick() {
 			if ( remaining <= 0 ) {
 				clearInterval( lockoutInterval );
 				lockoutInterval = null;
 				submitBtn.disabled = false;
+				// Restore live region before hiding so SR announces clearance.
+				if ( errorBox ) {
+					errorBox.removeAttribute( 'aria-live' );
+				}
 				hideError( errorBox );
+				announce( strings.lockoutExpired || 'Lockout expired. You may try again.' );
 				passwordInput.focus();
 				return;
 			}
@@ -359,7 +371,23 @@
 			var m = Math.floor( remaining / 60 );
 			var s = remaining % 60;
 			var timeStr = m + ':' + ( s < 10 ? '0' : '' ) + s;
-			showError( errorBox, strings.lockoutCountdown.replace( '%s', timeStr ) );
+
+			// Update visual text every second.
+			var p = errorBox ? errorBox.querySelector( 'p' ) : null;
+			if ( errorBox && ! errorBox.hidden ) {
+				// Direct DOM update to avoid triggering live region.
+				if ( p ) {
+					p.textContent = strings.lockoutCountdown.replace( '%s', timeStr );
+				}
+			} else {
+				showError( errorBox, strings.lockoutCountdown.replace( '%s', timeStr ) );
+			}
+
+			// Announce to screen readers every 30 seconds and at 10 seconds.
+			if ( remaining % 30 === 0 || remaining === 10 ) {
+				announce( strings.lockoutCountdown.replace( '%s', timeStr ), 'polite' );
+			}
+
 			remaining--;
 		}
 
