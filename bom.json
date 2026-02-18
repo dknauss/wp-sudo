@@ -98,11 +98,11 @@
             "properties": [
                 {
                     "name": "cdx:composer:package:distReference",
-                    "value": "016426aeaa1d496b205ce96cc9efb83f1f5465fe"
+                    "value": "49f937aba3f17a46964cb00a9dfb765e83b3684e"
                 },
                 {
                     "name": "cdx:composer:package:sourceReference",
-                    "value": "016426aeaa1d496b205ce96cc9efb83f1f5465fe"
+                    "value": "49f937aba3f17a46964cb00a9dfb765e83b3684e"
                 },
                 {
                     "name": "cdx:composer:package:type",
@@ -554,10 +554,10 @@
             ]
         },
         {
-            "bom-ref": "doctrine/instantiator-2.1.0.0",
+            "bom-ref": "doctrine/instantiator-2.0.0.0",
             "type": "library",
             "name": "instantiator",
-            "version": "2.1.0",
+            "version": "2.0.0",
             "group": "doctrine",
             "description": "A small, lightweight utility to instantiate objects in PHP without invoking their constructors",
             "author": "Marco Pivetta",
@@ -569,17 +569,17 @@
                     }
                 }
             ],
-            "purl": "pkg:composer/doctrine/instantiator@2.1.0",
+            "purl": "pkg:composer/doctrine/instantiator@2.0.0",
             "externalReferences": [
                 {
                     "type": "distribution",
-                    "url": "https://api.github.com/repos/doctrine/instantiator/zipball/23da848e1a2308728fe5fdddabf4be17ff9720c7",
-                    "comment": "dist reference: 23da848e1a2308728fe5fdddabf4be17ff9720c7"
+                    "url": "https://api.github.com/repos/doctrine/instantiator/zipball/c6222283fa3f4ac679f8b9ced9a4e23f163e80d0",
+                    "comment": "dist reference: c6222283fa3f4ac679f8b9ced9a4e23f163e80d0"
                 },
                 {
                     "type": "vcs",
                     "url": "https://github.com/doctrine/instantiator.git",
-                    "comment": "source reference: 23da848e1a2308728fe5fdddabf4be17ff9720c7"
+                    "comment": "source reference: c6222283fa3f4ac679f8b9ced9a4e23f163e80d0"
                 },
                 {
                     "type": "website",
@@ -593,18 +593,18 @@
                 },
                 {
                     "type": "vcs",
-                    "url": "https://github.com/doctrine/instantiator/tree/2.1.0",
+                    "url": "https://github.com/doctrine/instantiator/tree/2.0.0",
                     "comment": "as detected from Composer manifest 'support.source'"
                 }
             ],
             "properties": [
                 {
                     "name": "cdx:composer:package:distReference",
-                    "value": "23da848e1a2308728fe5fdddabf4be17ff9720c7"
+                    "value": "c6222283fa3f4ac679f8b9ced9a4e23f163e80d0"
                 },
                 {
                     "name": "cdx:composer:package:sourceReference",
-                    "value": "23da848e1a2308728fe5fdddabf4be17ff9720c7"
+                    "value": "c6222283fa3f4ac679f8b9ced9a4e23f163e80d0"
                 },
                 {
                     "name": "cdx:composer:package:type",
@@ -3246,7 +3246,7 @@
             ]
         },
         {
-            "ref": "doctrine/instantiator-2.1.0.0"
+            "ref": "doctrine/instantiator-2.0.0.0"
         },
         {
             "ref": "hamcrest/hamcrest-php-2.1.1.0"
@@ -3340,7 +3340,7 @@
         {
             "ref": "phpunit/phpunit-9.6.34.0",
             "dependsOn": [
-                "doctrine/instantiator-2.1.0.0",
+                "doctrine/instantiator-2.0.0.0",
                 "myclabs/deep-copy-1.13.4.0",
                 "phar-io/manifest-2.0.4.0",
                 "phar-io/version-3.2.1.0",

@@ -30,6 +30,9 @@
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
             "cyclonedx/cyclonedx-php-composer": true
+        },
+        "platform": {
+            "php": "8.1.99"
         }
     },
     "scripts": {
