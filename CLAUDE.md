@@ -15,11 +15,13 @@ composer install          # Install dev dependencies
 composer test             # Run all unit tests
 composer lint             # Run PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum)
 composer lint:fix         # Auto-fix PHPCS violations
+composer analyse          # Run PHPStan level 6 (use --memory-limit=1G if needed)
+composer sbom             # Regenerate CycloneDX SBOM (bom.json)
 ./vendor/bin/phpunit tests/Unit/SudoSessionTest.php   # Run a single test file
 ./vendor/bin/phpunit --filter testMethodName           # Run a single test method
 ```
 
-No build step. No production dependencies — only dev dependencies (PHPUnit 9.6, Brain\Monkey, Mockery, VIP WPCS).
+No build step. No production dependencies — only dev dependencies (PHPUnit 9.6, Brain\Monkey, Mockery, VIP WPCS, PHPStan, CycloneDX).
 
 ## Commit Practices
 
