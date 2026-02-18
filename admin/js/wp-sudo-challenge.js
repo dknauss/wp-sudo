@@ -259,6 +259,10 @@
 	function handleReplay( data ) {
 		// Show replay status to all users (visible + announced).
 		loadingOverlay.hidden = false;
+		var srOnly = loadingOverlay.querySelector( '.wp-sudo-sr-only' );
+		if ( srOnly ) {
+			srOnly.hidden = true;
+		}
 		var statusEl = loadingOverlay.querySelector( '.wp-sudo-loading-text' );
 		if ( statusEl ) {
 			statusEl.textContent = strings.replayingAction;
