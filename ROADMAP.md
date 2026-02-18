@@ -122,3 +122,34 @@ These items were considered and intentionally excluded:
   WebAuthn's `navigator.credentials.get()` ceremony. The
   [WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)
   plugin is recommended in the readme. No WP Sudo changes needed.
+
+## Possible Features
+
+Ideas worth considering but not yet committed to.
+
+### SBOM Enhancements
+
+A CycloneDX SBOM (`bom.json`) is generated via `composer sbom` and shipped in the
+repo. Currently it reflects only the PHP/Composer dependency graph (which is
+minimal — zero production dependencies). Future options:
+
+- **GitHub Action for CI-generated SBOMs** — use
+  [CycloneDX/gh-php-composer-generate-sbom](https://github.com/CycloneDX/gh-php-composer-generate-sbom)
+  to regenerate `bom.json` on every release tag. Ensures the SBOM is always in
+  sync with `composer.lock`.
+- **JS dependency tracking** — if Gutenberg integration (item 8) introduces an
+  npm build step, add `@cyclonedx/cyclonedx-npm` to capture front-end
+  dependencies in a separate or merged SBOM.
+- **Whole-site SBOM tooling** — for site operators (not plugin authors), tools
+  like [wpbom](https://wordpress.org/plugins/wpbom/) and the methodology in
+  [FrontEndSBOM](https://github.com/CaseyFaheyNetgoalie/FrontEndSBOM) can
+  inventory all plugins, themes, and their dependency chains. Could be referenced
+  in WP Sudo's security documentation as a recommended practice.
+
+### JS Testing with Playwright
+
+No JS tests exist today. The vanilla JS files have no build step and limited
+surface area, so the cost-benefit of Jest + JSDOM mocks is low. The natural
+trigger is Gutenberg integration (item 8), which would require browser-level
+testing anyway. At that point, add Playwright E2E tests covering the existing
+challenge page flow alongside the new editor integration.
