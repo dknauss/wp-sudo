@@ -3,7 +3,7 @@
 Remaining enhancements for future releases. Items marked ✅ were proposed in the
 original v2 roadmap and have been implemented.
 
-## Completed (v2.0.0–v2.1.0)
+## Completed (v2.0.0–v2.3.0)
 
 These items from the original roadmap are done:
 
@@ -23,6 +23,16 @@ These items from the original roadmap are done:
   monkey-patching was replaced entirely by the stash-challenge-replay pattern.
 - ✅ **Editor `unfiltered_html` restriction** — stripped from editors on activation,
   tamper detection canary at `init` priority 1.
+- ✅ **Per-application-password policies** (v2.3.0) — per-password REST API policy
+  overrides stored by UUID. Dropdown on the user profile Application Passwords
+  section. AI agents and deployment pipelines can have distinct policies.
+- ✅ **AI and agentic tool guidance** (v2.3.0) — documentation covering how AI
+  assistants and automated agents interact with WP Sudo policies across cookie,
+  REST API, and WP-CLI surfaces.
+- ✅ **PHPStan level 6** (v2.3.0) — static analysis with `szepeviktor/phpstan-wordpress`.
+  Integrated as `composer analyse` alongside `test` and `lint`.
+- ✅ **UI/UX testing prompts** (v2.3.0) — structured prompt frameworks for heuristic
+  evaluation, navigation flow, and responsive testing.
 
 ## Open — Medium Effort
 
@@ -59,43 +69,6 @@ be needed.
 **Impact:** Medium — useful visibility for site administrators, but not a security
 improvement.
 
-## Open — Low Effort
-
-### 6. AI and Agentic Tool Guidance
-
-Documentation section (README + help tab) covering how AI assistants and automated
-agents interact with WP Sudo policies. AI tools don't introduce a new WordPress
-surface — they use REST API (app passwords), WP-CLI, or browser-based cookie auth,
-all of which are already gated by existing policies.
-
-Topics to cover:
-- Browser-based AI (Gutenberg sidebar assistants, Jetpack AI) → cookie-auth REST
-  path → `sudo_required` like any other browser request.
-- Headless AI agents (deployment bots, MCP-based tools, CI/CD) → app-password REST
-  or WP-CLI → governed by the REST and CLI policies.
-- Recommended policy configurations for common AI workflows.
-- Why "Limited" is the correct default: AI agents performing non-gated operations
-  (content creation, media uploads) are unaffected, while gated operations
-  (plugin activation, user deletion) are blocked.
-
-**Impact:** Medium — increasingly relevant as AI-powered site management tools
-proliferate. No code changes, just documentation.
-
-### 7. Per-Application-Password Policies
-
-Allow different REST API policies per application password. Currently, one policy
-governs all non-cookie REST auth. An AI agent's application password might warrant
-`limited` while a trusted deployment pipeline's password could be `unrestricted`.
-
-Implementation: store policy overrides keyed by application password UUID in
-`wp_sudo_settings`. Check the authenticated app password ID in `intercept_rest()`
-before falling back to the global policy. Expose per-password policy dropdowns on
-the user profile Application Passwords section.
-
-**Impact:** High — enables fine-grained control over automated access without
-weakening the default policy for all app passwords. Especially valuable when
-multiple AI tools and automation pipelines share the same site.
-
 ## Open — High Effort
 
 ### 8. Gutenberg Block Editor Integration
@@ -118,58 +91,13 @@ administration. Not relevant for single-site installs.
 ## Accessibility Improvements
 
 See [ACCESSIBILITY-ROADMAP.md](ACCESSIBILITY-ROADMAP.md) for the full list.
-Summary:
+All medium-priority items (1–6) were resolved in v2.2.0–v2.3.0.
 
-**Medium priority (6 items):**
-1. Challenge page Escape key navigates without warning.
-2. Challenge page 2FA step-change announcement.
-3. Settings page label-input association audit.
-4. Replay form accessible context.
-5. Localize hardcoded JavaScript strings.
-6. Challenge page auto-reload on session expiry.
-
-**Low priority (4 items):**
+**Low priority (4 items remaining):**
 7. Admin bar countdown cleanup on page unload.
 8. Settings page default value documentation.
 9. Lockout countdown timer precision for screen readers.
 10. Admin bar timer keyboard navigation.
-
-## Toolchain Candidates
-
-These tools have been evaluated and are worth adding to the project when the time is
-right. They don't block any current work but would improve quality assurance.
-
-### PHPStan (Static Analysis)
-
-Add PHPStan level 6 with `szepeviktor/phpstan-wordpress` for static type analysis
-beyond what PHPCS catches. PHPStan finds type errors, dead code, impossible
-conditions, and missing return types that PHPCS ignores. The `phpstan-wordpress`
-extension understands WordPress function signatures, hooks, and globals.
-
-**When to add:** Next time the test/lint toolchain is touched. Add a `composer
-analyse` script alongside `composer test` and `composer lint`.
-
-**Reference:** [wp-dev-prompts/testing-setup](https://github.com/courtneyr-dev/wp-dev-prompts/blob/main/prompts/core/testing-setup.md)
-recommends PHPStan level 6 as part of the standard WordPress plugin CI matrix.
-
-### UI/UX Testing Prompts
-
-Structured prompt frameworks for UI/UX validation that could be run against WP Sudo's
-admin pages:
-
-- **Heuristic evaluation** — Nielsen's 10 heuristics applied to the settings page,
-  challenge page, and admin bar timer.
-- **Navigation flow tests** — verify that gating, challenge, and replay flows don't
-  break expected WordPress navigation patterns.
-- **Responsive tests** — validate challenge page and admin bar timer across viewport
-  sizes.
-
-**When to use:** Before any major UI change or when addressing the accessibility
-roadmap items.
-
-**Reference:** [wp-dev-prompts/testing/](https://github.com/courtneyr-dev/wp-dev-prompts/tree/main/prompts/testing)
-— heuristic-evaluation.md, navigation-flow-tests.md, responsive-tests.md,
-ui-ux-audit.md.
 
 ## Declined
 
