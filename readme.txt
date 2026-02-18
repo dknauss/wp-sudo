@@ -5,9 +5,9 @@ Contributors:      dpknauss
 Donate link:       https://dan.knauss.ca
 Tags:              sudo, security, reauthentication, access control, admin protection
 Requires at least: 6.2
-Tested up to:      6.7
+Tested up to:      6.9
 Requires PHP:      8.0
-Stable tag:        2.2.1
+Stable tag:        2.3.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -197,6 +197,14 @@ Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filte
 
 == Changelog ==
 
+= 2.3.0 =
+* **Per-application-password sudo policies** — individual Application Password credentials can now have their own Disabled, Limited, or Unrestricted policy override, independent of the global REST API (App Passwords) policy. Configure per-password policies from the Application Passwords section on the user profile page.
+* **Challenge page iframe fix** — the reauthentication challenge page now breaks out of WordPress's `wp_iframe()` context, fixing a nested-frame display issue during plugin and theme updates.
+* **Accessibility improvements** — admin bar countdown timer cleans up on page unload; lockout countdown screen reader announcements throttled to 30-second intervals; settings fields display default values.
+* **PHPStan level 6 static analysis** — full codebase passes PHPStan level 6 with zero errors.
+* **Documentation** — new AI and agentic tool guidance (`docs/ai-agentic-guidance.md`) and UI/UX testing prompts (`docs/ui-ux-testing-prompts.md`).
+* **343 unit tests, 853 assertions.**
+
 = 2.2.1 =
 * **Security hardening** — stashed redirect URLs are now validated with `wp_validate_redirect()` before replay.
 * **Accessibility** — ARIA `role="alert"` and `role="status"` added to gate notices; disabled-action text color improved to 4.6:1 contrast ratio (WCAG AA).
@@ -253,6 +261,9 @@ Complete rewrite. Action-gated reauthentication replaces role-based privilege es
 * Initial release.
 
 == Upgrade Notice ==
+
+= 2.3.0 =
+Per-application-password sudo policies, challenge page iframe fix, accessibility improvements, PHPStan level 6 static analysis. No settings migration required.
 
 = 2.2.1 =
 Security hardening, accessibility fixes, 2FA ecosystem documentation and WP 2FA bridge. No settings changes required.

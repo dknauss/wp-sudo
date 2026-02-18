@@ -281,6 +281,15 @@ Manual testing: [`tests/MANUAL-TESTING.md`](tests/MANUAL-TESTING.md) contains st
 
 ## Changelog
 
+### 2.3.0
+
+- **Per-application-password sudo policies** — individual Application Password credentials can now have their own Disabled, Limited, or Unrestricted policy override, independent of the global REST API (App Passwords) policy. Configure per-password policies from the Application Passwords section on the user profile page.
+- **Challenge page iframe fix** — the reauthentication challenge page now breaks out of WordPress's `wp_iframe()` context, fixing a nested-frame display issue during plugin and theme updates.
+- **Accessibility improvements** — admin bar countdown timer cleans up on page unload; lockout countdown screen reader announcements throttled to 30-second intervals; settings fields display default values.
+- **PHPStan level 6 static analysis** — full codebase passes PHPStan level 6 with zero errors.
+- **Documentation** — new [AI and agentic tool guidance](docs/ai-agentic-guidance.md) and [UI/UX testing prompts](docs/ui-ux-testing-prompts.md).
+- **343 unit tests, 853 assertions.**
+
 ### 2.2.1
 
 - **Security hardening** — stashed redirect URLs are now validated with `wp_validate_redirect()` before replay.
