@@ -80,6 +80,12 @@ API. Requires specific Gutenberg awareness and testing across WordPress versions
 **Impact:** Medium — improves UX for block editor users, but the current
 stash-replay pattern already works for most editor operations.
 
+**Refactoring:** Expected to require extracting challenge rendering from
+`class-challenge.php` into a reusable component. The snackbar flow needs a
+different UI surface but the same auth verification and stash-replay machinery.
+This is also the natural moment to add Playwright E2E tests covering both the
+existing challenge page and the new editor integration.
+
 ### 9. Network Policy Hierarchy for Multisite
 
 Super admins set minimum session duration and maximum allowed entry-point policies
@@ -87,6 +93,11 @@ at the network level. Site admins can only tighten (not loosen) these constraint
 
 **Impact:** Medium — valuable for large multisite networks with delegated site
 administration. Not relevant for single-site installs.
+
+**Refactoring:** Expected to require extracting a `Settings` or `Policy` class
+from `class-admin.php`. The current direct `get_site_option()` access would need
+to merge network-level floors with per-site overrides and enforce the "can only
+tighten" constraint.
 
 ## Accessibility Improvements
 
