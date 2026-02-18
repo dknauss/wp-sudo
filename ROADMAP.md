@@ -90,14 +90,11 @@ administration. Not relevant for single-site installs.
 
 ## Accessibility Improvements
 
-See [ACCESSIBILITY-ROADMAP.md](ACCESSIBILITY-ROADMAP.md) for the full list.
-All medium-priority items (1–6) were resolved in v2.2.0–v2.3.0.
-
-**Low priority (4 items remaining):**
-7. Admin bar countdown cleanup on page unload.
-8. Settings page default value documentation.
-9. Lockout countdown timer precision for screen readers.
-10. Admin bar timer keyboard navigation.
+All items from the [ACCESSIBILITY-ROADMAP.md](ACCESSIBILITY-ROADMAP.md) have been
+resolved. Medium-priority items (1–6) were completed in v2.2.0–v2.3.0. Low-priority
+items (7–10) were verified complete — pagehide cleanup, inline settings descriptions,
+lockout countdown SR throttling, and admin bar timer focus behavior were all already
+in place.
 
 ## Declined
 

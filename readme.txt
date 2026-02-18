@@ -66,7 +66,7 @@ Sudo works on its own, but these plugins add significant value:
 * **Countdown on 2FA step** — a visible timer shows how long the user has to enter their verification code.
 * **Keyboard shortcut** — press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to proactively start a sudo session without triggering a gated action first. When a session is already active, the shortcut flashes the admin bar timer.
 * **Accessible** — screen-reader announcements, ARIA labels, focus management, and keyboard support throughout.
-* **Contextual help** — 4 help tabs on the settings page cover how sudo works, settings, extending via filters, and audit hooks.
+* **Contextual help** — 8 help tabs on the settings page cover how sudo works, settings, security features, the security model, environment checks, recommended plugins, extending via filters, and audit hooks.
 
 = Security model =
 
@@ -125,7 +125,7 @@ See the full list in the Description section above. The settings page also inclu
 
 = What about REST API and Application Passwords? =
 
-Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting with three modes: Disabled (returns `sudo_disabled`), Limited (default — returns `sudo_blocked`), and Unrestricted (passes through with no checks).
+Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting with three modes: Disabled (returns `sudo_disabled`), Limited (default — returns `sudo_blocked`), and Unrestricted (passes through with no checks). Individual application passwords can override the global policy from the user profile page — for example, a deployment pipeline password can be Unrestricted while an AI assistant password stays Limited.
 
 = What about WP-CLI, Cron, and XML-RPC? =
 
@@ -242,7 +242,7 @@ Complete rewrite. Action-gated reauthentication replaces role-based privilege es
 * **MU-plugin toggle** — one-click install/uninstall from the settings page. Stable shim + loader pattern keeps the mu-plugin up to date with regular plugin updates.
 * **Multisite** — network-wide settings, network-wide sessions, 8 network admin rules, `get_site_option`/`set_site_transient` storage.
 * **8 audit hooks** — full lifecycle and policy logging for integration with WP Activity Log, Stream, and similar plugins.
-* **Contextual help** — 4 help tabs on the settings page.
+* **Contextual help** — 8 help tabs on the settings page.
 * **Accessibility** — WCAG 2.1 AA throughout (ARIA labels, focus management, status announcements, keyboard support).
 * **281 unit tests, 686 assertions.**
 

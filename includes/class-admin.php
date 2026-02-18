@@ -217,6 +217,8 @@ class Admin {
 					. '<li>' . __( '<strong>Limited</strong> (default) — Only gated (dangerous) actions are blocked and logged. Non-gated operations work normally.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>Unrestricted</strong> — Everything passes through as if WP Sudo is not installed. No checks, no logging.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
+					. '<h3>' . __( 'Per-Application-Password Policies', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Individual application passwords can override the global REST API policy. On the user profile page, each application password shows a Sudo Policy dropdown. "Global default" inherits the REST API (App Passwords) setting above. Setting a specific policy on an individual password lets you grant different access levels to different tools — for example, a deployment pipeline might be Unrestricted while an AI assistant stays Limited.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'

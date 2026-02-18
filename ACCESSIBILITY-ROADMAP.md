@@ -1,49 +1,8 @@
 # WP Sudo — Accessibility Roadmap
 
 Issues deferred from the initial WCAG 2.1 AA audit and the WCAG 2.2 AA
-follow-up audit. All Critical and High severity items have been resolved.
-The items below are Medium and Low priority improvements for a future release.
-
-## Medium Priority
-
-All medium-priority items have been addressed. See "Already Addressed" below.
-
-## Low Priority
-
-### 7. Admin bar countdown cleanup on page unload
-
-**File:** `includes/class-admin-bar.php` (`countdown_script()`)
-**WCAG:** Best practice (not a violation)
-
-The `setInterval` is never cleared on page unload. While browsers handle this
-automatically, explicitly clearing the interval in a `beforeunload` handler
-is cleaner and prevents potential issues with bfcache (back/forward cache).
-
-### 8. Settings page default value documentation
-
-**File:** `includes/class-admin.php`
-**WCAG:** 3.3.5 Help
-
-Settings fields could include brief inline descriptions noting the default
-values and their implications. The help tabs provide this information, but
-inline context at the field level improves usability for all users.
-
-### 9. Lockout countdown timer precision for screen readers
-
-**File:** `admin/js/wp-sudo-challenge.js`
-**WCAG:** 4.1.3 Status Messages
-
-The lockout countdown updates the DOM every second. Consider throttling
-`aria-live` announcements to every 15–30 seconds to avoid excessive
-screen reader interruptions while still keeping users informed.
-
-### 10. Admin bar timer keyboard navigation
-
-**File:** `includes/class-admin-bar.php`
-**WCAG:** Best practice
-
-The admin bar timer is informational only. Ensure it does not receive
-focus trap or interfere with keyboard navigation of the admin bar.
+follow-up audit. All Critical, High, Medium, and Low severity items have
+been resolved. This document is retained for reference.
 
 ## Already Addressed
 
@@ -90,3 +49,21 @@ focus trap or interfere with keyboard navigation of the admin bar.
 
 - **MU-plugin message area:** Already has `role="status"` and `aria-live="polite"`
   on the `#wp-sudo-mu-message` element. No further work needed.
+
+- **Admin bar countdown cleanup on page unload (best practice):** Both the
+  external `wp-sudo-admin-bar.js` and the PHP `countdown_script()` method
+  listen for `pagehide` and clear the interval, preventing bfcache issues.
+
+- **Settings page default value documentation (WCAG 3.3.5):** All settings
+  fields include inline `<p class="description">` text documenting the
+  default value, valid range, and implications of each setting.
+
+- **Lockout countdown screen reader throttling (WCAG 4.1.3):** The lockout
+  countdown sets `aria-live="off"` on the error box to suppress per-second
+  announcements. Screen readers are notified via `announce()` every 30
+  seconds and at 10 seconds remaining only.
+
+- **Admin bar timer keyboard navigation (best practice):** The timer node
+  is a standard WordPress admin bar `<a>` element (deactivation link) that
+  participates in normal tab order. No `tabindex` manipulation, no focus
+  trap, no interference with admin bar keyboard navigation.
