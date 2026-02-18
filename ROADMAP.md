@@ -3,7 +3,7 @@
 Remaining enhancements for future releases. Items marked ✅ were proposed in the
 original v2 roadmap and have been implemented.
 
-## Completed (v2.0.0–v2.3.0)
+## Completed (v2.0.0–v2.3.1)
 
 These items from the original roadmap are done:
 
@@ -33,6 +33,12 @@ These items from the original roadmap are done:
   Integrated as `composer analyse` alongside `test` and `lint`.
 - ✅ **UI/UX testing prompts** (v2.3.0) — structured prompt frameworks for heuristic
   evaluation, navigation flow, and responsive testing.
+- ✅ **CycloneDX SBOM** (v2.3.1) — `bom.json` shipped in the repo. `composer sbom`
+  script for regeneration.
+- ✅ **Copilot coding agent configuration** (v2.3.1) — `.github/copilot-instructions.md`
+  and `copilot-setup-steps.yml` for GitHub Copilot integration.
+- ✅ **Accessibility roadmap complete** (v2.3.1) — all items from the accessibility
+  roadmap verified resolved, including low-priority items 7–10.
 
 ## Open — Medium Effort
 

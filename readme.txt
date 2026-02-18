@@ -7,7 +7,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      6.9
 Requires PHP:      8.0
-Stable tag:        2.3.0
+Stable tag:        2.3.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -196,6 +196,15 @@ Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filte
 7. Active sudo session — the admin bar shows a green countdown timer with the remaining minutes and seconds. Hover to see the deactivation link.
 
 == Changelog ==
+
+= 2.3.1 =
+* **Fix: Unicode escape rendering** — localized JS strings using bare `\uXXXX` escapes (not valid PHP Unicode syntax) now use actual UTF-8 characters, fixing visible backslash-escape text during challenge replay.
+* **Fix: screen-reader-only text flash** — the sr-only "Verifying..." span no longer flashes visible fragments inside the flex container during challenge replay.
+* **CycloneDX SBOM** — `bom.json` shipped in the repo for supply chain transparency. Regenerate with `composer sbom`.
+* **Help tabs** — per-application-password policy section added to the Settings help tab. Help tab count corrected from 4 to 8 across readmes.
+* **Copilot coding agent** — `.github/copilot-instructions.md` and `copilot-setup-steps.yml` added for GitHub Copilot integration.
+* **Accessibility roadmap complete** — all items (critical through low priority) verified resolved and documented.
+* **343 unit tests, 853 assertions.**
 
 = 2.3.0 =
 * **Per-application-password sudo policies** — individual Application Password credentials can now have their own Disabled, Limited, or Unrestricted policy override, independent of the global REST API (App Passwords) policy. Configure per-password policies from the Application Passwords section on the user profile page.
