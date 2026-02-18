@@ -156,11 +156,11 @@ class Challenge {
 					/* translators: %s: countdown timer like "9:30" */
 					'timeRemaining'      => __( 'Time remaining: %s', 'wp-sudo' ),
 					/* translators: %s: countdown timer like "0:45" */
-					'timeRemainingWarn'  => __( "\u26A0 Time remaining: %s", 'wp-sudo' ),
+					'timeRemainingWarn'  => __( '⚠ Time remaining: %s', 'wp-sudo' ),
 					'sessionExpired'     => __( 'Your verification session has expired.', 'wp-sudo' ),
 					'startOver'          => __( 'Start over', 'wp-sudo' ),
 					'twoFactorRequired'  => __( 'Password verified. Two-factor authentication required.', 'wp-sudo' ),
-					'replayingAction'    => __( "Replaying your action\u2026", 'wp-sudo' ),
+					'replayingAction'    => __( 'Replaying your action…', 'wp-sudo' ),
 					'leavingChallenge'   => __( 'Leaving challenge page.', 'wp-sudo' ),
 					'lockoutExpired'     => __( 'Lockout expired. You may try again.', 'wp-sudo' ),
 				),
