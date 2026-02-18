@@ -30,6 +30,11 @@
 	color: #fff !important;
 }
 
+/* Anchor sr-only children within the admin bar node */
+#wpadminbar #wp-admin-bar-wp-sudo-active {
+	position: relative;
+}
+
 /* Screen-reader-only text — visually hidden but announced by AT */
 .wp-sudo-sr-only {
 	position: absolute;
@@ -39,6 +44,7 @@
 	margin: -1px;
 	overflow: hidden;
 	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
 	white-space: nowrap;
 	border: 0;
 }
