@@ -15,6 +15,14 @@
 ( function () {
 	'use strict';
 
+	// Break out of iframes (e.g. wp_iframe() used by plugin/theme updates).
+	// The challenge page must render at the top level so the full admin
+	// chrome is visible and the redirect/replay targets the correct frame.
+	if ( window.top !== window.self ) {
+		window.top.location.href = window.location.href;
+		return;
+	}
+
 	var config  = window.wpSudoChallenge || {};
 	var strings = config.strings || {};
 
