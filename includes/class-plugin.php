@@ -113,6 +113,9 @@ class Plugin {
 		// Enforce unfiltered_html restriction on every request (tamper detection).
 		add_action( 'init', array( $this, 'enforce_editor_unfiltered_html' ), 1 );
 
+		// Notice styles: ensure white background on WP Sudo admin notices (WP 7.0+).
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_notice_css' ) );
+
 		// Keyboard shortcut: enqueue on admin pages when no active session.
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_shortcut' ) );
 
@@ -127,6 +130,27 @@ class Plugin {
 			$this->site_health = new Site_Health();
 			$this->site_health->register();
 		}
+	}
+
+	/**
+	 * Enqueue the admin notice stylesheet on all admin pages.
+	 *
+	 * Ensures WP Sudo notices retain a white background in WordPress 7.0+,
+	 * where core removed the explicit background-color from .notice.
+	 *
+	 * @return void
+	 */
+	public function enqueue_notice_css(): void {
+		if ( ! get_current_user_id() ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'wp-sudo-notices',
+			WP_SUDO_PLUGIN_URL . 'admin/css/wp-sudo-notices.css',
+			array(),
+			WP_SUDO_VERSION
+		);
 	}
 
 	/**

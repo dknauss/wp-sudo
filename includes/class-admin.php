@@ -636,7 +636,7 @@ class Admin {
 		<div class="wrap">
 			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
 			<?php if ( $is_network && isset( $_GET['updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-				<div class="notice notice-success is-dismissible">
+				<div class="notice notice-success is-dismissible wp-sudo-notice">
 					<p><?php esc_html_e( 'Settings saved.', 'wp-sudo' ); ?></p>
 				</div>
 			<?php endif; ?>

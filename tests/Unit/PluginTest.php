@@ -110,6 +110,35 @@ class PluginTest extends TestCase {
 	}
 
 	// -----------------------------------------------------------------
+	// enqueue_notice_css()
+	// -----------------------------------------------------------------
+
+	public function test_enqueue_notice_css_skips_anonymous(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+
+		Functions\expect( 'wp_enqueue_style' )->never();
+
+		$plugin = new Plugin();
+		$plugin->enqueue_notice_css();
+	}
+
+	public function test_enqueue_notice_css_loads_for_logged_in_user(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+
+		Functions\expect( 'wp_enqueue_style' )
+			->once()
+			->with(
+				'wp-sudo-notices',
+				\Mockery::type( 'string' ),
+				array(),
+				WP_SUDO_VERSION
+			);
+
+		$plugin = new Plugin();
+		$plugin->enqueue_notice_css();
+	}
+
+	// -----------------------------------------------------------------
 	// enqueue_shortcut()
 	// -----------------------------------------------------------------
 
