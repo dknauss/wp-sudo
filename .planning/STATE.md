@@ -31,8 +31,12 @@
 - phpunit-integration.xml.dist, tests/integration/bootstrap.php, tests/integration/TestCase.php created — `aa1c837`
 - bin/install-wp-tests.sh added from wp-cli/scaffold-command — `7d89c85`
 - .github/workflows/phpunit.yml created with unit (PHP 8.1-8.4) and integration (PHP 8.1/8.3 x WP latest/trunk) jobs — `324ba1c`
-- SUMMARY.md committed — (pending final commit)
+- SUMMARY.md committed — `0c0b380`
+- CI fix: svn installed via apt-get (not setup-php tools) — `7c511b6`
+- CI fix: removed MYSQL_DATABASE to avoid interactive prompt — `19da598`
 - All 343 unit tests passing, zero regressions
+- `composer test:integration` passes locally (empty suite, 0 tests)
+- GitHub Actions CI: 8/8 jobs green (4 unit + 4 integration)
 
 ## Dev Environment
 
@@ -60,6 +64,8 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 | Integration bootstrap isolation | Must NOT require tests/bootstrap.php | Phase 1 |
 | Integration config strict flags | beStrictAboutOutputDuringTests/failOnWarning omitted | Phase 1 |
 | CI MySQL connection | 127.0.0.1 not localhost (TCP, not Unix socket) | Phase 1 |
+| CI SVN install | apt-get (not setup-php tools — svn not a supported tool name) | Phase 1 |
+| CI MySQL service | No MYSQL_DATABASE pre-creation (avoids interactive prompt) | Phase 1 |
 | CI runner | ubuntu-24.04 explicit (not ubuntu-latest) | Phase 1 |
 | Integration test PHP matrix | PHP 8.1+8.3 (subset for speed); unit runs 8.1-8.4 | Phase 1 |
 
@@ -85,8 +91,8 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 ## Git State
 
 - Branch: `main`
-- Last commit: `324ba1c` (CI workflow)
-- Tag: `v2.3.2` (12 commits behind HEAD — all docs/chore/feat)
+- Last commit: `19da598` (CI fix)
+- Tag: `v2.3.2` (14 commits behind HEAD — all docs/chore/feat)
 
 ---
 *State initialized: 2026-02-19*
