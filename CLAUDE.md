@@ -21,7 +21,18 @@ composer sbom             # Regenerate CycloneDX SBOM (bom.json)
 ./vendor/bin/phpunit --filter testMethodName           # Run a single test method
 ```
 
-No build step. No production dependencies — only dev dependencies (PHPUnit 9.6, Brain\Monkey, Mockery, VIP WPCS, PHPStan, CycloneDX).
+No build step. No production dependencies — only dev dependencies (PHPUnit 9.6, Brain\Monkey, Mockery, VIP WPCS, PHPStan, CycloneDX). `config.platform.php` is set to `8.1.99` so the lock file resolves packages compatible with PHP 8.1+ regardless of local PHP version.
+
+## Documentation
+
+- `docs/security-model.md` — threat model, boundaries, environmental considerations.
+- `docs/developer-reference.md` — hook signatures, filters, custom rule structure.
+- `docs/FAQ.md` — all frequently asked questions.
+- `docs/CHANGELOG.md` — full version history.
+- `docs/ai-agentic-guidance.md` — AI and agentic tool integration guidance.
+- `docs/two-factor-integration.md` — 2FA plugin integration guide.
+- `docs/two-factor-ecosystem.md` — 2FA plugin ecosystem survey.
+- `docs/ui-ux-testing-prompts.md` — structured UI/UX testing prompts.
 
 ## Commit Practices
 

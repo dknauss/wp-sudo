@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Runs sequential, one-time upgrade routines when the plugin version changes.
  *
+ * @since 2.0.0
+ *
  * Each routine targets a specific version and runs exactly once. The stored
  * version number is updated after all applicable routines have executed so
  * that a failed mid-sequence routine will be retried on the next page load.

@@ -29,7 +29,15 @@ Always run `composer test` and `composer analyse` before committing.
 - `admin/css/` — Stylesheets for challenge page and admin bar.
 - `tests/Unit/` — PHPUnit tests using Brain\Monkey (no WordPress loaded).
 - `bridges/` — Drop-in 2FA bridge files for third-party plugins.
-- `docs/` — Integration guides, AI guidance, testing prompts.
+- `docs/` — Documentation suite:
+  - `security-model.md` — Threat model, boundaries, environmental considerations.
+  - `developer-reference.md` — Hook signatures, filters, custom rule structure.
+  - `FAQ.md` — All frequently asked questions.
+  - `CHANGELOG.md` — Full version history.
+  - `ai-agentic-guidance.md` — AI and agentic tool integration guidance.
+  - `two-factor-integration.md` — 2FA plugin integration guide.
+  - `two-factor-ecosystem.md` — 2FA plugin ecosystem survey.
+  - `ui-ux-testing-prompts.md` — Structured UI/UX testing prompts.
 - `bom.json` — CycloneDX SBOM (regenerate with `composer sbom`).
 
 ## Architecture

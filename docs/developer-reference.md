@@ -69,4 +69,4 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 
 Automated tests: `composer test` runs the PHPUnit suite (see [CLAUDE.md](../CLAUDE.md) for all commands).
 
-Manual testing: [`tests/MANUAL-TESTING.md`](../tests/MANUAL-TESTING.md) contains step-by-step verification procedures for all gated surfaces — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and entry point policies.
+Static analysis: `composer analyse` runs PHPStan level 6 (use `--memory-limit=1G` if needed).
