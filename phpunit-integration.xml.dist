@@ -2,13 +2,13 @@
 <phpunit
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
-    bootstrap="tests/integration/bootstrap.php"
+    bootstrap="tests/Integration/bootstrap.php"
     colors="true"
     beStrictAboutTestsThatDoNotTestAnything="true"
 >
     <testsuites>
         <testsuite name="Integration">
-            <directory suffix="Test.php">tests/integration</directory>
+            <directory suffix="Test.php">tests/Integration</directory>
         </testsuite>
     </testsuites>
 
