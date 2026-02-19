@@ -7,7 +7,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      6.9
 Requires PHP:      8.0
-Stable tag:        2.3.1
+Stable tag:        2.3.2
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -116,6 +116,13 @@ Yes. Settings and sessions are network-wide. The action registry includes networ
 
 == Changelog ==
 
+= 2.3.2 =
+* **Fix: admin bar sr-only text leak** — screen-reader-only milestone text no longer renders in the dashboard canvas when the admin bar node lacks a containing block.
+* **Documentation overhaul** — readmes slimmed; security model, developer reference, FAQ, and full changelog extracted to `docs/`. Manual testing guide rewritten for v2.3.1+.
+* **Composer lock compatibility** — `config.platform.php` set to `8.1.99` so the lock file resolves for PHP 8.1+ regardless of local version.
+* **Housekeeping** — removed stale project state file and outdated manual testing guide; added `@since` tags; updated CLAUDE.md and Copilot instructions with docs/ references.
+* **343 unit tests, 853 assertions.**
+
 = 2.3.1 =
 * **Fix: Unicode escape rendering** — localized JS strings now use actual UTF-8 characters, fixing visible backslash-escape text during challenge replay.
 * **Fix: screen-reader-only text flash** — the sr-only span no longer flashes visible fragments during replay.
@@ -136,6 +143,9 @@ Yes. Settings and sessions are network-wide. The action registry includes networ
 See the plugin's `docs/CHANGELOG.md` for all versions.
 
 == Upgrade Notice ==
+
+= 2.3.2 =
+Admin bar CSS fix, documentation overhaul, Composer lock compatibility. No settings changes required.
 
 = 2.3.1 =
 Bug fixes (Unicode escapes, sr-only text flash), CycloneDX SBOM, accessibility roadmap complete. No settings changes required.

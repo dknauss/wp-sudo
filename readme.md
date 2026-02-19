@@ -145,6 +145,14 @@ Hook signatures, filter reference, custom rule structure, and testing instructio
 
 ## Changelog
 
+### 2.3.2
+
+- **Fix: admin bar sr-only text leak** — screen-reader-only milestone text no longer renders in the dashboard canvas when the admin bar node lacks a containing block.
+- **Documentation overhaul** — readmes slimmed; [security model](docs/security-model.md), [developer reference](docs/developer-reference.md), [FAQ](docs/FAQ.md), and [full changelog](docs/CHANGELOG.md) extracted to `docs/`. [Manual testing guide](tests/MANUAL-TESTING.md) rewritten for v2.3.1+.
+- **Composer lock compatibility** — `config.platform.php` set to `8.1.99` so the lock file resolves for PHP 8.1+ regardless of local version.
+- **Housekeeping** — removed stale project state file; added `@since` tags; updated CLAUDE.md and Copilot instructions with docs/ references.
+- **343 unit tests, 853 assertions.**
+
 ### 2.3.1
 
 - **Fix: Unicode escape rendering** — localized JS strings now use actual UTF-8 characters, fixing visible backslash-escape text during challenge replay.

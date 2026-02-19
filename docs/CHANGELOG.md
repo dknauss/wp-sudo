@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.2
+
+- **Fix: admin bar sr-only text leak** — screen-reader-only milestone text no longer renders in the dashboard canvas. The admin bar `<li>` node now establishes a containing block (`position: relative`) and sr-only elements use `clip-path: inset(50%)` alongside the legacy `clip` property.
+- **Documentation overhaul** — readmes slimmed to storefront length. Full content extracted to `docs/`: [security model](security-model.md), [developer reference](developer-reference.md), [FAQ](FAQ.md), and this changelog. [Manual testing guide](../tests/MANUAL-TESTING.md) rewritten for v2.3.1+ with per-app-password testing, MU-plugin toggle, and iframe edge case coverage.
+- **Composer lock compatibility** — `config.platform.php` set to `8.1.99` so the lock file resolves packages compatible with PHP 8.1+ regardless of the local PHP version. Fixes Copilot coding agent CI failure (`doctrine/instantiator` 2.1.0 requiring PHP 8.4+).
+- **Housekeeping** — removed stale `WP-SUDO-PROJECT-STATE.md`; added `@since 2.0.0` to Upgrader class; updated CLAUDE.md and `.github/copilot-instructions.md` with docs/ file listings.
+- **343 unit tests, 853 assertions.**
+
 ## 2.3.1
 
 - **Fix: Unicode escape rendering** — localized JS strings using bare `\uXXXX` escapes (not valid PHP Unicode syntax) now use actual UTF-8 characters, fixing visible backslash-escape text during challenge replay.
