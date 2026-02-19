@@ -70,3 +70,5 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 Automated tests: `composer test` runs the PHPUnit suite (see [CLAUDE.md](../CLAUDE.md) for all commands).
 
 Static analysis: `composer analyse` runs PHPStan level 6 (use `--memory-limit=1G` if needed).
+
+Manual testing: see [`tests/MANUAL-TESTING.md`](../tests/MANUAL-TESTING.md) for step-by-step verification procedures against a real WordPress environment.
