@@ -22,8 +22,14 @@ class SudoSessionTest extends TestCase {
 		// Reload from DB to get the hashed password.
 		$user = get_user_by( 'id', $user->ID );
 
-		// WP 6.8+ uses bcrypt by default.
-		$this->assertStringStartsWith( '$2y$', $user->user_pass, 'Password hash should be bcrypt ($2y$).' );
+		// WP 6.8+ uses bcrypt with a '$wp' prefix for domain separation (SHA-384 pre-hashing).
+		// The stored hash is '$wp$2y$...' — the '$wp' prefix distinguishes it from vanilla bcrypt.
+		// Older WP (< 6.8) used phpass which produces '$P$' hashes. In either case,
+		// wp_check_password() handles verification correctly.
+		$this->assertTrue(
+			str_starts_with( $user->user_pass, '$wp$2y$' ) || str_starts_with( $user->user_pass, '$2y$' ),
+			"Password hash should be bcrypt (starts with '\$wp\$2y\$' in WP 6.8+ or '\$2y\$' in older WP). Got: {$user->user_pass}"
+		);
 		$this->assertTrue( wp_check_password( $password, $user->user_pass, $user->ID ) );
 	}
 

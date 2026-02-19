@@ -96,6 +96,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'get_user_meta' )->justReturn( $past );
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 
 		$this->assertFalse( Sudo_Session::is_active( 1 ) );
@@ -163,6 +164,7 @@ class SudoSessionTest extends TestCase {
 		$past = time() - 60;
 		Functions\when( 'get_user_meta' )->justReturn( $past );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 
 		Functions\expect( 'delete_user_meta' )
@@ -179,6 +181,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'get_option' )->justReturn( array( 'session_duration' => 10 ) );
 		Functions\when( 'wp_generate_password' )->justReturn( 'generated-token-xyz' );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 
@@ -198,6 +201,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'get_option' )->justReturn( array( 'session_duration' => 5 ) );
 		Functions\when( 'wp_generate_password' )->justReturn( 'cookie-token' );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 		Functions\when( 'update_user_meta' )->justReturn( true );
 		Functions\when( 'delete_user_meta' )->justReturn( true );
@@ -213,6 +217,7 @@ class SudoSessionTest extends TestCase {
 
 	public function test_deactivate_clears_session_data(): void {
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 
 		Functions\expect( 'delete_user_meta' )
@@ -228,6 +233,7 @@ class SudoSessionTest extends TestCase {
 	public function test_deactivate_expires_cookie(): void {
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 
 		// Clears cookies on both COOKIEPATH and ADMIN_COOKIE_PATH (stale cleanup).
 		Functions\expect( 'setcookie' )
@@ -344,6 +350,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 		Functions\when( 'wp_generate_password' )->justReturn( 'test-token-123' );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 		Functions\when( 'get_option' )->justReturn( array( 'session_duration' => 15 ) );
 
@@ -365,6 +372,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'set_transient' )->justReturn( true );
 		Functions\when( 'wp_generate_password' )->justReturn( 'test-challenge-nonce' );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 
 		// Mock needs_two_factor to return true via the filter.
@@ -390,6 +398,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 		Functions\when( 'wp_generate_password' )->justReturn( 'test-challenge-nonce' );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 
 		// Capture the transient TTL.
@@ -468,6 +477,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'apply_filters' )->justReturn( true );
 		Functions\when( 'wp_generate_password' )->justReturn( 'test-challenge-nonce-abc' );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 
 		// Verify setcookie is called with the CHALLENGE_COOKIE name.
 		Functions\expect( 'setcookie' )
@@ -494,6 +504,7 @@ class SudoSessionTest extends TestCase {
 		Functions\when( 'apply_filters' )->justReturn( true );
 		Functions\when( 'wp_generate_password' )->justReturn( 'challenge-nonce-xyz' );
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 		Functions\when( 'setcookie' )->justReturn( true );
 
 		$expected_hash = hash( 'sha256', 'challenge-nonce-xyz' );
@@ -604,6 +615,7 @@ class SudoSessionTest extends TestCase {
 			->with( 'wp_sudo_2fa_pending_' . $challenge_hash );
 
 		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
 
 		Functions\expect( 'setcookie' )
 			->once()

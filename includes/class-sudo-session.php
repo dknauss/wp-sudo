@@ -327,19 +327,22 @@ class Sudo_Session {
 			);
 
 			// Set challenge nonce in httponly cookie for this browser only.
-			// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-			setcookie(
-				self::CHALLENGE_COOKIE,
-				$challenge_nonce,
-				array(
-					'expires'  => $expires_at,
-					'path'     => COOKIEPATH,
-					'domain'   => COOKIE_DOMAIN,
-					'secure'   => is_ssl(),
-					'httponly' => true,
-					'samesite' => 'Strict',
-				)
-			);
+			// Guard: in CLI/cron/integration-test contexts headers are already sent.
+			if ( ! headers_sent() ) {
+				// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
+				setcookie(
+					self::CHALLENGE_COOKIE,
+					$challenge_nonce,
+					array(
+						'expires'  => $expires_at,
+						'path'     => COOKIEPATH,
+						'domain'   => COOKIE_DOMAIN,
+						'secure'   => is_ssl(),
+						'httponly' => true,
+						'samesite' => 'Strict',
+					)
+				);
+			}
 
 			// Also set in superglobal for the current request.
 			$_COOKIE[ self::CHALLENGE_COOKIE ] = $challenge_nonce; // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
@@ -447,19 +450,22 @@ class Sudo_Session {
 		}
 
 		// Expire the challenge cookie.
-		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-		setcookie(
-			self::CHALLENGE_COOKIE,
-			'',
-			array(
-				'expires'  => time() - YEAR_IN_SECONDS,
-				'path'     => COOKIEPATH,
-				'domain'   => COOKIE_DOMAIN,
-				'secure'   => is_ssl(),
-				'httponly' => true,
-				'samesite' => 'Strict',
-			)
-		);
+		// Guard: in CLI/cron/integration-test contexts headers are already sent.
+		if ( ! headers_sent() ) {
+			// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
+			setcookie(
+				self::CHALLENGE_COOKIE,
+				'',
+				array(
+					'expires'  => time() - YEAR_IN_SECONDS,
+					'path'     => COOKIEPATH,
+					'domain'   => COOKIE_DOMAIN,
+					'secure'   => is_ssl(),
+					'httponly' => true,
+					'samesite' => 'Strict',
+				)
+			);
+		}
 
 		unset( $_COOKIE[ self::CHALLENGE_COOKIE ] ); // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
 	}
@@ -507,37 +513,44 @@ class Sudo_Session {
 
 		$duration = (int) Admin::get( 'session_duration', 15 );
 
-		// Expire any stale cookie from the old ADMIN_COOKIE_PATH scope.
-		// Without this, browsers that still hold the old /wp-admin cookie
-		// may send it instead of (or alongside) the new COOKIEPATH one,
-		// causing verify_token() to fail on admin pages.
-		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-		setcookie(
-			self::TOKEN_COOKIE,
-			'',
-			array(
-				'expires'  => time() - YEAR_IN_SECONDS,
-				'path'     => ADMIN_COOKIE_PATH,
-				'domain'   => COOKIE_DOMAIN,
-				'secure'   => is_ssl(),
-				'httponly' => true,
-				'samesite' => 'Strict',
-			)
-		);
+		// Only send Set-Cookie headers when the HTTP response is not yet started.
+		// In CLI, cron, and PHPUnit integration test contexts, headers_sent() returns
+		// true (output has already occurred), so setcookie() would trigger a warning.
+		// The $_COOKIE superglobal below is always set so the current request can read
+		// the token regardless of whether the browser cookie was actually sent.
+		if ( ! headers_sent() ) {
+			// Expire any stale cookie from the old ADMIN_COOKIE_PATH scope.
+			// Without this, browsers that still hold the old /wp-admin cookie
+			// may send it instead of (or alongside) the new COOKIEPATH one,
+			// causing verify_token() to fail on admin pages.
+			// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
+			setcookie(
+				self::TOKEN_COOKIE,
+				'',
+				array(
+					'expires'  => time() - YEAR_IN_SECONDS,
+					'path'     => ADMIN_COOKIE_PATH,
+					'domain'   => COOKIE_DOMAIN,
+					'secure'   => is_ssl(),
+					'httponly' => true,
+					'samesite' => 'Strict',
+				)
+			);
 
-		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-		setcookie(
-			self::TOKEN_COOKIE,
-			$token,
-			array(
-				'expires'  => time() + ( $duration * MINUTE_IN_SECONDS ),
-				'path'     => COOKIEPATH,
-				'domain'   => COOKIE_DOMAIN,
-				'secure'   => is_ssl(),
-				'httponly' => true,
-				'samesite' => 'Strict',
-			)
-		);
+			// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
+			setcookie(
+				self::TOKEN_COOKIE,
+				$token,
+				array(
+					'expires'  => time() + ( $duration * MINUTE_IN_SECONDS ),
+					'path'     => COOKIEPATH,
+					'domain'   => COOKIE_DOMAIN,
+					'secure'   => is_ssl(),
+					'httponly' => true,
+					'samesite' => 'Strict',
+				)
+			);
+		}
 
 		// Also set in superglobal for the current request.
 		$_COOKIE[ self::TOKEN_COOKIE ] = $token; // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
@@ -578,20 +591,24 @@ class Sudo_Session {
 
 		// Expire cookies on both paths — clears the current COOKIEPATH cookie
 		// and any stale cookie from the old ADMIN_COOKIE_PATH scope.
-		foreach ( array( COOKIEPATH, ADMIN_COOKIE_PATH ) as $path ) {
-			// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
-			setcookie(
-				self::TOKEN_COOKIE,
-				'',
-				array(
-					'expires'  => time() - YEAR_IN_SECONDS,
-					'path'     => $path,
-					'domain'   => COOKIE_DOMAIN,
-					'secure'   => is_ssl(),
-					'httponly' => true,
-					'samesite' => 'Strict',
-				)
-			);
+		// Guard with headers_sent() so CLI/cron/integration-test contexts do not
+		// trigger a "headers already sent" warning from setcookie().
+		if ( ! headers_sent() ) {
+			foreach ( array( COOKIEPATH, ADMIN_COOKIE_PATH ) as $path ) {
+				// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.cookies_setcookie
+				setcookie(
+					self::TOKEN_COOKIE,
+					'',
+					array(
+						'expires'  => time() - YEAR_IN_SECONDS,
+						'path'     => $path,
+						'domain'   => COOKIE_DOMAIN,
+						'secure'   => is_ssl(),
+						'httponly' => true,
+						'samesite' => 'Strict',
+					)
+				);
+			}
 		}
 
 		unset( $_COOKIE[ self::TOKEN_COOKIE ] ); // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE

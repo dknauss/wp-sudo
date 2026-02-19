@@ -2,6 +2,7 @@
     "redefinable-internals": [
         "setcookie",
         "header",
-        "hash_equals"
+        "hash_equals",
+        "headers_sent"
     ]
 }
