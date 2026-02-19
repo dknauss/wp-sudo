@@ -1,7 +1,7 @@
 # Project State: WP Sudo v2.4
 
 **Updated:** 2026-02-19
-**Current phase:** Phase 5 — Plan 3 deferred (time-gated to 2026-04-09)
+**Current phase:** Phase 5 — Plan 01 complete; Plan 02 next
 **Milestone:** Integration Tests & WP 7.0 Readiness
 
 ## Phase Status
@@ -12,7 +12,7 @@
 | 2 | Core Security Integration Tests | ✅ Complete | INTG-01–04 |
 | 3 | Surface Coverage Tests | ✅ Complete | SURF-01–05 |
 | 4 | Advanced Coverage (Two Factor + Multisite) | ✅ Complete | ADVN-01–03 |
-| 5 | WP 7.0 Readiness | 🔒 Plan 03 time-gated (2026-04-09) | WP70-01–04 |
+| 5 | WP 7.0 Readiness | 🔄 In progress — Plan 01 complete | WP70-01–04 |
 
 ## Completed Work (Pre-Phase)
 
@@ -108,6 +108,8 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 | setcookie() in CLI/integration contexts | headers_sent() guard on all call sites | Phase 2 |
 | WP 6.8+ bcrypt prefix | Assert $wp$2y$ OR $2y$ for portability | Phase 2 |
 | headers_sent mocking | Add to patchwork.json redefinable-internals | Phase 2 |
+| Abilities API gating for WP 7.0 | No changes needed — all 3 core abilities are read-only | Phase 5 |
+| Future destructive ability gating | Action_Registry REST rule (no new Gate surface type) | Phase 5 |
 
 ## Open Decisions
 
@@ -122,6 +124,14 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 - ~~`sleep()` in `record_failed_attempt()` makes rate-limiting integration tests slow~~ Resolved: lockout branch returns before sleep()
 - LLM confabulation — 5 documented instances in `llm_lies_log.txt`; all external refs must be verified
 
+## Phase 5 Completion
+
+- WP 7.0 visual compatibility section (section 15, 5 subsections) added to `tests/MANUAL-TESTING.md` — `3d71329`
+- Abilities API assessment document created (`docs/abilities-api-assessment.md`) — `129eb63`
+- No Gate changes required for WP 7.0: all 3 core abilities are read-only
+- Future destructive abilities can be gated via Action_Registry REST rule (no new Gate surface type needed)
+- Plan 05-03 (readme.txt "Tested up to" bump) time-gated — re-execute on or after 2026-04-09
+
 ## Performance Metrics
 
 | Phase | Plan | Duration | Tasks | Files |
@@ -129,14 +139,22 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 | 01 | 01 | 3 min | 5 | 7 |
 | 02 | 02 | 9 min | 5 | 7 |
 | 03 | 03 | 5 min | 5 | 4 |
+| 05 | 01 | 2 min | 2 | 2 |
+
+## Decisions Made (Phase 5)
+
+| Decision | Choice | Phase |
+|----------|--------|-------|
+| Abilities API gating for WP 7.0 | No changes needed — all 3 core abilities read-only | Phase 5 |
+| Future destructive ability gating | Action_Registry REST rule (no new Gate surface type) | Phase 5 |
 
 ## Git State
 
 - Branch: `main`
-- Last commit: `b38abcd` (Phase 3 complete)
-- Tag: `v2.3.2` (18+ commits behind HEAD — all docs/chore/feat/test)
+- Last commit: `129eb63` (Phase 5 Plan 01 complete)
+- Tag: `v2.3.2` (20+ commits behind HEAD — all docs/chore/feat/test)
 
 ---
 *State initialized: 2026-02-19*
-*Last session: 2026-02-19 — Phase 5 Plan 03 deferred (time-gated to 2026-04-09 WP 7.0 GA)*
-*Next action: Execute Phase 5 Plans 01 and 02; re-execute Plan 03 on or after 2026-04-09*
+*Last session: 2026-02-19 — Completed Phase 5 Plan 01 (05-wp-7-0-readiness docs)*
+*Next action: Execute Phase 5 Plan 02; re-execute Plan 03 on or after 2026-04-09*
