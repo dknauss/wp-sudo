@@ -13,6 +13,19 @@ use WP_Sudo\Request_Stash;
 class RequestStashTest extends TestCase {
 
 	/**
+	 * Read a stash transient using the correct API for the environment.
+	 *
+	 * Request_Stash uses set_site_transient() on multisite, set_transient()
+	 * otherwise. Raw verification must use the matching getter.
+	 *
+	 * @param string $key Full transient key (including prefix).
+	 * @return mixed Transient value or false.
+	 */
+	private function get_raw_transient( string $key ) {
+		return is_multisite() ? get_site_transient( $key ) : get_transient( $key );
+	}
+
+	/**
 	 * INTG-04: save() stores a transient via real set_transient().
 	 */
 	public function test_save_stores_transient(): void {
@@ -25,8 +38,8 @@ class RequestStashTest extends TestCase {
 
 		$this->assertSame( 16, strlen( $key ), 'Stash key should be 16 characters.' );
 
-		// Verify via raw transient API.
-		$raw = get_transient( Request_Stash::TRANSIENT_PREFIX . $key );
+		// Verify via raw transient API (multisite-aware).
+		$raw = $this->get_raw_transient( Request_Stash::TRANSIENT_PREFIX . $key );
 		$this->assertIsArray( $raw );
 		$this->assertSame( $user->ID, $raw['user_id'] );
 		$this->assertSame( 'plugin.activate', $raw['rule_id'] );
@@ -75,12 +88,12 @@ class RequestStashTest extends TestCase {
 		$key = $stash->save( $user->ID, array( 'id' => 'plugin.activate', 'label' => 'Activate plugin' ) );
 
 		// Transient exists before delete.
-		$this->assertIsArray( get_transient( Request_Stash::TRANSIENT_PREFIX . $key ) );
+		$this->assertIsArray( $this->get_raw_transient( Request_Stash::TRANSIENT_PREFIX . $key ) );
 
 		$stash->delete( $key );
 
 		// Transient gone after delete.
-		$this->assertFalse( get_transient( Request_Stash::TRANSIENT_PREFIX . $key ) );
+		$this->assertFalse( $this->get_raw_transient( Request_Stash::TRANSIENT_PREFIX . $key ) );
 	}
 
 	/**

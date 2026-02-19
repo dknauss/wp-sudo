@@ -191,14 +191,14 @@ class RestGatingTest extends TestCase {
 		$GLOBALS['wp_rest_application_password_uuid'] = $item['uuid'];
 
 		// Set per-app-password override to unrestricted.
-		$settings = get_option( Admin::OPTION_KEY, array() );
+		$settings = $this->get_wp_sudo_option( Admin::OPTION_KEY, array() );
 		if ( ! is_array( $settings ) ) {
 			$settings = array();
 		}
 		$settings['app_password_policies'] = array(
 			$item['uuid'] => Gate::POLICY_UNRESTRICTED,
 		);
-		update_option( Admin::OPTION_KEY, $settings );
+		$this->update_wp_sudo_option( Admin::OPTION_KEY, $settings );
 		Admin::reset_cache();
 
 		$request = new \WP_REST_Request( 'DELETE', '/wp/v2/plugins/hello' );
@@ -229,12 +229,12 @@ class RestGatingTest extends TestCase {
 		$GLOBALS['wp_rest_application_password_uuid'] = $item['uuid'];
 
 		// Set global REST app password policy to 'disabled'.
-		$settings = get_option( Admin::OPTION_KEY, array() );
+		$settings = $this->get_wp_sudo_option( Admin::OPTION_KEY, array() );
 		if ( ! is_array( $settings ) ) {
 			$settings = array();
 		}
 		$settings['rest_app_password_policy'] = Gate::POLICY_DISABLED;
-		update_option( Admin::OPTION_KEY, $settings );
+		$this->update_wp_sudo_option( Admin::OPTION_KEY, $settings );
 		Admin::reset_cache();
 
 		$request = new \WP_REST_Request( 'DELETE', '/wp/v2/plugins/hello' );

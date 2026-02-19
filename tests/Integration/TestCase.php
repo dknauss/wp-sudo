@@ -105,6 +105,36 @@ class TestCase extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Update an option using the same API as the production code.
+	 *
+	 * On multisite, wp-sudo stores settings and version options with
+	 * get_site_option() / update_site_option(). Tests that arrange option
+	 * state must use the matching setter so the Upgrader, Admin, and Gate
+	 * classes find the values they expect.
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $value  Option value.
+	 */
+	protected function update_wp_sudo_option( string $option, $value ): void {
+		if ( is_multisite() ) {
+			update_site_option( $option, $value );
+		} else {
+			update_option( $option, $value );
+		}
+	}
+
+	/**
+	 * Get an option using the same API as the production code.
+	 *
+	 * @param string $option  Option name.
+	 * @param mixed  $default Default value.
+	 * @return mixed
+	 */
+	protected function get_wp_sudo_option( string $option, $default = false ) {
+		return is_multisite() ? get_site_option( $option, $default ) : get_option( $option, $default );
+	}
+
+	/**
 	 * Simulate an admin page request for Gate's match_request().
 	 *
 	 * Sets the globals and superglobals that Gate reads:

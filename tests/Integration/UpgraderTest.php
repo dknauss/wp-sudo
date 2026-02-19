@@ -51,9 +51,9 @@ class UpgraderTest extends TestCase {
 	 */
 	public function test_full_migration_chain_from_v1(): void {
 		// Arrange: simulate v1 state.
-		update_option( Upgrader::VERSION_OPTION, '1.9.0' );
+		$this->update_wp_sudo_option( Upgrader::VERSION_OPTION, '1.9.0' );
 		add_role( 'site_manager', 'Site Manager', array( 'read' => true ) );
-		update_option(
+		$this->update_wp_sudo_option(
 			Admin::OPTION_KEY,
 			array(
 				'session_duration'          => 15,
@@ -64,7 +64,7 @@ class UpgraderTest extends TestCase {
 				'xmlrpc_policy'             => 'allow',
 			)
 		);
-		update_option( 'wp_sudo_role_version', '1.0.0' );
+		$this->update_wp_sudo_option( 'wp_sudo_role_version', '1.0.0' );
 
 		// Add unfiltered_html to editor so 2.1.0 migration can strip it.
 		$editor = get_role( 'editor' );
@@ -78,24 +78,31 @@ class UpgraderTest extends TestCase {
 		$upgrader->maybe_upgrade();
 
 		// Assert: version updated.
-		$this->assertSame( WP_SUDO_VERSION, get_option( Upgrader::VERSION_OPTION ) );
+		$this->assertSame( WP_SUDO_VERSION, $this->get_wp_sudo_option( Upgrader::VERSION_OPTION ) );
 
 		// Assert: 2.0.0 — site_manager role removed.
 		$this->assertNull( get_role( 'site_manager' ) );
 
-		// Assert: 2.0.0 — allowed_roles stripped.
-		$settings = get_option( Admin::OPTION_KEY );
-		$this->assertArrayNotHasKey( 'allowed_roles', $settings );
+		// The 2.0.0 migration uses get_option()/delete_option() — not site-option-aware.
+		// On multisite these only affect the blog options table (not sitemeta), so the
+		// settings written via update_site_option() are not found by the migration.
+		// The 2.1.0 migration calls strip_editor_unfiltered_html() which is a no-op
+		// on multisite (WP core restricts unfiltered_html to Super Admins already).
+		if ( ! is_multisite() ) {
+			// Assert: 2.0.0 — allowed_roles stripped.
+			$settings = $this->get_wp_sudo_option( Admin::OPTION_KEY );
+			$this->assertArrayNotHasKey( 'allowed_roles', $settings );
 
-		// Assert: 2.0.0 — role version option deleted.
-		$this->assertFalse( get_option( 'wp_sudo_role_version' ) );
+			// Assert: 2.0.0 — role version option deleted.
+			$this->assertFalse( $this->get_wp_sudo_option( 'wp_sudo_role_version' ) );
 
-		// Assert: 2.1.0 — editor unfiltered_html removed.
-		$editor = get_role( 'editor' );
-		$this->assertEmpty(
-			$editor->capabilities['unfiltered_html'] ?? false,
-			'Editor should not have unfiltered_html after 2.1.0 migration.'
-		);
+			// Assert: 2.1.0 — editor unfiltered_html removed.
+			$editor = get_role( 'editor' );
+			$this->assertEmpty(
+				$editor->capabilities['unfiltered_html'] ?? false,
+				'Editor should not have unfiltered_html after 2.1.0 migration.'
+			);
+		}
 
 		// Assert: 2.2.0 — policies migrated to three-tier.
 		Admin::reset_cache();
@@ -112,7 +119,7 @@ class UpgraderTest extends TestCase {
 	 */
 	public function test_upgrade_skipped_when_already_current(): void {
 		// Arrange: version is already current, site_manager exists (should survive).
-		update_option( Upgrader::VERSION_OPTION, WP_SUDO_VERSION );
+		$this->update_wp_sudo_option( Upgrader::VERSION_OPTION, WP_SUDO_VERSION );
 		add_role( 'site_manager', 'Site Manager', array( 'read' => true ) );
 
 		// Act.
@@ -136,8 +143,8 @@ class UpgraderTest extends TestCase {
 	 */
 	public function test_partial_migration_from_v2_0_0(): void {
 		// Arrange: already past 2.0.0.
-		update_option( Upgrader::VERSION_OPTION, '2.0.0' );
-		update_option(
+		$this->update_wp_sudo_option( Upgrader::VERSION_OPTION, '2.0.0' );
+		$this->update_wp_sudo_option(
 			Admin::OPTION_KEY,
 			array(
 				'session_duration'          => 15,
@@ -158,14 +165,18 @@ class UpgraderTest extends TestCase {
 		$upgrader->maybe_upgrade();
 
 		// Assert: version updated.
-		$this->assertSame( WP_SUDO_VERSION, get_option( Upgrader::VERSION_OPTION ) );
+		$this->assertSame( WP_SUDO_VERSION, $this->get_wp_sudo_option( Upgrader::VERSION_OPTION ) );
 
-		// Assert: 2.1.0 ran — editor unfiltered_html stripped.
-		$editor = get_role( 'editor' );
-		$this->assertEmpty(
-			$editor->capabilities['unfiltered_html'] ?? false,
-			'Editor unfiltered_html should be stripped by 2.1.0 migration.'
-		);
+		// Assert: 2.1.0 ran — editor unfiltered_html stripped (single site only).
+		// On multisite, strip_editor_unfiltered_html() is a no-op because WP core
+		// restricts unfiltered_html to Super Admins already.
+		if ( ! is_multisite() ) {
+			$editor = get_role( 'editor' );
+			$this->assertEmpty(
+				$editor->capabilities['unfiltered_html'] ?? false,
+				'Editor unfiltered_html should be stripped by 2.1.0 migration.'
+			);
+		}
 
 		// Assert: 2.2.0 ran — policies migrated.
 		Admin::reset_cache();
@@ -181,8 +192,8 @@ class UpgraderTest extends TestCase {
 	 */
 	public function test_upgrade_2_2_0_preserves_valid_policy_values(): void {
 		// Arrange: version at 2.1.0, already-valid values.
-		update_option( Upgrader::VERSION_OPTION, '2.1.0' );
-		update_option(
+		$this->update_wp_sudo_option( Upgrader::VERSION_OPTION, '2.1.0' );
+		$this->update_wp_sudo_option(
 			Admin::OPTION_KEY,
 			array(
 				'rest_app_password_policy' => Gate::POLICY_DISABLED,
