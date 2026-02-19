@@ -1,7 +1,7 @@
 # Project State: WP Sudo v2.4
 
 **Updated:** 2026-02-19
-**Current phase:** Phase 1 complete — Phase 2 next
+**Current phase:** Phase 2 complete — Phase 3 next
 **Milestone:** Integration Tests & WP 7.0 Readiness
 
 ## Phase Status
@@ -9,7 +9,7 @@
 | Phase | Name | Status | Requirements |
 |-------|------|--------|-------------|
 | 1 | Integration Test Harness Scaffold | ✅ Complete | HARN-01–07 |
-| 2 | Core Security Integration Tests | ⬜ Not started | INTG-01–04 |
+| 2 | Core Security Integration Tests | ✅ Complete | INTG-01–04 |
 | 3 | Surface Coverage Tests | ⬜ Not started | SURF-01–05 |
 | 4 | Advanced Coverage (Two Factor + Multisite) | ⬜ Not started | ADVN-01–03 |
 | 5 | WP 7.0 Readiness | ⬜ Not started | WP70-01–04 |
@@ -23,6 +23,15 @@
 - Research synthesized — `581d5f4`
 - Requirements defined (23 requirements) — `695869a`
 - Roadmap created (5 phases) — `312a145`
+
+## Phase 2 Completion
+
+- PLAN.md read — `07af246` (test files commit references)
+- TestCase base class enhanced (superglobal isolation, cache resets, simulate_admin_request()) — `4eb7d7c`
+- SudoSessionTest (10 tests: INTG-02 bcrypt, INTG-03 token binding), RequestStashTest (7 tests: INTG-04 transients), ReauthFlowTest (4 tests: INTG-01 full flow) — `07af246`
+- Deviation fix: headers_sent() guard for setcookie() in CLI/integration-test contexts; WP 6.8+ $wp$2y$ prefix assertion — `60cef31`
+- 343 unit tests passing, 21 integration tests passing, 0 failures
+- No Brain\Monkey contamination in tests/integration/
 
 ## Phase 1 Completion
 
@@ -68,6 +77,9 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 | CI MySQL service | No MYSQL_DATABASE pre-creation (avoids interactive prompt) | Phase 1 |
 | CI runner | ubuntu-24.04 explicit (not ubuntu-latest) | Phase 1 |
 | Integration test PHP matrix | PHP 8.1+8.3 (subset for speed); unit runs 8.1-8.4 | Phase 1 |
+| setcookie() in CLI/integration contexts | headers_sent() guard on all call sites | Phase 2 |
+| WP 6.8+ bcrypt prefix | Assert $wp$2y$ OR $2y$ for portability | Phase 2 |
+| headers_sent mocking | Add to patchwork.json redefinable-internals | Phase 2 |
 
 ## Open Decisions
 
@@ -87,6 +99,7 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 01 | 01 | 3 min | 5 | 7 |
+| 02 | 02 | 9 min | 5 | 7 |
 
 ## Git State
 
@@ -96,5 +109,5 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 
 ---
 *State initialized: 2026-02-19*
-*Last session: 2026-02-19 — Completed Phase 1 (01-integration-test-harness-scaffold)*
-*Next action: `/gsd:plan-phase 2`*
+*Last session: 2026-02-19 — Completed Phase 2 (02-core-security-integration-tests)*
+*Next action: Execute Phase 3 (surface-coverage-tests)*
