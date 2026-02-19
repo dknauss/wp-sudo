@@ -109,19 +109,26 @@
 
 **Requirements:** WP70-01, WP70-02, WP70-03, WP70-04
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Write WP 7.0 visual check section + Abilities API assessment document
+- [ ] 05-02-PLAN.md — Execute manual testing guide against WP 7.0 (human verification)
+- [ ] 05-03-PLAN.md — Bump "Tested up to: 7.0" in readme.txt (time-gated to April 9, 2026)
+
 **Time gate:** WP70-03 ("Tested up to" bump) must wait for WP 7.0 GA (April 9, 2026). WP70-01 and WP70-02 can run against beta/RC builds now.
 
 **Key deliverables:**
 - Execute `tests/MANUAL-TESTING.md` against WP 7.0 beta/RC — document results
 - Verify settings page, challenge page, admin bar countdown under WP 7.0 admin visual refresh (DataViews/design tokens)
-- Update `readme.txt` and plugin header: `Tested up to: 7.0`
+- Update `readme.txt`: `Tested up to: 7.0` (readme.txt only — wp-sudo.php has no "Tested up to" field)
 - Add WP 7.0 visual check section to `tests/MANUAL-TESTING.md`
 - `docs/abilities-api-assessment.md` — evaluates current Abilities API surface, gating strategy for future destructive abilities
 
 **Success criteria:**
 - Manual testing guide passes on WP 7.0 RC with zero regressions
 - Plugin CSS renders correctly under admin visual refresh
-- "Tested up to" bumped in `readme.txt` and `wp-sudo.php`
+- "Tested up to" bumped in `readme.txt` (the only file with this field)
 - Abilities API document covers: current 3 read-only abilities, `permission_callback` pattern, when to add `ability` surface type to Gate
 
 **Estimated complexity:** LOW-MEDIUM (mostly manual verification + documentation; version bump is trivial)
@@ -151,4 +158,4 @@ All 23 v2.4 requirements are mapped:
 
 ---
 *Roadmap created: 2026-02-19*
-*Last updated: 2026-02-19 after initial creation*
+*Last updated: 2026-02-19 after Phase 5 planning*
