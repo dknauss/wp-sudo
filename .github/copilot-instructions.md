@@ -38,6 +38,7 @@ Always run `composer test` and `composer analyse` before committing.
   - `two-factor-integration.md` — 2FA plugin integration guide.
   - `two-factor-ecosystem.md` — 2FA plugin ecosystem survey.
   - `ui-ux-testing-prompts.md` — Structured UI/UX testing prompts.
+  - `roadmap-2026-02.md` — Integration tests, WP 7.0 prep, collaboration analysis, TDD strategy.
 - `bom.json` — CycloneDX SBOM (regenerate with `composer sbom`).
 
 ## Architecture

@@ -33,6 +33,7 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 - `docs/two-factor-integration.md` — 2FA plugin integration guide.
 - `docs/two-factor-ecosystem.md` — 2FA plugin ecosystem survey.
 - `docs/ui-ux-testing-prompts.md` — structured UI/UX testing prompts.
+- `docs/roadmap-2026-02.md` — integration tests, WP 7.0 prep, collaboration analysis, TDD strategy.
 
 ## Verification Requirements
 
@@ -76,9 +77,22 @@ Before tagging a release, re-verify all external claims added or modified since 
 last tag. Append any new findings to `llm_lies_log.txt`. If new fabrications are
 found, fix them before tagging.
 
+## Test-Driven Development
+
+All new code must follow TDD:
+1. Write failing test(s) first — commit or show them before writing production code
+2. Write the minimum production code to pass
+3. Refactor if needed, keeping tests green
+4. `composer test` must pass before every commit
+5. `composer analyse` (PHPStan level 6) must pass before every commit
+
+Never commit production code without corresponding test coverage.
+Tests are the primary defense against LLM context collapse — they verify
+behavior that the model cannot hold in working memory.
+
 ## Commit Practices
 
-- Always run tests before committing.
+- Always run tests and PHPStan before committing.
 - Use conventional commit format.
 
 ## Architecture
