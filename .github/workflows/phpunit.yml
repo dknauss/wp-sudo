@@ -58,11 +58,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install SVN
+        run: sudo apt-get update && sudo apt-get install -y subversion
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          tools: composer:v2, svn
+          tools: composer:v2
           extensions: mysqli
           coverage: none
 
