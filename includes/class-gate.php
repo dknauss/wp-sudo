@@ -1081,7 +1081,7 @@ class Gate {
 		);
 
 		printf(
-			'<div class="notice notice-warning is-dismissible" role="alert"><p>%s</p></div>',
+			'<div class="notice notice-warning is-dismissible wp-sudo-notice" role="alert"><p>%s</p></div>',
 			sprintf(
 				/* translators: 1: action label, 2: challenge page link, 3: keyboard shortcut */
 				esc_html__( 'Your recent action (%1$s) was blocked because it requires reauthentication. %2$s to activate a sudo session, then try again. You can also press %3$s.', 'wp-sudo' ),
@@ -1148,7 +1148,7 @@ class Gate {
 		);
 
 		printf(
-			'<div class="notice notice-warning" role="status"><p>%s</p></div>',
+			'<div class="notice notice-warning wp-sudo-notice" role="status"><p>%s</p></div>',
 			sprintf(
 				/* translators: 1: challenge page link, 2: keyboard shortcut */
 				esc_html__( 'Installing, activating, updating, and deleting themes and plugins requires an active sudo session. %1$s or press %2$s to start one.', 'wp-sudo' ),
