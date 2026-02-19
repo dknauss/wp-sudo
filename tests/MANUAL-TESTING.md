@@ -687,3 +687,60 @@ All scheduled events run as if WP Sudo is not installed.
    - User meta should not contain keys starting with `_wp_sudo_`.
    - Editor role should have `unfiltered_html` restored.
 3. **Expected:** All WP Sudo data is cleaned up.
+
+---
+
+## 15. WP 7.0 Visual Compatibility
+
+Run against WP 7.0 beta/RC (Studio at localhost:8883 or Local at localhost:10045).
+Document pass/fail and any visual regressions. These checks verify the plugin's
+admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
+
+### 15.1 Settings Page (Settings > Sudo)
+
+1. Load **Settings > Sudo** on a WP 7.0 site.
+2. **Expected:** Settings page renders correctly under WP 7.0 admin chrome.
+   - Form table rows, labels, and select dropdowns align properly.
+   - Policy dropdowns respect the 140px minimum width.
+   - Shield dashicon renders in the page title.
+   - Help tabs open and display correctly.
+   - Gated actions table (`.widefat.striped`) renders with correct spacing.
+   - MU-plugin status section renders correctly.
+3. **Result:** [PASS/FAIL — date tested]
+
+### 15.2 Challenge Page
+
+1. Ensure no sudo session is active.
+2. Trigger a gated action (e.g., **Settings > General > Save Changes**).
+3. **Expected:** Challenge card renders correctly under WP 7.0 admin chrome.
+   - Card is centered with max-width 420px, white background, border, and shadow.
+   - Password field fills the full card width.
+   - "Confirm & Continue" and "Cancel" buttons render correctly.
+   - No raw text or visible escape sequences appear in the card.
+4. **Result:** [PASS/FAIL — date tested]
+
+### 15.3 Admin Bar Countdown
+
+1. Activate a sudo session.
+2. **Expected:** Green countdown node renders in the admin bar.
+   - Timer text is readable against the green (#2e7d32) background.
+   - Red state (#c62828) appears in the final 60 seconds.
+   - Admin bar node does not conflict with WP 7.0 toolbar chrome.
+3. **Result:** [PASS/FAIL — date tested]
+
+### 15.4 Admin Notices (Gate Notice + Blocked Notice)
+
+1. Go to **Plugins** with no sudo session active.
+2. **Expected:** Persistent gate notice renders with correct styling.
+   - `.notice.notice-warning` class applies correctly under WP 7.0.
+   - Link to the challenge page is visible and styled.
+3. **Result:** [PASS/FAIL — date tested]
+
+### 15.5 Disabled Action Links (Plugin/Theme rows)
+
+1. Go to **Plugins** with no sudo session active.
+2. **Expected:** Activate, Deactivate, and Delete links are replaced with
+   gray disabled spans.
+   - Inline `color:#787c82; cursor:default` renders correctly.
+   - No conflict with new row-action hover styles from the admin refresh.
+3. **Result:** [PASS/FAIL — date tested]
