@@ -1,7 +1,7 @@
 # Project State: WP Sudo v2.4
 
 **Updated:** 2026-02-19
-**Current phase:** Phase 4 complete — Phase 5 next
+**Current phase:** Phase 5 — Plan 3 deferred (time-gated to 2026-04-09)
 **Milestone:** Integration Tests & WP 7.0 Readiness
 
 ## Phase Status
@@ -12,7 +12,7 @@
 | 2 | Core Security Integration Tests | ✅ Complete | INTG-01–04 |
 | 3 | Surface Coverage Tests | ✅ Complete | SURF-01–05 |
 | 4 | Advanced Coverage (Two Factor + Multisite) | ✅ Complete | ADVN-01–03 |
-| 5 | WP 7.0 Readiness | ⬜ Not started | WP70-01–04 |
+| 5 | WP 7.0 Readiness | 🔒 Plan 03 time-gated (2026-04-09) | WP70-01–04 |
 
 ## Completed Work (Pre-Phase)
 
@@ -118,6 +118,7 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 ## Known Risks
 
 - WP 7.0 Beta 1 changelog not yet published (as of 2026-02-19)
+- Plan 05-03 (readme.txt "Tested up to" bump) time-gated — re-execute on or after 2026-04-09
 - ~~`sleep()` in `record_failed_attempt()` makes rate-limiting integration tests slow~~ Resolved: lockout branch returns before sleep()
 - LLM confabulation — 5 documented instances in `llm_lies_log.txt`; all external refs must be verified
 
@@ -137,5 +138,5 @@ SOCK="/Users/danknauss/Library/Application Support/Local/run/y2n1whA9B/mysql/mys
 
 ---
 *State initialized: 2026-02-19*
-*Last session: 2026-02-19 — Completed Phase 4 (04-advanced-coverage-two-factor-multisite)*
-*Next action: Execute Phase 5 (wp-7-0-readiness)*
+*Last session: 2026-02-19 — Phase 5 Plan 03 deferred (time-gated to 2026-04-09 WP 7.0 GA)*
+*Next action: Execute Phase 5 Plans 01 and 02; re-execute Plan 03 on or after 2026-04-09*
