@@ -179,7 +179,7 @@ Here is how the major WordPress 2FA plugins store and validate credentials, and 
 | Aspect | Detail |
 |--------|--------|
 | Detection | `get_user_meta( $user_id, 'tfa_enable_tfa', true )` |
-| Validation | `Simba_TFA->authUserFromLogin( $params )` |
+| Validation | `Simba_TFA->authorise_user_from_login( $params )` |
 | Storage | `tfa_priv_key_64` user meta (base64-encoded) |
 | Notes | Embeds the Simba Two Factor Authentication engine. |
 
@@ -200,7 +200,7 @@ Here is how the major WordPress 2FA plugins store and validate credentials, and 
 
 | Aspect | Detail |
 |--------|--------|
-| Detection | `get_user_meta( ..., 'mo2f_selected_2factor_method' )` |
+| Detection | `get_user_meta( ..., 'currentMethod' )` |
 | Validation | Cloud API call to miniOrange servers |
 | Notes | No local validation path for hosted 2FA methods. |
 
@@ -267,14 +267,14 @@ add_filter( 'wp_sudo_requires_two_factor', function ( $needs, $user_id ) {
 // Validate
 add_filter( 'wp_sudo_validate_two_factor', function ( $valid, $user ) {
     if ( $valid ) return true;
-    if ( ! class_exists( 'Simba_Two_Factor_Authentication' ) ) return $valid;
+    if ( ! class_exists( 'Simba_Two_Factor_Authentication_1' ) ) return $valid;
     $code = sanitize_text_field( wp_unslash( $_POST['aios_2fa_code'] ?? '' ) );
     // Simba TFA reads from $_POST internally, so set the expected field.
     $_POST['two_factor_code'] = $code;
     global $simba_two_factor_authentication;
-    if ( $simba_two_factor_authentication && method_exists( $simba_two_factor_authentication, 'authUserFromLogin' ) ) {
+    if ( $simba_two_factor_authentication && method_exists( $simba_two_factor_authentication, 'authorise_user_from_login' ) ) {
         $params = array( 'log' => $user->user_login, 'caller' => 'wp-sudo' );
-        return (bool) $simba_two_factor_authentication->authUserFromLogin( $params );
+        return (bool) $simba_two_factor_authentication->authorise_user_from_login( $params );
     }
     return $valid;
 }, 10, 2 );
