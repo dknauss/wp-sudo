@@ -37,6 +37,13 @@ require_once $_tests_dir . '/includes/functions.php';
 tests_add_filter(
 	'muplugins_loaded',
 	static function () {
+		// Load Two Factor plugin if installed (required by TwoFactorTest).
+		$_wp_core = getenv( 'WP_CORE_DIR' ) ?: rtrim( sys_get_temp_dir(), '/\\' ) . '/wordpress';
+		$_tf_file = $_wp_core . '/wp-content/plugins/two-factor/two-factor.php';
+		if ( file_exists( $_tf_file ) ) {
+			require_once $_tf_file;
+		}
+
 		require_once dirname( __DIR__, 2 ) . '/wp-sudo.php';
 	}
 );

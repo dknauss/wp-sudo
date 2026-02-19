@@ -19,7 +19,7 @@ WP_CORE_DIR=${WP_CORE_DIR-$TMPDIR/wordpress}
 
 download() {
     if [ `which curl` ]; then
-        curl -s "$1" > "$2";
+        curl -sL "$1" > "$2";
     elif [ `which wget` ]; then
         wget -nv -O "$2" "$1"
     else
@@ -189,6 +189,17 @@ install_db() {
 	fi
 }
 
+install_plugins() {
+	# Two Factor plugin — required by TwoFactorTest integration tests.
+	local TF_DIR="$WP_CORE_DIR/wp-content/plugins/two-factor"
+	if [ ! -d "$TF_DIR" ]; then
+		download https://downloads.wordpress.org/plugin/two-factor.latest-stable.zip "$TMPDIR/two-factor.zip"
+		mkdir -p "$WP_CORE_DIR/wp-content/plugins"
+		unzip -qo "$TMPDIR/two-factor.zip" -d "$WP_CORE_DIR/wp-content/plugins"
+	fi
+}
+
 install_wp
 install_test_suite
 install_db
+install_plugins
