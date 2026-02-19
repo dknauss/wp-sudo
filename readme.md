@@ -1,4 +1,4 @@
-_This exploratory plugin is not production-ready. Please test it and share your feedback on what works and what doesn't._
+_This exploratory plugin is not production-ready. Please [**help test it**](https://github.com/dknauss/wp-sudo/blob/main/tests/MANUAL-TESTING.md) and share your feedback on what works and what doesn't._
 
 # Sudo for WordPress
 
