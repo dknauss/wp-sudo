@@ -10,9 +10,10 @@
 
 ![Unbreakable Barrier Gate](assets/fuwa-no-seki.png)
 
+``
+``
+``
 
-
-  
 > So full of cracks,  
 the barrier gatehouse of Fuwa  
 lets both rain and moonlight in —  
@@ -20,9 +21,10 @@ quietly exposed, yet enduring.
   
 — [Abatsu-ni](https://en.wikipedia.org/wiki/Abutsu-ni), *Diary of the Waning Moon*  
 
+``
+``
+``
 
-
-  
 ## Description
 
 **Sudo** brings zero-trust reauthentication to WordPress. Potentially destructive operations are gated behind an identity challenge — no user is trusted by default, regardless of role. When any user — administrators, editors, or custom roles — attempts a dangerous action, they must confirm their identity before proceeding.
