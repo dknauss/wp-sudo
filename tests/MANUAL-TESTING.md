@@ -687,8 +687,10 @@ All scheduled events run as if WP Sudo is not installed.
 3. Enter your password.
 4. **Expected:** Error message: "Your challenge session has expired.
    Please try again."
-5. **Result:** DEFERRED — requires 5-minute manual wait. Not tested in
-   this session.
+5. **Result:** PASS — 2026-02-19 (WP 7.0-alpha-61698, Studio). Triggered
+   Save Changes on General Settings, waited 5.5 minutes on the challenge
+   page, then entered password. Error displayed: "Your challenge session
+   has expired. Please try again."
 
 ### 14.2 Multiple Tabs
 
