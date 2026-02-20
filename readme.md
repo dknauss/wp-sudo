@@ -6,13 +6,9 @@ lets both rain and moonlight in —
 quietly exposed, yet enduring.  
 
 — [Abatsu-ni](https://en.wikipedia.org/wiki/Abutsu-ni), *Diary of the Waning Moon*
-
-
-
-> _**This exploratory plugin is NOT production-ready**. Please [**help test it**](https://github.com/dknauss/wp-sudo/blob/main/tests/MANUAL-TESTING.md) and share your feedback._
-
-
-
+  
+  
+  
 # Sudo for WordPress
 
 **Action-gated reauthentication for WordPress.** Potentially dangerous operations require password confirmation before they proceed — regardless of user role.
@@ -21,6 +17,10 @@ quietly exposed, yet enduring.
 [![WordPress: 6.2+](https://img.shields.io/badge/WordPress-6.2%2B-0073aa.svg)](https://wordpress.org/)
 [![PHP: 8.0+](https://img.shields.io/badge/PHP-8.0%2B-777bb4.svg)](https://www.php.net/)
 
+  
+> _**This exploratory plugin is NOT production-ready**. Please [**help test it**](https://github.com/dknauss/wp-sudo/blob/main/tests/MANUAL-TESTING.md) and share your feedback._
+
+  
 ## Description
 
 **Sudo** brings zero-trust reauthentication to WordPress. Potentially destructive operations are gated behind an identity challenge — no user is trusted by default, regardless of role. When any user — administrators, editors, or custom roles — attempts a dangerous action, they must confirm their identity before proceeding.
