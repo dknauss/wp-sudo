@@ -10,10 +10,10 @@ _**This exploratory plugin is NOT production-ready**. Please [**help test it**](
 
 ![Unbreakable Barrier Gate](assets/fuwa-no-seki.png)
 
-So full of cracks,
-the barrier gatehouse of Fuwa
-lets both rain and moonlight in —
-quietly exposed, yet enduring.
+So full of cracks,/
+the barrier gatehouse of Fuwa/
+lets both rain and moonlight in —/
+quietly exposed, yet enduring./
 
 — [Abatsu-ni](https://en.wikipedia.org/wiki/Abutsu-ni), *Diary of the Waning Moon*
 
