@@ -2,6 +2,11 @@
 
 *February 19, 2026*
 
+> **Note:** This document reflects the project state at v2.3.2 (February 19, 2026).
+> Current test counts and implemented work are tracked in [CHANGELOG.md](CHANGELOG.md).
+> The integration test suite and CI pipeline described as "planned" here have since
+> been completed and are shipping in v2.4.x.
+
 ## Context
 
 Three strategic questions were assessed, plus a follow-up about mitigating LLM context
@@ -332,3 +337,57 @@ This is a **post-v2.4 milestone** concern. The current v2.4 milestone focuses on
 integration test coverage and WP 7.0 readiness. Environment diversity testing
 should be scoped as a v2.5 or v2.6 milestone, with Phase A (CI matrix expansion)
 as the first deliverable since it requires no new infrastructure.
+
+---
+
+## 6. Coverage Tooling (Deferred)
+
+**Decision: do not add coverage measurement yet.**
+
+Reasons:
+- Xdebug/PCOV adds meaningful overhead to the integration matrix (8 jobs across
+  PHP 8.1/8.3 × WP latest/trunk × single/multisite). The marginal CI cost is not
+  justified until the matrix is stable.
+- Coverage numbers from the unit suite would be misleading. Unit tests mock all
+  WordPress functions via Brain\Monkey, so line coverage looks high while entire
+  real code paths (bcrypt, transients, cookies) are untested. The integration suite
+  provides better signal than a percentage badge.
+- A coverage badge communicates to contributors that the suite is meaningful — that
+  message is only accurate once the integration suite is comprehensive and the
+  environment matrix is broad.
+
+**When to revisit:** After the environment diversity milestone (Phase A CI matrix
+expansion). At that point coverage adds signal: you can see which combinations of
+PHP/WP versions hit paths the others miss.
+
+---
+
+## 7. Mutation Testing (Deferred to Post-Environment-Diversity)
+
+**Decision: add mutation testing (Infection PHP) after the environment diversity milestone.**
+
+Mutation testing validates that tests actually detect failures by introducing small
+code changes (mutations) and verifying the test suite catches them. This is the
+right tool for a security plugin — it directly answers "would our tests catch a
+regression in the session token comparison or rate limiting logic?"
+
+**Why not now:**
+- Infection re-runs the full test suite for every mutant. With the current suite
+  (349 unit + 55 integration tests), a full Infection run would take 10–30 minutes
+  locally. That's acceptable for a pre-release check, not for CI on every push.
+- The more valuable immediate gap is environment diversity: knowing the tests pass
+  on Apache/MariaDB and WP 6.2–6.9 is higher confidence signal than mutation score
+  on a single stack.
+- Mutation testing against mocked unit tests (Brain\Monkey) produces limited signal —
+  mutations in production code are hidden by the mock boundary. Infection is most
+  useful against the integration suite where real code runs.
+
+**Recommended approach when the time comes:**
+
+1. Run Infection against the integration suite only (`--test-framework-options="--config=phpunit-integration.xml.dist"`).
+2. Configure a minimum mutation score indicator (MSI) of 80% as a pre-release gate,
+   not a per-push CI gate.
+3. Focus mutation scope on security-critical classes: `Sudo_Session`, `Gate`,
+   `Challenge` — not `Admin`, `Admin_Bar`, or `Site_Health`.
+4. Add a `composer mutation` script for local runs; keep it out of the standard CI
+   matrix until the integration suite runs fast enough to justify the overhead.

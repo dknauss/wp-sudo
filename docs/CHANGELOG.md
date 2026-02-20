@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.1
+
+- **AJAX gating integration tests** — 11 new tests covering the AJAX surface: rule matching for all 7 declared AJAX actions, full intercept flow via `wp_doing_ajax` filter, session bypass, non-gated pass-through, blocked transient lifecycle, admin notice fallback (`render_blocked_notice`), and `wp.updates` slug passthrough.
+- **Action registry filter integration tests** — 3 new tests verifying custom rules added via `wp_sudo_gated_actions` are matched by the Gate in a real WordPress environment; including custom admin rules, custom AJAX rules, and filter-based removal of built-in rules.
+- **Audit hook coverage** — `wp_sudo_action_blocked` now integration-tested for CLI, Cron, and XML-RPC surfaces (in addition to REST app-password). Documents that `wp_sudo_action_allowed` is intentionally absent from the production code path.
+- **CI quality gate** — new GitHub Actions job runs PHPCS and PHPStan on every push and PR; Composer dependency cache added to unit and integration jobs; nightly scheduled run at 3 AM UTC catches WordPress trunk regressions.
+- **MU-plugin manual install instructions** — fallback copy instructions added to the settings page UI (`<details>` disclosure) and help tab for environments where the one-click installer fails due to file permissions.
+- **CONTRIBUTING.md** — new contributor guide covering prerequisites, local setup, unit vs integration test distinction, TDD workflow, and lint/analyse requirements.
+- **349 unit tests, 863 assertions. 72 integration tests in CI.**
+
 ## 2.4.0
 
 - **Integration test suite** — 55 integration tests running against a real WordPress + MySQL environment via `WP_UnitTestCase`. Covers sudo session lifecycle (bcrypt verification, token binding, rate limiting, expiry), request stash/replay with transient TTL, full reauth flow (5-class end-to-end), REST API gating with cookie auth and application passwords, upgrader migration chain, audit hook arguments, Two Factor plugin interaction, and multisite session isolation.

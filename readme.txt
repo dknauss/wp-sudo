@@ -104,6 +104,18 @@ Yes. With the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin, th
 
 Yes. Settings and sessions are network-wide. The action registry includes network-specific rules. See the Multisite section above.
 
+== For Developers ==
+
+WP Sudo is built for correctness and contributor legibility, not just functionality.
+
+Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords), matches the incoming request against a registry of 28+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
+
+Testing: the suite is split into two tiers. Unit tests (349 tests, 863 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (73 tests, 210 assertions) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, and all 9 audit hooks.
+
+CI: GitHub Actions runs PHPStan level 6 and PHPCS on every push and PR, the full test matrix across PHP 8.1-8.4 and WordPress latest + trunk, and a nightly scheduled run against WordPress trunk.
+
+Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine audit hooks cover session lifecycle, gated actions, policy decisions, and lockouts. See the GitHub repository for hook reference, CONTRIBUTING.md, and the full developer documentation.
+
 == Screenshots ==
 
 1. Challenge page — reauthentication interstitial with password field.
@@ -115,6 +127,15 @@ Yes. Settings and sessions are network-wide. The action registry includes networ
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.4.1 =
+* **AJAX gating integration tests** — 11 new tests covering the AJAX surface: rule matching for all 7 declared AJAX actions, full intercept flow, session bypass, non-gated pass-through, blocked transient lifecycle, admin notice fallback, and wp.updates slug passthrough.
+* **Action registry filter integration tests** — 3 new tests verifying custom rules added via wp_sudo_gated_actions are matched by the Gate in a real WordPress environment.
+* **Audit hook coverage** — wp_sudo_action_blocked now integration-tested for CLI, Cron, and XML-RPC surfaces (in addition to REST app-password).
+* **CI quality gate** — new GitHub Actions job runs PHPCS and PHPStan on every push and PR; Composer dependency cache added; nightly scheduled run against WP trunk.
+* **MU-plugin manual install instructions** — fallback copy instructions added to the settings page UI and help tab.
+* **CONTRIBUTING.md** — new contributor guide covering local setup, test strategy, TDD workflow, and code style requirements.
+* **349 unit tests, 863 assertions. 72 integration tests in CI.**
 
 = 2.4.0 =
 * **Integration test suite** — 55 tests against real WordPress + MySQL (session lifecycle, request stash/replay, full reauth flow, REST gating, upgrader migrations, Two Factor interaction, multisite isolation).

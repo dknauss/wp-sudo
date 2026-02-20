@@ -67,8 +67,16 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 
 ## Testing
 
-Automated tests: `composer test` runs the PHPUnit suite (see [CLAUDE.md](../CLAUDE.md) for all commands).
+Two test environments are used deliberately — choose based on what you are testing:
 
-Static analysis: `composer analyse` runs PHPStan level 6 (use `--memory-limit=1G` if needed).
+**Unit tests** (`tests/Unit/`) use Brain\Monkey to mock all WordPress functions. Fast (~0.3s total). Run with `composer test:unit`. Use for: request matching logic, session state machine, policy enforcement, hook registration, settings sanitization.
+
+**Integration tests** (`tests/Integration/`) load real WordPress against a MySQL database via `WP_UnitTestCase`. Run with `composer test:integration` (requires one-time setup — see [CONTRIBUTING.md](../CONTRIBUTING.md)). Use for: full reauth flows, real bcrypt verification, transient TTL and cookie behavior, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations.
+
+When in doubt: if the test needs a real database, real crypto, or calls that cross class boundaries in production, write an integration test.
+
+Static analysis: `composer analyse` runs PHPStan level 6 (use `--memory-limit=1G` if needed). Zero errors required.
+
+Code style: `composer lint` (PHPCS, WordPress-Extra + WordPress-Docs + WordPressVIPMinimum rulesets). Auto-fix with `composer lint:fix`.
 
 Manual testing: see [`tests/MANUAL-TESTING.md`](../tests/MANUAL-TESTING.md) for step-by-step verification procedures against a real WordPress environment.

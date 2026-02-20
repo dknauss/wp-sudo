@@ -113,6 +113,23 @@ For more questions, see the [full FAQ](docs/FAQ.md).
 
 Hook signatures, filter reference, custom rule structure, and testing instructions: [docs/developer-reference.md](docs/developer-reference.md).
 
+### Engineering Practices
+
+WP Sudo is built for correctness and contributor legibility, not just functionality.
+
+**Architecture.** A single SPL autoloader maps the `WP_Sudo\*` namespace to `includes/class-*.php`. The `Gate` class is the heart of the plugin: it detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords), matches the incoming request against a registry of 28+ rules, and either challenges, soft-blocks, or hard-blocks depending on surface and policy. All gating decisions happen server-side in PHP action hooks — JavaScript is used only for UX (countdown timer, keyboard shortcut).
+
+**Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
+
+- **Unit tests** (349 tests, 863 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
+- **Integration tests** (73 tests, 210 assertions) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
+
+**Static analysis and code style.** PHPStan level 6 (zero errors) and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early.
+
+**Extensibility.** The action registry is filterable via `wp_sudo_gated_actions`. The plugin fires 9 audit hooks covering session lifecycle, gated actions, policy decisions, and lockouts — designed for integration with activity log plugins. Third-party 2FA plugins integrate via four filter hooks. See [docs/developer-reference.md](docs/developer-reference.md) for the full hook reference.
+
+**Contributing.** See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the TDD workflow, and code style requirements.
+
 ## Screenshots
 
 1. **Challenge page** — reauthentication interstitial with password field.
@@ -144,6 +161,16 @@ Hook signatures, filter reference, custom rule structure, and testing instructio
    ![Active sudo session](assets/screenshot-7.png?v=2)
 
 ## Changelog
+
+### 2.4.1
+
+- **AJAX gating integration tests** — 11 new tests covering the AJAX surface: rule matching for all 7 declared AJAX actions, full intercept flow, session bypass, non-gated pass-through, blocked transient lifecycle, admin notice fallback (`render_blocked_notice`), and `wp.updates` slug passthrough.
+- **Action registry filter integration tests** — 3 new tests verifying custom rules added via `wp_sudo_gated_actions` are matched by the Gate in a real WordPress environment; including custom admin rules, custom AJAX rules, and filter-based removal of built-in rules.
+- **Audit hook coverage** — `wp_sudo_action_blocked` now integration-tested for CLI, Cron, and XML-RPC surfaces (in addition to REST app-password). Documents that `wp_sudo_action_allowed` is intentionally absent from the production code path.
+- **CI quality gate** — new GitHub Actions job runs PHPCS and PHPStan on every push and PR; Composer dependency cache added to unit and integration jobs; nightly scheduled run at 3 AM UTC against WP trunk.
+- **MU-plugin manual install instructions** — fallback copy instructions added to the settings page UI and help tab for environments where the one-click installer fails due to file permissions.
+- **CONTRIBUTING.md** — new contributor guide covering local setup, unit vs integration test distinction, TDD workflow, and lint/analyse requirements.
+- **349 unit tests, 863 assertions. 72 integration tests in CI.**
 
 ### 2.4.0
 

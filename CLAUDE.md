@@ -11,12 +11,14 @@ WP Sudo is a WordPress plugin that provides action-gated reauthentication. Dange
 ## Commands
 
 ```bash
-composer install          # Install dev dependencies
-composer test             # Run all unit tests
-composer lint             # Run PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum)
-composer lint:fix         # Auto-fix PHPCS violations
-composer analyse          # Run PHPStan level 6 (use --memory-limit=1G if needed)
-composer sbom             # Regenerate CycloneDX SBOM (bom.json)
+composer install              # Install dev dependencies
+composer test                 # Alias for composer test:unit
+composer test:unit            # Run unit tests only (fast, no database, ~0.3s)
+composer test:integration     # Run integration tests (requires MySQL + WP test suite setup)
+composer lint                 # Run PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum)
+composer lint:fix             # Auto-fix PHPCS violations
+composer analyse              # Run PHPStan level 6 (use --memory-limit=1G if needed)
+composer sbom                 # Regenerate CycloneDX SBOM (bom.json)
 ./vendor/bin/phpunit tests/Unit/SudoSessionTest.php   # Run a single test file
 ./vendor/bin/phpunit --filter testMethodName           # Run a single test method
 ```
@@ -126,11 +128,19 @@ The plugin fires 9 action hooks for external logging: `wp_sudo_activated`, `wp_s
 
 ## Testing
 
-Tests use **Brain\Monkey** to mock WordPress functions/hooks without loading WordPress, plus **Mockery** for object mocking and **Patchwork** for redefining `setcookie` and `header` (configured in `patchwork.json`).
+Two test environments are used deliberately:
+
+**Unit tests** (`tests/Unit/`) use **Brain\Monkey** to mock WordPress functions/hooks, **Mockery** for object mocking, and **Patchwork** for redefining `setcookie`/`header`. Fast (~0.3s). Use for: request matching, session state machine, policy enforcement, hook registration.
 
 - `tests/bootstrap.php` — Defines WordPress constants and minimal class stubs (`WP_User`, `WP_Role`, `WP_Admin_Bar`).
 - `tests/TestCase.php` — Base class with Brain\Monkey setup/teardown and `make_user()`/`make_role()` helpers.
 - Test files live in `tests/Unit/` and follow the `*Test.php` naming convention.
+
+**Integration tests** (`tests/Integration/`) load real WordPress + MySQL via `WP_UnitTestCase`. Use for: full reauth flows, real bcrypt, transient TTL, REST/AJAX gating, Two Factor interaction, multisite isolation. Requires one-time setup via `bash bin/install-wp-tests.sh` (see CONTRIBUTING.md).
+
+- `tests/Integration/bootstrap.php` — Loads WordPress test library; loads plugin at `muplugins_loaded`.
+- `tests/Integration/TestCase.php` — Base class with superglobal snapshots, static cache reset, and request simulation helpers.
+- Test files live in `tests/Integration/` and follow the `*Test.php` naming convention.
 
 PHPUnit strict mode is enabled: tests must assert something, produce no output, and not trigger warnings.
 

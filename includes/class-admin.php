@@ -221,6 +221,7 @@ class Admin {
 					. '<p>' . __( 'Individual application passwords can override the global REST API policy. On the user profile page, each application password shows a Sudo Policy dropdown. "Global default" inherits the REST API (App Passwords) setting above. Setting a specific policy on an individual password lets you grant different access levels to different tools — for example, a deployment pipeline might be Unrestricted while an AI assistant stays Limited.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'If the one-click installer fails (for example, due to file permission restrictions on your host), install the mu-plugin manually: copy <code>wp-sudo-gate.php</code> from <code>wp-content/plugins/wp-sudo/mu-plugin/</code> into your <code>wp-content/mu-plugins/</code> directory, creating that directory first if it does not exist. The mu-plugin will be active on the next page load.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'On multisite, settings are network-wide and the settings page appears under Network Admin &rarr; Settings &rarr; Sudo. Sudo sessions are also network-wide &mdash; authenticating on one site covers all sites in the network.', 'wp-sudo' ) . '</p>',
 			)
@@ -769,6 +770,21 @@ class Admin {
 							<button type="button" class="button button-primary" id="wp-sudo-mu-install">
 								<?php esc_html_e( 'Install MU-Plugin', 'wp-sudo' ); ?>
 							</button>
+							<details style="margin-top: 0.75em;">
+								<summary><?php esc_html_e( 'Manual install instructions', 'wp-sudo' ); ?></summary>
+								<ol style="margin: 0.5em 0 0 1.5em;">
+									<li>
+										<?php esc_html_e( 'Locate the shim file inside the plugin directory:', 'wp-sudo' ); ?><br>
+										<code>wp-content/plugins/wp-sudo/mu-plugin/wp-sudo-gate.php</code>
+									</li>
+									<li>
+										<?php esc_html_e( 'Copy it into your mu-plugins directory:', 'wp-sudo' ); ?><br>
+										<code>wp-content/mu-plugins/wp-sudo-gate.php</code>
+									</li>
+									<li><?php esc_html_e( 'Create the mu-plugins directory first if it does not exist.', 'wp-sudo' ); ?></li>
+									<li><?php esc_html_e( 'The mu-plugin will be active on the next page load.', 'wp-sudo' ); ?></li>
+								</ol>
+							</details>
 						<?php endif; ?>
 						<span id="wp-sudo-mu-spinner" class="spinner" role="status" aria-label="<?php esc_attr_e( 'Processing…', 'wp-sudo' ); ?>"></span>
 						<p id="wp-sudo-mu-message" class="description" role="status" aria-live="polite" tabindex="-1"></p>
