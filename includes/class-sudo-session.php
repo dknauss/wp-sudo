@@ -303,13 +303,13 @@ class Sudo_Session {
 			 * Filter the two-factor verification window in seconds.
 			 *
 			 * Controls how long a user has to enter their 2FA code after
-			 * successfully providing their password. Defaults to 10 minutes.
+			 * successfully providing their password. Defaults to 5 minutes.
 			 *
 			 * @since 2.0.0
 			 *
-			 * @param int $window Time in seconds. Default 600 (10 minutes).
+			 * @param int $window Time in seconds. Default 300 (5 minutes).
 			 */
-			$two_factor_window = (int) apply_filters( 'wp_sudo_two_factor_window', 10 * MINUTE_IN_SECONDS );
+			$two_factor_window = (int) apply_filters( 'wp_sudo_two_factor_window', 5 * MINUTE_IN_SECONDS );
 			$expires_at        = time() + $two_factor_window;
 
 			// Generate a challenge nonce to bind 2FA to this browser.

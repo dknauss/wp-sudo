@@ -74,4 +74,4 @@ Yes. Use the `wp_sudo_gated_actions` filter to add custom rules. See [Developer 
 
 ## Can I change the 2FA verification window?
 
-Yes. The default window is 10 minutes. Use the `wp_sudo_two_factor_window` filter to adjust it (value in seconds). See [Developer Reference](developer-reference.md).
+Yes. The default window is 5 minutes. Use the `wp_sudo_two_factor_window` filter to adjust it (value in seconds). See [Developer Reference](developer-reference.md).

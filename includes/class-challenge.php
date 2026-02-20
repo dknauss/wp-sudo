@@ -158,6 +158,7 @@ class Challenge {
 					/* translators: %s: countdown timer like "0:45" */
 					'timeRemainingWarn'  => __( '⚠ Time remaining: %s', 'wp-sudo' ),
 					'sessionExpired'     => __( 'Your verification session has expired.', 'wp-sudo' ),
+					'sessionMayExpired'  => __( 'Your session may have expired.', 'wp-sudo' ),
 					'startOver'          => __( 'Start over', 'wp-sudo' ),
 					'twoFactorRequired'  => __( 'Password verified. Two-factor authentication required.', 'wp-sudo' ),
 					'replayingAction'    => __( 'Replaying your action…', 'wp-sudo' ),

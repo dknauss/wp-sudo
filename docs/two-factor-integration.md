@@ -223,7 +223,7 @@ apply_filters( 'wp_sudo_two_factor_window', int $window ): int
 
 **Purpose:** Control how long (in seconds) the user has to complete the 2FA step.
 
-**Default:** 600 seconds (10 minutes).
+**Default:** 300 seconds (5 minutes).
 
 ---
 
@@ -322,7 +322,7 @@ The challenge cookie (`wp_sudo_challenge`) is a random 32-character nonce set as
 
 ### Time-Bounded Window
 
-The pending state expires after 10 minutes (configurable via `wp_sudo_two_factor_window`). Both the transient TTL and the cookie expiry enforce this. The JavaScript shows a countdown timer and disables the submit button when time runs out.
+The pending state expires after 5 minutes (configurable via `wp_sudo_two_factor_window`). Both the transient TTL and the cookie expiry enforce this. The JavaScript shows a countdown timer and an advisory warning when time runs out; the server remains the authoritative source for expiry.
 
 ### User Ownership
 

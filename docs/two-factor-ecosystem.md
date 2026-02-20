@@ -117,7 +117,7 @@ add_filter( 'wp_sudo_two_factor_window', function ( int $window ): int {
 } );
 ```
 
-Adjusts how long (in seconds) the user has to complete the 2FA step after entering their password. Default is 600 (10 minutes). Increase this if your method involves waiting for an email or push notification.
+Adjusts how long (in seconds) the user has to complete the 2FA step after entering their password. Default is 300 (5 minutes). Increase this if your method involves waiting for an email or push notification.
 
 ---
 

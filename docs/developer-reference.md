@@ -60,7 +60,7 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 | Filter | Description |
 |---|---|
 | `wp_sudo_gated_actions` | Add or modify gated action rules. |
-| `wp_sudo_two_factor_window` | 2FA verification window in seconds (default: 600). |
+| `wp_sudo_two_factor_window` | 2FA verification window in seconds (default: 300). |
 | `wp_sudo_requires_two_factor` | Whether a user needs 2FA for sudo (for third-party 2FA plugins). |
 | `wp_sudo_validate_two_factor` | Validate a 2FA code (for third-party 2FA plugins). |
 | `wp_sudo_render_two_factor_fields` | Render 2FA input fields (for third-party 2FA plugins). |

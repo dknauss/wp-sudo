@@ -468,14 +468,16 @@
 				clearInterval( countdownInterval );
 				countdownInterval = null;
 				twofaTimer.textContent = '';
-				if ( twofaSubmitBtn ) {
-					twofaSubmitBtn.disabled = true;
-				}
 
-				// Show expiry message with a restart button.
-				var expiredMsg = document.createElement( 'span' );
-				expiredMsg.textContent = strings.sessionExpired + ' ';
-				twofaTimer.appendChild( expiredMsg );
+				// Keep the button enabled — the server is the source of truth.
+				// The client countdown is advisory; clock drift or network latency
+				// may cause it to fire before the server transient expires.
+				twofaTimer.classList.add( 'wp-sudo-expiring' );
+
+				// Show advisory warning with a restart option.
+				var warningMsg = document.createElement( 'span' );
+				warningMsg.textContent = strings.sessionMayExpired + ' ';
+				twofaTimer.appendChild( warningMsg );
 
 				var restartBtn = document.createElement( 'button' );
 				restartBtn.type = 'button';
