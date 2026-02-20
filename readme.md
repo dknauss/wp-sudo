@@ -24,9 +24,10 @@ quietly exposed, yet enduring.
 
 <br/><br/>
 
-Inspired by the Linux command `sudo` (superuser do), **Sudo for WordPress** is represented by 門, a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold. 
 
 ## Description
+
+Inspired by the Linux command `sudo` (superuser do), **Sudo for WordPress** is represented by 門, a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold. 
 
 **Sudo** brings zero-trust reauthentication to WordPress. Potentially destructive operations are gated behind an identity challenge — no user is trusted by default, regardless of role. When any user — administrators, editors, or custom roles — attempts a dangerous action, they must confirm their identity before proceeding.
 
