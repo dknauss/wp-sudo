@@ -145,6 +145,17 @@ Hook signatures, filter reference, custom rule structure, and testing instructio
 
 ## Changelog
 
+### 2.4.0
+
+- **Integration test suite** — 55 tests against real WordPress + MySQL (session lifecycle, request stash/replay, full reauth flow, REST gating, upgrader migrations, Two Factor interaction, multisite isolation).
+- **CI pipeline** — GitHub Actions with unit tests across PHP 8.1–8.4 and integration tests against WordPress latest + trunk.
+- **Fix: multisite site-management gate gap** — Archive, Spam, Delete, Deactivate site actions now correctly trigger the sudo challenge.
+- **Fix: admin bar timer width** — expiring (red) state no longer stretches wider than active (green) state.
+- **Fix: WP 7.0 admin notice background** — restored white background lost in WP 7.0's admin visual refresh.
+- **Fix: 2FA countdown advisory-only** — window reduced to 5 minutes; expired codes accepted if provider validates.
+- **WP 7.0 Beta 1 tested** — full manual testing guide completed, all 15 sections PASS.
+- **349 unit tests, 863 assertions. 55 integration tests in CI.**
+
 ### 2.3.2
 
 - **Fix: admin bar sr-only text leak** — screen-reader-only milestone text no longer renders in the dashboard canvas when the admin bar node lacks a containing block.
