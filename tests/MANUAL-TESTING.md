@@ -699,8 +699,10 @@ All scheduled events run as if WP Sudo is not installed.
 3. Reload tab 2, then perform a gated action.
 4. **Expected:** Action succeeds — the session is shared via cookie +
    user meta.
-5. **Result:** DEFERRED — requires human password entry to activate
-   session in one tab. Not tested in this automated session.
+5. **Result:** PASS — 2026-02-19 (WP 7.0-alpha-61698, Studio). Activated
+   sudo via Cmd+Shift+S in tab 1. Reloaded tab 2 (Plugins page) — admin
+   bar showed the shared sudo timer, gate notice was absent, and action
+   links were enabled. Session is shared via cookie + user meta.
 
 ### 14.3 Challenge Page in iframe Context
 
