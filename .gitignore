@@ -17,6 +17,9 @@ Thumbs.db
 *~
 .idea/
 
+# Agent stuff (Claude / LLMs)
+.claude/
+
 # VS Code workspace files and settings
 *.code-workspace
 .vscode/
