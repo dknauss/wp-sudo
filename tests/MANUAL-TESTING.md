@@ -712,8 +712,12 @@ All scheduled events run as if WP Sudo is not installed.
    the media uploader during a plugin or theme update).
 2. **Expected:** The challenge page breaks out of the iframe and loads
    as a full page.
-3. **Result:** DEFERRED — requires triggering a plugin/theme update from
-   the media uploader iframe context. Difficult to reproduce reliably.
+3. **Result:** PASS — 2026-02-19 (WP 7.0-alpha-61698, Studio). Clicked
+   "Update to latest 7.0 nightly" on update-core.php with no active
+   sudo session. Gate intercepted the POST to `do-core-upgrade` and
+   redirected to the challenge page as a full page (not inside an
+   iframe). Challenge showed "Update WordPress core" with stash key.
+   Cancel returned to the Updates page.
 
 ### 14.4 Uninstall Cleanup
 
