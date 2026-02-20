@@ -1624,6 +1624,85 @@ class GateTest extends TestCase {
 	}
 
 	/**
+	 * Test match_request matches network site archive via action2 fallback.
+	 *
+	 * WordPress core's sites.php sends action=confirm&action2=archiveblog
+	 * on the first step of the two-step confirmation flow.
+	 */
+	public function test_match_request_matches_network_site_archive_via_action2(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->alias( fn( $hook, $value ) => $value );
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		$GLOBALS['pagenow']        = 'sites.php';
+		$_REQUEST['action']        = 'confirm';
+		$_REQUEST['action2']       = 'archiveblog';
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'network.site_archive', $rule['id'] );
+	}
+
+	/**
+	 * Test match_request matches network site delete via action2 fallback.
+	 */
+	public function test_match_request_matches_network_site_delete_via_action2(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->alias( fn( $hook, $value ) => $value );
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		$GLOBALS['pagenow']        = 'sites.php';
+		$_REQUEST['action']        = 'confirm';
+		$_REQUEST['action2']       = 'deleteblog';
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'network.site_delete', $rule['id'] );
+	}
+
+	/**
+	 * Test match_request matches network site spam via action2 fallback.
+	 */
+	public function test_match_request_matches_network_site_spam_via_action2(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->alias( fn( $hook, $value ) => $value );
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		$GLOBALS['pagenow']        = 'sites.php';
+		$_REQUEST['action']        = 'confirm';
+		$_REQUEST['action2']       = 'spamblog';
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'network.site_spam', $rule['id'] );
+	}
+
+	/**
+	 * Test match_request matches network site deactivate via action2 fallback.
+	 */
+	public function test_match_request_matches_network_site_deactivate_via_action2(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->alias( fn( $hook, $value ) => $value );
+		Functions\when( 'is_multisite' )->justReturn( true );
+
+		$GLOBALS['pagenow']        = 'sites.php';
+		$_REQUEST['action']        = 'confirm';
+		$_REQUEST['action2']       = 'deactivateblog';
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'network.site_deactivate', $rule['id'] );
+	}
+
+	/**
 	 * Test match_request matches network super admin grant.
 	 */
 	public function test_match_request_matches_network_super_admin_grant(): void {

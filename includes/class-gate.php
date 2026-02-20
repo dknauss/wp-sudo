@@ -660,12 +660,27 @@ class Gate {
 			$request_action = isset( $_REQUEST['action'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['action'] ) ) : '';
 		}
 
+		// WordPress core's multisite sites.php uses a two-step confirmation
+		// flow: the initial link sends action=confirm&action2=archiveblog
+		// (or deleteblog, spamblog, deactivateblog). The real action name
+		// is in action2, so we extract it as a fallback for matching.
+		$request_action2 = '';
+		if ( 'admin' === $surface && 'confirm' === $request_action ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Gate routing, not data processing.
+			$request_action2 = isset( $_REQUEST['action2'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['action2'] ) ) : '';
+		}
+
 		if ( 'admin' === $surface ) {
 			$request_method = strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) );
 		}
 
 		foreach ( $rules as $rule ) {
 			if ( 'admin' === $surface && $this->matches_admin( $rule, $request_action, $request_method ) ) {
+				return $rule;
+			}
+
+			// Fallback: try action2 for the WP core confirm-action flow.
+			if ( 'admin' === $surface && '' !== $request_action2 && $this->matches_admin( $rule, $request_action2, $request_method ) ) {
 				return $rule;
 			}
 
