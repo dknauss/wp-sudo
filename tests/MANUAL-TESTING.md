@@ -6,14 +6,18 @@ real WordPress environment before each release.
 
 ## Environments
 
-| Name | Type | URL | Notes |
-|------|------|-----|-------|
-| Studio | Single-site | `http://localhost:8883` | PHP built-in server; app-password `curl` tests fail (server strips `Authorization` header) |
-| Local | Multisite (subdirectory) | `http://localhost:10018` | nginx; full app-password support; use Local's **Open Site Shell** for WP-CLI |
+Set up at least two local dev sites — one single-site and one multisite
+(subdirectory). Use any local WordPress development tool (Studio, Local,
+wp-env, DDEV, etc.).
 
-> **Tip:** Studio is best for admin UI testing. Local is best for CLI,
-> cron, and app-password `curl` tests. Run multisite-specific tests
-> (network admin rules) only on Local.
+| Name | Type | Example URL |
+|------|------|-------------|
+| Single-site | Single-site install | `https://your-single-site.local/` |
+| Multisite | Multisite (subdirectory) | `https://your-multisite.local/` |
+
+> **Tip:** Use the single-site for admin UI and challenge-page testing.
+> Use the multisite for network admin rules (section 13), WP-CLI, and
+> app-password `curl` tests.
 
 ---
 
@@ -290,31 +294,30 @@ is somehow sent, it receives a JSON error and the button resets.
 
 ### 4.2 `curl` with Cookie Auth
 
-> Run this test against **Local** (`localhost:10018`), not Studio.
-> Studio's PHP built-in server handles cookies inconsistently.
-
 ```bash
+# Replace YOUR_SITE_URL, YOUR_USERNAME, and YOUR_PASSWORD below.
+
 # 0. Clean up stale cookies
 rm -f /tmp/wp-cookies.txt
 
 # 1. Log in and capture cookies
-curl -s -L -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
-  -X POST "http://localhost:10018/wp-login.php" \
+curl -sk -L -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
+  -X POST "YOUR_SITE_URL/wp-login.php" \
   -d 'log=YOUR_USERNAME&pwd=YOUR_PASSWORD&wp-submit=Log+In&redirect_to=%2Fwp-admin%2F&testcookie=1' \
   -H "Cookie: wordpress_test_cookie=WP+Cookie+check" -o /dev/null
 
 # 2. Get the REST nonce
-NONCE=$(curl -s -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
-  "http://localhost:10018/wp-admin/" \
+NONCE=$(curl -sk -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
+  "YOUR_SITE_URL/wp-admin/" \
   | grep -oE 'createNonceMiddleware\( "[a-f0-9]+" \)' \
   | grep -oE '[a-f0-9]{6,}')
 echo "Nonce: $NONCE"
 
 # 3. Test gated action WITHOUT sudo (should fail)
-curl -s -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
+curl -sk -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
   -H "X-WP-Nonce: $NONCE" \
   -H "Content-Type: application/json" \
-  -X POST "http://localhost:10018/wp-json/wp/v2/users/me/application-passwords" \
+  -X POST "YOUR_SITE_URL/wp-json/wp/v2/users/me/application-passwords" \
   -d '{"name":"test"}'
 # Expected: {"code":"sudo_required", ...}
 ```
@@ -323,14 +326,14 @@ curl -s -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
 
 ## 5. REST API — App Password Policies
 
-Run against **Local** (`localhost:10018`). Replace `USER:APP_PASS` with
-your Application Password credentials (strip spaces from the password).
+Replace `YOUR_SITE_URL` with your dev site URL and `YOUR_USERNAME:YOUR_APP_PASS`
+with your Application Password credentials (strip spaces from the password).
 
 ### 5.1 Non-Gated Endpoint (All Policies)
 
 ```bash
-curl -s -u "USER:APP_PASS" \
-  "http://localhost:10018/wp-json/wp/v2/users/me"
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  "YOUR_SITE_URL/wp-json/wp/v2/users/me"
 ```
 
 **Expected:** 200 with user data. Non-gated endpoints are never blocked.
@@ -338,8 +341,8 @@ curl -s -u "USER:APP_PASS" \
 ### 5.2 Limited (Default)
 
 ```bash
-curl -s -u "USER:APP_PASS" \
-  -X POST "http://localhost:10018/wp-json/wp/v2/users/me/application-passwords" \
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -X POST "YOUR_SITE_URL/wp-json/wp/v2/users/me/application-passwords" \
   -H "Content-Type: application/json" \
   -d '{"name":"test-limited"}'
 ```
@@ -354,8 +357,8 @@ curl -s -u "USER:APP_PASS" \
 Set REST API policy to Disabled in Settings > Sudo, then:
 
 ```bash
-curl -s -u "USER:APP_PASS" \
-  -X POST "http://localhost:10018/wp-json/wp/v2/users/me/application-passwords" \
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -X POST "YOUR_SITE_URL/wp-json/wp/v2/users/me/application-passwords" \
   -H "Content-Type: application/json" \
   -d '{"name":"test-disabled"}'
 ```
@@ -370,8 +373,8 @@ curl -s -u "USER:APP_PASS" \
 Set REST API policy to Unrestricted, then:
 
 ```bash
-curl -s -u "USER:APP_PASS" \
-  -X POST "http://localhost:10018/wp-json/wp/v2/users/me/application-passwords" \
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -X POST "YOUR_SITE_URL/wp-json/wp/v2/users/me/application-passwords" \
   -H "Content-Type: application/json" \
   -d '{"name":"test-unrestricted"}'
 ```
@@ -414,7 +417,7 @@ policy.
 ### 6.1 Limited (Default)
 
 ```bash
-curl -s -X POST "http://localhost:10018/xmlrpc.php" \
+curl -sk -X POST "YOUR_SITE_URL/xmlrpc.php" \
   -H "Content-Type: text/xml" \
   -d '<?xml version="1.0"?><methodCall><methodName>system.listMethods</methodName></methodCall>'
 ```
@@ -436,7 +439,7 @@ gating.
 
 ## 7. WP-CLI Policies
 
-Use Local's **Open Site Shell** (right-click site in Local app).
+Run WP-CLI against a dev site where WP Sudo is active.
 
 ### 7.1 Limited (Default) — Non-Gated Command
 
@@ -612,7 +615,7 @@ All scheduled events run as if WP Sudo is not installed.
 
 ---
 
-## 13. Multisite-Specific (Local Only)
+## 13. Multisite-Specific (Multisite Only)
 
 ### 13.1 Network Admin Gating
 
@@ -692,7 +695,7 @@ All scheduled events run as if WP Sudo is not installed.
 
 ## 15. WP 7.0 Visual Compatibility
 
-Run against WP 7.0 beta/RC (Studio at localhost:8883 or Local at localhost:10045).
+Run against a WP 7.0 beta/RC dev site.
 Document pass/fail and any visual regressions. These checks verify the plugin's
 admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
 
