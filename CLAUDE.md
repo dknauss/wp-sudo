@@ -29,13 +29,13 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 
 - `docs/security-model.md` — threat model, boundaries, environmental considerations.
 - `docs/developer-reference.md` — hook signatures, filters, custom rule structure.
-- `docs/FAQ.md` — all frequently asked questions.
-- `docs/CHANGELOG.md` — full version history.
+- `FAQ.md` — all frequently asked questions.
+- `CHANGELOG.md` — full version history.
 - `docs/ai-agentic-guidance.md` — AI and agentic tool integration guidance.
 - `docs/two-factor-integration.md` — 2FA plugin integration guide.
 - `docs/two-factor-ecosystem.md` — 2FA plugin ecosystem survey.
 - `docs/ui-ux-testing-prompts.md` — structured UI/UX testing prompts.
-- `docs/roadmap-2026-02.md` — integration tests, WP 7.0 prep, collaboration analysis, TDD strategy.
+- `ROADMAP.md` — unified roadmap: integration tests, WP 7.0 prep, collaboration analysis, TDD strategy, core design features, feature backlog, accessibility appendix.
 
 ## Verification Requirements
 

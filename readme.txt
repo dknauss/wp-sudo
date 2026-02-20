@@ -171,7 +171,7 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 * **Documentation** — AI and agentic tool guidance and UI/UX testing prompts.
 * **343 unit tests, 853 assertions.**
 
-See the plugin's `docs/CHANGELOG.md` for all versions.
+See the plugin's `CHANGELOG.md` for all versions.
 
 == Upgrade Notice ==
 
