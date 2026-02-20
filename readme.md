@@ -10,9 +10,7 @@
 
 ![Unbreakable Barrier Gate](assets/fuwa-no-seki.png)
 
-``
-``
-``
+<br/><br/>
 
 > So full of cracks,  
 the barrier gatehouse of Fuwa  
@@ -21,9 +19,7 @@ quietly exposed, yet enduring.
   
 — [Abatsu-ni](https://en.wikipedia.org/wiki/Abutsu-ni), *Diary of the Waning Moon*  
 
-``
-``
-``
+<br/><br/>
 
 ## Description
 
