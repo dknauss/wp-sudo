@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.2
+
+- **Documentation: roadmap consolidation** — Merged three separate roadmaps (`ROADMAP.md`, `ACCESSIBILITY-ROADMAP.md`, `docs/roadmap-2026-02.md`) into one unified `ROADMAP.md` at project root. Moved `CHANGELOG.md` and `FAQ.md` to root for prominence.
+- **Planned Development Timeline** — Added comprehensive timeline at the top of ROADMAP.md showing immediate, short-term, medium-term, and deferred work phases. Provides quick reference for what will actually be implemented.
+- **Table of Contents** — Added scannable TOC to ROADMAP.md linking to all 10 sections plus appendix.
+
 ## 2.4.1
 
 - **AJAX gating integration tests** — 11 new tests covering the AJAX surface: rule matching for all 7 declared AJAX actions, full intercept flow via `wp_doing_ajax` filter, session bypass, non-gated pass-through, blocked transient lifecycle, admin notice fallback (`render_blocked_notice`), and `wp.updates` slug passthrough.
