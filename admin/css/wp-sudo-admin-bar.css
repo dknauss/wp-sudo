@@ -30,9 +30,18 @@
 	color: #fff !important;
 }
 
-/* Anchor sr-only children within the admin bar node */
+/* Layout: ensure the <li> shrink-wraps and the <a> background
+   only covers content width, regardless of WP core layout context. */
 #wpadminbar #wp-admin-bar-wp-sudo-active {
 	position: relative;
+	float: left !important;
+	width: auto !important;
+}
+
+#wpadminbar #wp-admin-bar-wp-sudo-active > .ab-item {
+	width: auto !important;
+	display: inline-block !important;
+	line-height: 32px;
 }
 
 /* Screen-reader-only text — visually hidden but announced by AT */
