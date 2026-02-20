@@ -27,11 +27,11 @@ quietly exposed, yet enduring.
 
 ## Description
 
-Inspired by the Linux command `sudo` (superuser do), **Sudo for WordPress** is represented by 門, a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold. 
-
 **Sudo brings zero-trust reauthentication to WordPress.** Potentially destructive operations are gated behind an identity challenge — no user is trusted by default, regardless of role. When any user — administrators, editors, or custom roles — attempts a dangerous action, they must confirm their identity before proceeding.
 
 This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
+
+Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is represented by 門, a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold. The second line of Abatsu-ni's 13th-century poem catches the central idea with the image of a guarded yet permeable gatehouse that yields to nature.
 
 ### What Gets Gated?
 
