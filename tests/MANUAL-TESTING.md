@@ -603,6 +603,8 @@ All scheduled events run as if WP Sudo is not installed.
 3. Create a post with HTML like `<script>alert(1)</script>`.
 4. **Expected:** KSES strips the script tag. Editors do not have
    `unfiltered_html`.
+5. **Result:** PASS — 2026-02-20 (Studio, SQLite). Verified Editor role
+   lacks `unfiltered_html` via direct DB query; Administrator retains it.
 
 ### 12.2 Tamper Detection
 
@@ -612,6 +614,9 @@ All scheduled events run as if WP Sudo is not installed.
 3. **Expected:** The capability is automatically stripped. The
    `wp_sudo_capability_tampered` action fires (visible in debug log if
    an audit logger is connected).
+4. **Result:** PASS — 2026-02-20 (Studio, SQLite). Injected
+   `unfiltered_html` into Editor role via direct DB edit; loading any
+   admin page stripped it automatically.
 
 ---
 
@@ -623,6 +628,8 @@ All scheduled events run as if WP Sudo is not installed.
 2. Click **Network Enable** on a theme.
 3. **Expected:** Redirected to challenge page with "Network enable
    theme." Cancel returns to the Network Admin Themes screen.
+4. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61697, Local multisite).
+   Challenge shows "Network enable theme." Cancel returns to Themes.
 
 ### 13.2 Network Admin Persistent Notice
 
@@ -631,6 +638,11 @@ All scheduled events run as if WP Sudo is not installed.
    showing keyboard shortcut.
 3. Go to **Network Admin > Themes**.
 4. **Expected:** Same persistent notice.
+5. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61697, Local multisite).
+   Notice appears on both Plugins and Themes pages with "Confirm your
+   identity" link and `Cmd+Shift+S` shortcut. Also verified: "Delete"
+   actions converted to disabled `<span>` (Themes) or disabled `<a>`
+   (Plugins) with grey `wp-sudo-disabled` styling.
 
 ### 13.3 Site Management
 
@@ -638,6 +650,15 @@ All scheduled events run as if WP Sudo is not installed.
 2. Try to deactivate, archive, spam, or delete a site.
 3. **Expected:** Each action redirects to the challenge page. Cancel
    returns to the Sites screen.
+4. **Result:** PARTIAL — 2026-02-20 (WP 7.0-alpha-61697, Local
+   multisite). Site management actions (Archive, Spam, Delete) pass
+   through WordPress core's own confirmation page first. The WP Sudo
+   gate rules for `network.site_archive` etc. expect
+   `$_REQUEST['action'] = 'archiveblog'` but WordPress sends
+   `action=confirm&action2=archiveblog`, so the Gate does not match.
+   Archive executed without sudo challenge. **Known gap** — the Action
+   Registry rule's `actions` array doesn't account for the `action2`
+   parameter used by core's site management confirmation flow.
 
 ### 13.4 Super Admin Grant
 
@@ -645,12 +666,17 @@ All scheduled events run as if WP Sudo is not installed.
 2. Toggle the Super Admin checkbox and save.
 3. **Expected:** Redirected to challenge page with "Grant or revoke
    super admin."
+4. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61697, Local multisite).
+   Challenge shows "Grant or revoke super admin." Cancel returns to
+   user edit page.
 
 ### 13.5 Network Settings
 
 1. Go to **Network Admin > Settings** and save.
 2. **Expected:** Redirected to challenge page with "Change network
    settings."
+3. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61697, Local multisite).
+   Challenge shows "Change network settings."
 
 ---
 
@@ -663,6 +689,8 @@ All scheduled events run as if WP Sudo is not installed.
 3. Enter your password.
 4. **Expected:** Error message: "Your challenge session has expired.
    Please try again."
+5. **Result:** DEFERRED — requires 5-minute manual wait. Not tested in
+   this session.
 
 ### 14.2 Multiple Tabs
 
@@ -671,6 +699,8 @@ All scheduled events run as if WP Sudo is not installed.
 3. Reload tab 2, then perform a gated action.
 4. **Expected:** Action succeeds — the session is shared via cookie +
    user meta.
+5. **Result:** DEFERRED — requires human password entry to activate
+   session in one tab. Not tested in this automated session.
 
 ### 14.3 Challenge Page in iframe Context
 
@@ -680,6 +710,8 @@ All scheduled events run as if WP Sudo is not installed.
    the media uploader during a plugin or theme update).
 2. **Expected:** The challenge page breaks out of the iframe and loads
    as a full page.
+3. **Result:** DEFERRED — requires triggering a plugin/theme update from
+   the media uploader iframe context. Difficult to reproduce reliably.
 
 ### 14.4 Uninstall Cleanup
 
@@ -690,6 +722,8 @@ All scheduled events run as if WP Sudo is not installed.
    - User meta should not contain keys starting with `_wp_sudo_`.
    - Editor role should have `unfiltered_html` restored.
 3. **Expected:** All WP Sudo data is cleaned up.
+4. **Result:** DEFERRED — destructive test (requires deactivating and
+   deleting the plugin). Run separately before release.
 
 ---
 
