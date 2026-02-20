@@ -8,7 +8,8 @@
   
 > _**This exploratory plugin is NOT production-ready**. Please [**help test it**](https://github.com/dknauss/wp-sudo/blob/main/tests/MANUAL-TESTING.md) and share your feedback._
 
-  <br/><br/>
+<br/><br/>
+<br/><br/>
   
 ![Unbreakable Barrier Gate](assets/fuwa-no-seki-narrow.png)
 
