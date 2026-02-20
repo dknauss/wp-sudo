@@ -135,7 +135,7 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 * **CI quality gate** — new GitHub Actions job runs PHPCS and PHPStan on every push and PR; Composer dependency cache added; nightly scheduled run against WP trunk.
 * **MU-plugin manual install instructions** — fallback copy instructions added to the settings page UI and help tab.
 * **CONTRIBUTING.md** — new contributor guide covering local setup, test strategy, TDD workflow, and code style requirements.
-* **349 unit tests, 863 assertions. 72 integration tests in CI.**
+* **349 unit tests, 863 assertions. 73 integration tests in CI.**
 
 = 2.4.0 =
 * **Integration test suite** — 55 tests against real WordPress + MySQL (session lifecycle, request stash/replay, full reauth flow, REST gating, upgrader migrations, Two Factor interaction, multisite isolation).

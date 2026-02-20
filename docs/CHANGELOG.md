@@ -8,7 +8,7 @@
 - **CI quality gate** — new GitHub Actions job runs PHPCS and PHPStan on every push and PR; Composer dependency cache added to unit and integration jobs; nightly scheduled run at 3 AM UTC catches WordPress trunk regressions.
 - **MU-plugin manual install instructions** — fallback copy instructions added to the settings page UI (`<details>` disclosure) and help tab for environments where the one-click installer fails due to file permissions.
 - **CONTRIBUTING.md** — new contributor guide covering prerequisites, local setup, unit vs integration test distinction, TDD workflow, and lint/analyse requirements.
-- **349 unit tests, 863 assertions. 72 integration tests in CI.**
+- **349 unit tests, 863 assertions. 73 integration tests in CI.**
 
 ## 2.4.0
 
