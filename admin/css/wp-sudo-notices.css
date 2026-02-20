@@ -1,12 +1,15 @@
 /**
  * WP Sudo – Admin notice styles.
  *
- * Ensures WP Sudo notices retain a white background in WordPress 7.0+,
- * where core removed the explicit background-color from .notice.
+ * Ensures admin notices retain a white background in WordPress 7.0+,
+ * where core changed .notice variant backgrounds to tinted colors.
+ *
+ * This stylesheet loads on all admin pages for logged-in users.
  *
  * @package WP_Sudo
  */
 
-.wp-sudo-notice {
-	background-color: #fff;
+.notice.wp-sudo-notice,
+.settings_page_wp-sudo .notice {
+	background-color: #fff !important;
 }

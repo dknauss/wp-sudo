@@ -209,7 +209,7 @@ class Admin {
 				'title'   => __( 'Settings', 'wp-sudo' ),
 				'content' =>
 					'<h3>' . __( 'Session Duration', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'This setting controls how long the sudo window stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'This setting controls how long the sudo session stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Entry Point Policies', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'Each non-interactive entry point has three modes:', 'wp-sudo' ) . '</p>'
 					. '<ul>'
@@ -998,7 +998,7 @@ class Admin {
 				__( 'You can&#8217;t demote yourself to a role that doesn&#8217;t allow you to promote yourself back again.', 'wp-sudo' ),
 				array(
 					'id'                 => 'message',
-					'additional_classes' => array( 'error' ),
+					'additional_classes' => array( 'error', 'wp-sudo-notice' ),
 					'dismissible'        => true,
 				)
 			)
