@@ -117,31 +117,31 @@ Hook signatures, filter reference, custom rule structure, and testing instructio
 
 1. **Challenge page** — reauthentication interstitial with password field.
 
-   ![Challenge page](assets/screenshot-1.png)
+   ![Challenge page](assets/screenshot-1.png?v=2)
 
 2. **Two-factor verification** — after password confirmation, users with 2FA enabled enter their authentication code.
 
-   ![Two-factor verification](assets/screenshot-2.png)
+   ![Two-factor verification](assets/screenshot-2.png?v=2)
 
 3. **Settings page** — configure session duration and entry point policies.
 
-   ![Settings page](assets/screenshot-3.png)
+   ![Settings page](assets/screenshot-3.png?v=2)
 
 4. **Gate notice (plugins)** — when no sudo session is active, a persistent notice links to the challenge page.
 
-   ![Gate notice on plugins page](assets/screenshot-4.png)
+   ![Gate notice on plugins page](assets/screenshot-4.png?v=2)
 
 5. **Gate notice (themes)** — the same gating notice appears on the themes page.
 
-   ![Gate notice on themes page](assets/screenshot-5.png)
+   ![Gate notice on themes page](assets/screenshot-5.png?v=2)
 
 6. **Gated actions** — the settings page lists all gated operations with their categories and surfaces.
 
-   ![Gated actions table](assets/screenshot-6.png)
+   ![Gated actions table](assets/screenshot-6.png?v=2)
 
 7. **Active sudo session** — the admin bar shows a green countdown timer.
 
-   ![Active sudo session](assets/screenshot-7.png)
+   ![Active sudo session](assets/screenshot-7.png?v=2)
 
 ## Changelog
 
