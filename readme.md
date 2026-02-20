@@ -121,7 +121,7 @@ Hook signatures, filter reference, custom rule structure, and testing instructio
 
 2. **Two-factor verification** — after password confirmation, users with 2FA enabled enter their authentication code.
 
-   ![Two-factor verification](assets/screenshot-2.png?v=2)
+   ![Two-factor verification](assets/screenshot-2.png?v=3)
 
 3. **Settings page** — configure session duration and entry point policies.
 
