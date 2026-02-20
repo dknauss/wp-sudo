@@ -4,6 +4,7 @@
 
 ## Table of Contents
 
+- **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
 - **[Context](#context)** — v2.4.1 state: 349 unit + 73 integration tests, CI matrix, WP 7.0 status
 - **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (73 tests), coverage analysis, remaining gaps
 - **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-beta-1-today-ga-april-9)** — Verified changes, action plan
@@ -16,6 +17,53 @@
 - **[8. Core Sudo Design](#8-core-sudo-design)** — Already achieved (15), to implement (6), to consider (4), discarded (6)
 - **[9. Feature Backlog](#9-feature-backlog)** — WSAL sensor, IP+user rate limiting, dashboard widget, Gutenberg, network policy
 - **[Appendix A: Accessibility](#appendix-a-accessibility-roadmap)** — 15 resolved WCAG items (v2.2.0–v2.3.1)
+
+---
+
+## Planned Development Timeline
+
+### Immediate (Blocking WP 7.0 GA — April 9, 2026)
+- **Update "Tested up to"** in readme files when WordPress 7.0 ships
+
+### Short-term (v2.5 — High Priority)
+
+**Core Design Features:**
+- **Login grants sudo session** — user just authenticated, no need to challenge again immediately
+- **Gate `user.change_password`** — prevent session theft → password change → lockout attack
+- **Grace period (two-tier expiry)** — prevent form failures when sudo expires mid-submission
+
+**Monitoring:**
+- Watch Abilities API (WP 7.0) for destructive abilities that should be gated
+
+### Medium-term (v2.5–v2.6)
+
+**Core Design:**
+- Expire sudo session on password change
+- WP-CLI `wp sudo` subcommands (status, revoke)
+- Public `wp_sudo_check()` / `wp_sudo_require()` API for third-party plugins
+
+**Feature Backlog (Open):**
+- WSAL (WordPress Activity Log) sensor extension — high impact for enterprise
+- Multi-dimensional rate limiting (IP + user combination)
+- Session activity dashboard widget
+- Gutenberg block editor integration
+- Network policy hierarchy for multisite
+
+### Later (v2.6+) — Deferred, Need Design Work
+
+**Major Features (require architectural design first):**
+- Client-side modal challenge (UX like GitHub) — significant complexity
+- Per-session sudo isolation (per-device/per-browser state)
+- REST API sudo grant endpoint for headless clients
+- SSO/SAML/OIDC provider framework
+
+**Testing Improvements:**
+- **Phase A:** Expand CI matrix (PHP 8.0, WordPress 6.2–6.9 backward compat)
+- **Phase B:** Apache + MariaDB CI job
+- **Phase C:** Manual testing checklist for managed hosts
+- **Phase D:** Docker Compose with switchable stacks
+- Coverage tooling (after environment diversity milestone)
+- Mutation testing (after environment diversity milestone)
 
 ---
 
