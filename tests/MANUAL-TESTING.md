@@ -650,15 +650,13 @@ All scheduled events run as if WP Sudo is not installed.
 2. Try to deactivate, archive, spam, or delete a site.
 3. **Expected:** Each action redirects to the challenge page. Cancel
    returns to the Sites screen.
-4. **Result:** PARTIAL — 2026-02-20 (WP 7.0-alpha-61697, Local
-   multisite). Site management actions (Archive, Spam, Delete) pass
-   through WordPress core's own confirmation page first. The WP Sudo
-   gate rules for `network.site_archive` etc. expect
-   `$_REQUEST['action'] = 'archiveblog'` but WordPress sends
-   `action=confirm&action2=archiveblog`, so the Gate does not match.
-   Archive executed without sudo challenge. **Known gap** — the Action
-   Registry rule's `actions` array doesn't account for the `action2`
-   parameter used by core's site management confirmation flow.
+4. **Result:** PASS — 2026-02-19 (WP 7.0-alpha-61697, Local multisite).
+   After fix in `702534a` (action2 fallback in `match_request()`),
+   clicking Archive on `/one` redirects to the challenge page with
+   "Archive site." Cancel returns to Sites screen without archiving.
+   Previously PARTIAL (2026-02-20): WordPress sends
+   `action=confirm&action2=archiveblog` and the Gate only checked
+   `action`, missing the real action in `action2`.
 
 ### 13.4 Super Admin Grant
 
