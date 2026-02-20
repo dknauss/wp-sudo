@@ -7,7 +7,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      6.9
 Requires PHP:      8.0
-Stable tag:        2.3.2
+Stable tag:        2.4.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -116,6 +116,16 @@ Yes. Settings and sessions are network-wide. The action registry includes networ
 
 == Changelog ==
 
+= 2.4.0 =
+* **Integration test suite** — 55 tests against real WordPress + MySQL (session lifecycle, request stash/replay, full reauth flow, REST gating, upgrader migrations, Two Factor interaction, multisite isolation).
+* **CI pipeline** — GitHub Actions with unit tests across PHP 8.1–8.4 and integration tests against WordPress latest + trunk.
+* **Fix: multisite site-management gate gap** — Archive, Spam, Delete, Deactivate site actions now correctly trigger the sudo challenge.
+* **Fix: admin bar timer width** — expiring (red) state no longer stretches wider than active (green) state.
+* **Fix: WP 7.0 admin notice background** — restored white background lost in WP 7.0's admin visual refresh.
+* **Fix: 2FA countdown advisory-only** — window reduced to 5 minutes; expired codes accepted if provider validates.
+* **WP 7.0 Beta 1 tested** — full manual testing guide completed, all 15 sections PASS.
+* **349 unit tests, 863 assertions. 55 integration tests in CI.**
+
 = 2.3.2 =
 * **Fix: admin bar sr-only text leak** — screen-reader-only milestone text no longer renders in the dashboard canvas when the admin bar node lacks a containing block.
 * **Documentation overhaul** — readmes slimmed; security model, developer reference, FAQ, and full changelog extracted to `docs/`. Manual testing guide rewritten for v2.3.1+.
@@ -143,6 +153,9 @@ Yes. Settings and sessions are network-wide. The action registry includes networ
 See the plugin's `docs/CHANGELOG.md` for all versions.
 
 == Upgrade Notice ==
+
+= 2.4.0 =
+Integration test suite, CI pipeline, multisite gate fix, admin bar CSS fix, WP 7.0 compatibility. No settings migration required.
 
 = 2.3.2 =
 Admin bar CSS fix, documentation overhaul, Composer lock compatibility. No settings changes required.

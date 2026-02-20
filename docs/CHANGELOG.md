@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.4.0
+
+- **Integration test suite** — 55 integration tests running against a real WordPress + MySQL environment via `WP_UnitTestCase`. Covers sudo session lifecycle (bcrypt verification, token binding, rate limiting, expiry), request stash/replay with transient TTL, full reauth flow (5-class end-to-end), REST API gating with cookie auth and application passwords, upgrader migration chain, audit hook arguments, Two Factor plugin interaction, and multisite session isolation.
+- **CI pipeline** — GitHub Actions workflow with unit tests across PHP 8.1–8.4 and integration tests against WordPress `latest` and `trunk` (including multisite variant). MySQL 8.0 service container with health checks.
+- **Fix: multisite site-management gate gap** — Archive, Spam, Delete, and Deactivate site actions on Network Admin → Sites now correctly trigger the sudo challenge. WordPress core's `sites.php` sends `action=confirm` with the real action in `action2`; the Gate now checks both parameters.
+- **Fix: admin bar timer width** — the countdown timer's red (expiring) state no longer stretches wider than the green (active) state. Defensive CSS constrains the background to content width regardless of WP core layout context.
+- **Fix: WP 7.0 admin notice background** — restored white background on WP Sudo admin notices, which lost their background color in WP 7.0's admin visual refresh.
+- **Fix: 2FA countdown advisory-only** — the two-factor verification window is now advisory (5 minutes, reduced from 10). Expired 2FA codes are still accepted if the underlying provider validates them, preventing false rejections for slow email delivery.
+- **Fix: `setcookie()` headers-already-sent guard** — `Sudo_Session::activate()` now checks `headers_sent()` before calling `setcookie()`, preventing warnings in CLI and integration test contexts.
+- **Verification requirements** — CLAUDE.md now mandates live source verification for all external code references, with documented verification commands. LLM lies log tracks 5 prior fabrications that were corrected.
+- **WP 7.0 Beta 1 tested** — manual testing guide completed against WP 7.0 Beta 1 (15 sections, all PASS). Visual compatibility, help tabs, challenge page, and admin bar verified against the refreshed admin chrome.
+- **349 unit tests, 863 assertions. 55 integration tests in CI.**
+
 ## 2.3.2
 
 - **Fix: admin bar sr-only text leak** — screen-reader-only milestone text no longer renders in the dashboard canvas. The admin bar `<li>` node now establishes a containing block (`position: relative`) and sr-only elements use `clip-path: inset(50%)` alongside the legacy `clip` property.
