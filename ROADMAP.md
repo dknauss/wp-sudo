@@ -2,6 +2,23 @@
 
 *Updated February 20, 2026*
 
+## Table of Contents
+
+- **[Context](#context)** — v2.4.1 state: 349 unit + 73 integration tests, CI matrix, WP 7.0 status
+- **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (73 tests), coverage analysis, remaining gaps
+- **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-beta-1-today-ga-april-9)** — Verified changes, action plan
+- **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
+- **[4. Context Collapse & TDD](#4-context-collapse-and-tdd)** — LLM confabulation defense, test-driven development
+- **[Recommended Next Steps](#recommended-next-steps-priority-order)** — Immediate, short-term, medium-term priorities
+- **[5. Environment Diversity Testing](#5-environment-diversity-testing-future-milestone)** — Apache, PHP 8.0, MariaDB, backward compat
+- **[6. Coverage Tooling](#6-coverage-tooling-deferred)** — Deferred until matrix stabilizes
+- **[7. Mutation Testing](#7-mutation-testing-deferred-to-post-environment-diversity)** — Deferred until integration suite is fast enough
+- **[8. Core Sudo Design](#8-core-sudo-design)** — Already achieved (15), to implement (6), to consider (4), discarded (6)
+- **[9. Feature Backlog](#9-feature-backlog)** — WSAL sensor, IP+user rate limiting, dashboard widget, Gutenberg, network policy
+- **[Appendix A: Accessibility](#appendix-a-accessibility-roadmap)** — 15 resolved WCAG items (v2.2.0–v2.3.1)
+
+---
+
 ## Context
 
 This is a living document covering accumulated input and thinking about the strategic
