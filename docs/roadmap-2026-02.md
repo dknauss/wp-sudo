@@ -246,3 +246,89 @@ not context retrieval.
 5. **Visual review** of settings page / challenge page against 7.0 admin refresh
 6. **Update "Tested up to"** when 7.0 ships (April 9)
 7. **Monitor Abilities API** for destructive abilities that should be gated
+8. **Plan environment diversity testing** (see section 5 below)
+
+---
+
+## 5. Environment Diversity Testing (Future Milestone)
+
+The current integration test suite and manual testing guide both run against a single
+environment stack: nginx + SQLite (Studio) or nginx + MySQL (Local) on macOS with a
+single PHP version. This leaves significant gaps in confidence across the environments
+real users run.
+
+### Dimensions to cover
+
+| Dimension | Current coverage | Gap |
+|-----------|-----------------|-----|
+| **Web server** | nginx only (Local + Studio) | Apache (mod_php, FastCGI, FPM) — the majority of WordPress hosting |
+| **PHP version** | 8.2 only (Local's bundled PHP) | 8.0, 8.1, 8.3, 8.4 — the full supported range |
+| **Database** | MySQL 8.0 (Local CI), SQLite (Studio) | MariaDB 10.x, MySQL 5.7 (legacy hosts) |
+| **WordPress version** | 7.0-alpha (dev sites), latest + trunk (CI) | 6.2–6.9 backward compat (minimum supported) |
+| **OS** | macOS (dev), Ubuntu 24.04 (CI) | Windows (if any WP-CLI or path handling is OS-sensitive) |
+| **Hosting stack** | Bare local dev | Shared hosting (cPanel), managed WP (Pressable, WP Engine, Cloudways), containerized (Docker, Kubernetes) |
+
+### Why this matters for WP Sudo specifically
+
+- **Apache `mod_rewrite` vs nginx `try_files`:** The challenge page redirect and
+  request replay depend on WordPress rewrite rules. Apache's `.htaccess` and nginx
+  configs handle these differently. The REST API `Authorization` header handling
+  also differs (Apache may strip it unless `CGIPassAuth` or `.htaccess` rules are
+  in place).
+- **PHP version differences:** `password_verify()` behavior, `setcookie()` signature
+  changes (PHP 8.0 named params), `session_*` function availability,
+  `json_validate()` (8.3+), readonly properties (8.2+).
+- **Database engine:** MariaDB and MySQL have subtle JSON and collation differences.
+  The upgrader migration chain and option serialization could behave differently.
+- **Backward compat:** The plugin declares WordPress 6.2+ minimum. There are no
+  automated tests verifying it actually works on 6.2, 6.5, or 6.7. The CI matrix
+  tests `latest` and `trunk` only.
+
+### Recommended approach
+
+**Phase A: Expand CI matrix (low effort, high value)**
+
+Add WordPress version and PHP version dimensions to the GitHub Actions matrix:
+
+```yaml
+strategy:
+  matrix:
+    php: [8.0, 8.1, 8.3, 8.4]
+    wp: [latest, trunk, '6.7', '6.5', '6.2']
+    exclude:
+      # Skip combinations that don't exist
+      - { php: 8.4, wp: '6.2' }
+```
+
+This covers PHP + WP backward compat with zero infrastructure changes. The existing
+`install-wp-tests.sh` already supports arbitrary WP versions.
+
+**Phase B: Apache + MariaDB CI job (medium effort)**
+
+Add a separate CI job that runs on an Apache + MariaDB container instead of the
+default nginx + MySQL. This catches `.htaccess`-dependent behavior and MariaDB
+query differences.
+
+**Phase C: Manual testing matrix (low effort, recurring)**
+
+Extend `tests/MANUAL-TESTING.md` with an environment checklist section. Before each
+release, run the manual guide on at least:
+- One Apache environment (DDEV, MAMP, or a staging host)
+- One managed WordPress host (Pressable, WP Engine, or Cloudways free trial)
+- The minimum supported WordPress version (currently 6.2)
+
+**Phase D: Docker-based local testing (medium effort)**
+
+Create a `docker-compose.yml` with switchable profiles:
+- `apache-mysql` (the classic LAMP stack)
+- `nginx-mariadb` (alternative)
+- `apache-sqlite` (WP 6.4+ SQLite support)
+
+This lets any contributor reproduce the full matrix locally.
+
+### Priority
+
+This is a **post-v2.4 milestone** concern. The current v2.4 milestone focuses on
+integration test coverage and WP 7.0 readiness. Environment diversity testing
+should be scoped as a v2.5 or v2.6 milestone, with Phase A (CI matrix expansion)
+as the first deliverable since it requires no new infrastructure.

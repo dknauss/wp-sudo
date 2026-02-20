@@ -709,7 +709,7 @@ admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
    - Help tabs open and display correctly.
    - Gated actions table (`.widefat.striped`) renders with correct spacing.
    - MU-plugin status section renders correctly.
-3. **Result:** [PASS/FAIL — date tested]
+3. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61698, Studio)
 
 ### 15.2 Challenge Page
 
@@ -720,7 +720,7 @@ admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
    - Password field fills the full card width.
    - "Confirm & Continue" and "Cancel" buttons render correctly.
    - No raw text or visible escape sequences appear in the card.
-4. **Result:** [PASS/FAIL — date tested]
+4. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61698, Studio)
 
 ### 15.3 Admin Bar Countdown
 
@@ -729,7 +729,7 @@ admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
    - Timer text is readable against the green (#2e7d32) background.
    - Red state (#c62828) appears in the final 60 seconds.
    - Admin bar node does not conflict with WP 7.0 toolbar chrome.
-3. **Result:** [PASS/FAIL — date tested]
+3. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61698, Studio)
 
 ### 15.4 Admin Notices (Gate Notice + Blocked Notice)
 
@@ -737,7 +737,7 @@ admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
 2. **Expected:** Persistent gate notice renders with correct styling.
    - `.notice.notice-warning` class applies correctly under WP 7.0.
    - Link to the challenge page is visible and styled.
-3. **Result:** [PASS/FAIL — date tested]
+3. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61698, Studio)
 
 ### 15.5 Disabled Action Links (Plugin/Theme rows)
 
@@ -746,4 +746,4 @@ admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
    gray disabled spans.
    - Inline `color:#787c82; cursor:default` renders correctly.
    - No conflict with new row-action hover styles from the admin refresh.
-3. **Result:** [PASS/FAIL — date tested]
+3. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61698, Studio)

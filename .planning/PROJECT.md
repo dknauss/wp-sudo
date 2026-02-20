@@ -65,6 +65,7 @@ Every destructive WordPress admin action requires the user to prove they are sti
 - E2E browser tests (Playwright/Cypress) — integration tests are the priority; E2E is a separate future milestone
 - Admin UI visual regression testing — manual visual check is sufficient for 7.0; automated visual testing is a separate concern
 - Real-time collaboration conflict handling — sudo is per-user, not per-resource; no conflict exists with current architecture
+- Environment diversity testing (Apache, multiple PHP versions, MariaDB, backward compat to WP 6.2) — future milestone, see `docs/roadmap-2026-02.md` section 5
 
 ## Context
 
