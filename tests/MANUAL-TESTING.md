@@ -728,8 +728,11 @@ All scheduled events run as if WP Sudo is not installed.
    - User meta should not contain keys starting with `_wp_sudo_`.
    - Editor role should have `unfiltered_html` restored.
 3. **Expected:** All WP Sudo data is cleaned up.
-4. **Result:** DEFERRED — destructive test (requires deactivating and
-   deleting the plugin). Run separately before release.
+4. **Result:** PASS — 2026-02-19 (WP 7.0-alpha-61698, Studio).
+   Deactivated then deleted WP Sudo. PHP DB check confirmed:
+   `wp_sudo_settings` removed, `wp_sudo_db_version` removed, zero
+   `_wp_sudo_*` user meta rows, Editor role `unfiltered_html` restored
+   to YES. Plugin reinstalled and reactivated successfully afterward.
 
 ---
 
