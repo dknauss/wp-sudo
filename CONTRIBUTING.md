@@ -86,6 +86,7 @@ logged in as `admin` / `password`.
 | Admin bar countdown timer | ✅ |
 | Request stash & replay after auth | ✅ |
 | Rate limiting / 5-attempt lockout | ✅ within session |
+| Session expiry by time | ✅ wait out the configured duration (1–15 min) |
 | `unfiltered_html` removed from Editor role | ✅ |
 
 ### What won't work in Playground
@@ -97,7 +98,6 @@ logged in as `admin` / `password`.
 | Two Factor plugin integration | Can't install from .org (network off) |
 | Multisite behaviour | Single-site only |
 | State after refreshing Playground | Full reset on page reload |
-| Session expiry by time | Would require waiting real minutes |
 
 Transients and user meta persist across normal WP navigation within a session,
 but are wiped if you reload the Playground page itself. Use the integration test
