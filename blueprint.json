@@ -1,0 +1,15 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/wp-admin/",
+  "steps": [
+    { "step": "login", "username": "admin", "password": "password" },
+    {
+      "step": "installPlugin",
+      "pluginZipFile": {
+        "resource": "url",
+        "url": "https://github.com/dknauss/wp-sudo/archive/refs/heads/main.zip"
+      },
+      "options": { "activate": true }
+    }
+  ]
+}

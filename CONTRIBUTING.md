@@ -69,6 +69,46 @@ Two environments are used deliberately — choose based on what you are testing:
 
 When in doubt: if the test needs a real database, real crypto, or calls that cross class boundaries in production, write an integration test.
 
+## WordPress Playground
+
+Every PR automatically gets a **"Try in WordPress Playground"** comment with a
+link that installs the plugin from that PR's commit and lands you in the admin
+logged in as `admin` / `password`.
+
+### What you can test in Playground
+
+| Feature | Notes |
+|---|---|
+| Plugin activation & settings page | ✅ |
+| Gate fires on dangerous actions (plugin activate/delete, user delete, etc.) | ✅ |
+| Challenge / reauthentication page | ✅ |
+| Password verification & session cookie | ✅ |
+| Admin bar countdown timer | ✅ |
+| Request stash & replay after auth | ✅ |
+| Rate limiting / 5-attempt lockout | ✅ within session |
+| `unfiltered_html` removed from Editor role | ✅ |
+
+### What won't work in Playground
+
+| Feature | Why |
+|---|---|
+| WP-CLI / Cron entry point policies | No CLI in browser |
+| REST / XML-RPC entry point policies | Network disabled in Playground |
+| Two Factor plugin integration | Can't install from .org (network off) |
+| Multisite behaviour | Single-site only |
+| State after refreshing Playground | Full reset on page reload |
+| Session expiry by time | Would require waiting real minutes |
+
+Transients and user meta persist across normal WP navigation within a session,
+but are wiped if you reload the Playground page itself. Use the integration test
+suite (`composer test:integration`) to verify transient TTL, real bcrypt, and
+multisite isolation — those require a real MySQL database and can't be covered by
+Playground.
+
+To test the current `main` branch interactively without opening a PR, use
+[`blueprint.json`](blueprint.json) directly:
+`https://playground.wordpress.net/#` + the URL-encoded contents of that file.
+
 ## TDD Workflow
 
 1. Write a failing test first — commit or show it before writing production code
