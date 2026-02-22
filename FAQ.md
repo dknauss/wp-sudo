@@ -1,5 +1,11 @@
 # Frequently Asked Questions
 
+## How is Sudo different from other WordPress security plugins?
+
+Any authenticated session is an attack surface — stolen cookie, shoulder-surfed screen, unattended device, compromised password manager. Conventional security plugins protect the point of entry: login pages, firewall rules, malware scanners. Sudo operates after entry, interposing re-verification at the moment of consequence rather than the moment of login. Administrators define exactly which operations require proof-of-presence, making the shape and extent of session exposure a deliberate policy rather than an architectural accident.
+
+There is no comparable WordPress plugin. This is not access control — it is action control.
+
 ## How does sudo gating work?
 
 When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init` (before WordPress processes it). The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.

@@ -13,7 +13,7 @@ Stable tag:        2.4.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
-WordPress security plugins guard the door. Sudo governs what can happen inside.
+WordPress security plugins guard the door. Sudo governs what can happen inside the house.
 
 == Description ==
 
