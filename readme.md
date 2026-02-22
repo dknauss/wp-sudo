@@ -1,6 +1,6 @@
 # Sudo for WordPress
 
-**WordPress security plugins guard the door. wp-sudo governs what can happen inside.**
+**WordPress security plugins guard the door. Sudo governs what can happen inside.**
 
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![WordPress: 6.2+](https://img.shields.io/badge/WordPress-6.2%2B-0073aa.svg)](https://wordpress.org/)
