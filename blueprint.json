@@ -10,6 +10,14 @@
         "url": "https://github.com/dknauss/wp-sudo/archive/refs/heads/main.zip"
       },
       "options": { "activate": true }
+    },
+    {
+      "step": "installPlugin",
+      "pluginZipFile": {
+        "resource": "wordpress.org/plugins",
+        "slug": "two-factor"
+      },
+      "options": { "activate": true }
     }
   ]
 }

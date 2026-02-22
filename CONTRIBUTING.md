@@ -87,6 +87,7 @@ logged in as `admin` / `password`.
 | Request stash & replay after auth | ✅ |
 | Rate limiting / 5-attempt lockout | ✅ within session |
 | Session expiry by time | ✅ wait out the configured duration (1–15 min) |
+| Two Factor plugin (TOTP) | ✅ installed automatically via blueprint |
 | `unfiltered_html` removed from Editor role | ✅ |
 
 ### What won't work in Playground
@@ -95,7 +96,7 @@ logged in as `admin` / `password`.
 |---|---|
 | WP-CLI / Cron entry point policies | No CLI in browser |
 | REST / XML-RPC entry point policies | Network disabled in Playground |
-| Two Factor plugin integration | Can't install from .org (network off) |
+| Two Factor email / magic-link providers | PHP outbound network is off |
 | Multisite behaviour | Single-site only |
 | State after refreshing Playground | Full reset on page reload |
 
