@@ -13,11 +13,11 @@ Stable tag:        2.4.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
-Action-gated reauthentication for WordPress. Potentially dangerous operations require password confirmation before they proceed — regardless of user role.
+WordPress security plugins guard the door. Sudo governs what can happen inside.
 
 == Description ==
 
-**Sudo** brings zero-trust reauthentication to WordPress. Potentially destructive operations are gated behind an identity challenge — no user is trusted by default, regardless of role. When any user — administrators, editors, or custom roles — attempts a dangerous action, they must confirm their identity before proceeding.
+WordPress has rich access control — roles, capabilities, policies on who can do what. It has no native control over when those capabilities can be exercised within a session. Sudo fills that gap. By gating consequential actions behind re-verification, it lets site owners directly define the blast radius of any session compromise — regardless of how that compromise occurred, and regardless of the user's role. The attack surface becomes a policy decision.
 
 This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
