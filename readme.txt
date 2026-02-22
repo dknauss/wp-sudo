@@ -1,5 +1,7 @@
 _This exploratory plugin is not production-ready. Please test it and share your feedback on what works and what doesn't._
 
+[Try it in WordPress Playground](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/dknauss/wp-sudo/main/blueprint.json)
+
 === Sudo ===
 Contributors:      dpknauss
 Donate link:       https://dan.knauss.ca
