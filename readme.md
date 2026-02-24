@@ -33,7 +33,7 @@ WordPress has rich access control — roles, capabilities, policies on *who* can
 
 This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
-Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is represented by [門](https://en.wiktionary.org/wiki/%E9%96%80), a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold. The second line of Abatsu-ni's 13th-century poem catches the central idea with the image of [a guarded but yielding gate](https://matsuobashohaiku.home.blog/2021/12/07/fuwa-barrier/).
+Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is represented by [門](https://en.wiktionary.org/wiki/%E9%96%80), a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold.
 
 ### What Gets Gated?
 
