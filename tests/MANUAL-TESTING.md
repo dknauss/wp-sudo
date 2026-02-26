@@ -801,8 +801,8 @@ admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
 
 WPGraphQL gating is **surface-level** (not per-action): in Limited mode, all
 mutations are blocked regardless of which operation they perform. Queries always
-pass through. The endpoint defaults to `/graphql`; see the `wp_sudo_wpgraphql_route`
-filter to override it.
+pass through. Gating hooks into WPGraphQL's own lifecycle so it works regardless
+of how the endpoint is named.
 
 For these tests, use an Application Password for authentication. In the `curl`
 commands below, replace `YOUR_SITE_URL` and `YOUR_USERNAME:YOUR_APP_PASS`

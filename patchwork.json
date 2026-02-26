@@ -4,6 +4,7 @@
         "header",
         "hash_equals",
         "headers_sent",
-        "function_exists"
+        "function_exists",
+        "file_get_contents"
     ]
 }

@@ -85,7 +85,7 @@ Headless frontends, decoupled CMS setups, and AI tools that query WordPress thro
 | **Limited** (default) | Pass through | Blocked |
 | **Unrestricted** | Pass through | Pass through |
 
-WP Sudo detects mutations using a heuristic: any request to the WPGraphQL endpoint (`/graphql` by default) whose body contains a `mutation` operation type is treated as a mutation. The endpoint pattern can be overridden with the `wp_sudo_wpgraphql_route` filter.
+WP Sudo detects mutations using a heuristic: if the request body contains a `mutation` operation type it is treated as a mutation. WPGraphQL handles its own URL routing, so gating works regardless of how the endpoint is named.
 
 In **Limited** mode, mutation requests without an active sudo session receive an HTTP 403 response with a `sudo_blocked` error code. In **Disabled** mode, all requests to the endpoint are rejected with HTTP 403 and a `sudo_disabled` error code.
 

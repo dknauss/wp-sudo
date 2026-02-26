@@ -140,6 +140,10 @@ class Gate {
 		// REST API interception — fires after route matching, before callbacks.
 		add_filter( 'rest_request_before_callbacks', array( $this, 'intercept_rest' ), 10, 3 );
 
+		// WPGraphQL interception — hooks into WPGraphQL's own lifecycle.
+		// Fires after auth validation, before body reading, regardless of endpoint name.
+		add_action( 'graphql_process_http_request', array( $this, 'gate_wpgraphql' ) );
+
 		// Fallback admin notice when a gated AJAX/REST request was blocked.
 		add_action( 'admin_notices', array( $this, 'render_blocked_notice' ) );
 		add_action( 'network_admin_notices', array( $this, 'render_blocked_notice' ) );
@@ -794,11 +798,6 @@ class Gate {
 			return $response;
 		}
 
-		// Handle WPGraphQL surface before standard route matching.
-		if ( $this->is_wpgraphql_request( $request ) ) {
-			return $this->handle_wpgraphql( $response, $user_id, $request );
-		}
-
 		$matched_rule = $this->match_request( 'rest', $request );
 
 		if ( ! $matched_rule ) {
@@ -860,79 +859,64 @@ class Gate {
 	}
 
 	/**
-	 * Detect whether this REST request targets the WPGraphQL endpoint.
+	 * Gate WPGraphQL surface requests.
 	 *
-	 * The WPGraphQL route defaults to /graphql but can be overridden via
-	 * the wp_sudo_wpgraphql_route filter, which mirrors WPGraphQL's own
-	 * graphql_endpoint filter.
-	 *
-	 * @since 2.5.0
-	 *
-	 * @param \WP_REST_Request $request REST request object.
-	 * @return bool
-	 */
-	private function is_wpgraphql_request( \WP_REST_Request $request ): bool {
-		$graphql_route = apply_filters( 'wp_sudo_wpgraphql_route', '/graphql' );
-		return $request->get_route() === $graphql_route;
-	}
-
-	/**
-	 * Detect whether a WPGraphQL request body contains a GraphQL mutation.
-	 *
-	 * Uses a simple keyword heuristic: the POST body contains the word
-	 * "mutation". This is intentionally blunt — it may false-positive on
-	 * queries that mention "mutation" in a string argument, but it cannot
-	 * false-negative on an actual mutation operation.
-	 *
-	 * @since 2.5.0
-	 *
-	 * @param \WP_REST_Request $request REST request object.
-	 * @return bool
-	 */
-	private function is_graphql_mutation( \WP_REST_Request $request ): bool {
-		return str_contains( $request->get_body(), 'mutation' );
-	}
-
-	/**
-	 * Apply the WPGraphQL surface policy.
+	 * Hooked to graphql_process_http_request, which fires inside WPGraphQL's
+	 * own request handler after authentication is validated but before the
+	 * request body is read or any GraphQL execution begins. This hook fires
+	 * regardless of how the WPGraphQL endpoint is named or configured —
+	 * WPGraphQL handles its own URL routing, so no endpoint pattern matching
+	 * is needed here.
 	 *
 	 * Three modes:
-	 * - Unrestricted: everything passes through, no checks.
-	 * - Disabled:     block ALL requests (both queries and mutations), no audit hook.
-	 * - Limited:      block only mutations that lack an active sudo session;
-	 *                 fires the wp_sudo_action_blocked audit hook on block.
+	 * - Unrestricted: pass through without any checks.
+	 * - Disabled:     block ALL requests (queries and mutations); no audit hook.
+	 * - Limited:      block only mutations without an active sudo session.
 	 *
-	 * @since 2.5.0
+	 * Note on php://input: graphql_process_http_request fires before WPGraphQL
+	 * reads the request body. Reading php://input here is safe — PHP-FPM buffers
+	 * the input stream, so WPGraphQL can still read it after this hook returns.
 	 *
-	 * @param mixed            $response The current filter value.
-	 * @param int              $user_id  Current user ID.
-	 * @param \WP_REST_Request $request  REST request object.
-	 * @return mixed|\WP_Error Original response, or WP_Error to block.
+	 * @since 2.5.0 (re-implemented; previously non-functional due to incorrect hook)
+	 * @return void
 	 */
-	private function handle_wpgraphql( $response, int $user_id, \WP_REST_Request $request ) {
+	public function gate_wpgraphql(): void {
 		$policy = $this->get_policy( self::SETTING_WPGRAPHQL_POLICY );
 
 		// Unrestricted: pass everything through without any checks.
 		if ( self::POLICY_UNRESTRICTED === $policy ) {
-			return $response;
+			return;
 		}
 
 		// Disabled: block all requests, no audit hook.
 		if ( self::POLICY_DISABLED === $policy ) {
-			return new \WP_Error(
-				'sudo_disabled',
-				__( 'WPGraphQL is disabled by WP Sudo policy.', 'wp-sudo' ),
-				array( 'status' => 403 )
+			wp_send_json(
+				array(
+					'code'    => 'sudo_disabled',
+					'message' => __( 'WPGraphQL is disabled by WP Sudo policy.', 'wp-sudo' ),
+					'data'    => array( 'status' => 403 ),
+				),
+				403
 			);
+			return; // @codeCoverageIgnore -- wp_send_json calls die().
 		}
 
-		// Limited (default): block mutations without an active sudo session.
-		if ( ! $this->is_graphql_mutation( $request ) ) {
-			return $response;
+		// Limited: block mutations without an active sudo session.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPressVIPMinimum.Performance.FetchingRemoteData.FileGetContentsRemoteFile -- php://input is a local stream, not a remote request.
+		$body = (string) file_get_contents( 'php://input' );
+
+		if ( ! str_contains( $body, 'mutation' ) ) {
+			return; // Not a mutation — pass through.
+		}
+
+		$user_id = get_current_user_id();
+
+		if ( ! $user_id ) {
+			return; // Anonymous requests are not gated.
 		}
 
 		if ( Sudo_Session::is_active( $user_id ) ) {
-			return $response;
+			return; // Active sudo session — pass through.
 		}
 
 		/**
@@ -946,10 +930,13 @@ class Gate {
 		 */
 		do_action( 'wp_sudo_action_blocked', $user_id, 'wpgraphql', 'wpgraphql' );
 
-		return new \WP_Error(
-			'sudo_blocked',
-			__( 'This GraphQL mutation requires sudo. Activate a sudo session and try again.', 'wp-sudo' ),
-			array( 'status' => 403 )
+		wp_send_json(
+			array(
+				'code'    => 'sudo_blocked',
+				'message' => __( 'This GraphQL mutation requires sudo. Activate a sudo session and try again.', 'wp-sudo' ),
+				'data'    => array( 'status' => 403 ),
+			),
+			403
 		);
 	}
 

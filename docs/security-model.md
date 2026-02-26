@@ -19,7 +19,7 @@ WP Sudo is a **hook-based interception layer**. It operates within WordPress's p
 
 ## WPGraphQL Surface
 
-WPGraphQL registers a REST endpoint at `/graphql` (filterable via `wp_sudo_wpgraphql_route`). WordPress's standard REST authentication applies — cookies, nonces, and Application Passwords are all valid. The wp-sudo REST interceptor's existing route matching is scoped to `/wp/v2/*` patterns and does not catch `/graphql`.
+WPGraphQL registers its endpoint via WordPress rewrite rules and dispatches requests at the `parse_request` hook — it does not use the WordPress REST API pipeline. WordPress's standard authentication still applies — cookies, nonces, and Application Passwords are valid. WP Sudo hooks into WPGraphQL's own `graphql_process_http_request` action, which fires after authentication but before body reading, regardless of how the endpoint is named or configured.
 
 WP Sudo adds WPGraphQL as a fifth non-interactive surface with the same three-tier policy model (Disabled / Limited / Unrestricted) as WP-CLI, Cron, XML-RPC, and Application Passwords. The default is **Limited**.
 

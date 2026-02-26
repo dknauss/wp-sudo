@@ -485,7 +485,7 @@ class Admin {
 				array(
 					'label_for'   => Gate::SETTING_WPGRAPHQL_POLICY,
 					'key'         => Gate::SETTING_WPGRAPHQL_POLICY,
-					'description' => __( 'Controls the WPGraphQL endpoint (/graphql by default). Disabled blocks all GraphQL requests. Limited blocks mutations without an active sudo session; queries always pass through. Unrestricted allows everything. Use the wp_sudo_wpgraphql_route filter to override the endpoint. Default: Limited.', 'wp-sudo' ),
+					'description' => __( 'Controls WPGraphQL. Disabled blocks all GraphQL requests. Limited blocks mutations without an active sudo session; queries always pass through. Unrestricted allows everything. Default: Limited.', 'wp-sudo' ),
 				)
 			);
 		}
