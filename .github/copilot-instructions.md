@@ -154,7 +154,7 @@ npm run format
 
 **Bootstrap:** `plugins_loaded` → `Plugin::init()` → loads translations, runs upgrader, registers gate, sets up challenge page, initializes admin UI.
 
-**Gate pattern:** Multi-surface interceptor matches incoming requests against the Action Registry (28 rules across 7 categories). Admin requests get the stash-challenge-replay flow. AJAX/REST get error responses. CLI/Cron/XML-RPC follow per-surface policies (Disabled, Limited, Unrestricted).
+**Gate pattern:** Multi-surface interceptor matches incoming requests against the Action Registry (29 rules across 7 categories + 8 multisite rules). Admin requests get the stash-challenge-replay flow. AJAX/REST get error responses. CLI/Cron/XML-RPC follow per-surface policies (Disabled, Limited, Unrestricted).
 
 **Sessions:** Cryptographic token stored in user meta + httponly cookie. Progressive rate limiting (5 attempts → 5-min lockout).
 

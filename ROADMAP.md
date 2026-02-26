@@ -5,7 +5,7 @@
 ## Table of Contents
 
 - **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
-- **[Context](#context)** — v2.5.2 state: 361 unit + 73 integration tests, CI matrix, WP 7.0 status
+- **[Context](#context)** — v2.6.0 state: 375 unit + 73 integration tests, CI matrix, WP 7.0 status
 - **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (73 tests), coverage analysis, remaining gaps
 - **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-ga-april-9-2026)** — Beta 1 tested ✓, one task remaining: "Tested up to" bump on GA day
 - **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
@@ -25,6 +25,12 @@
 ### Immediate (Blocking WP 7.0 GA — April 9, 2026)
 - **Update "Tested up to"** in readme files when WordPress 7.0 ships
 
+### ✓ Completed in v2.6.0
+
+- ~~Login grants sudo session~~ — shipped v2.6.0: `wp_login` hook calls `Sudo_Session::activate()`; mirrors Unix sudo / GitHub sudo mode
+- ~~Gate `user.change_password`~~ — shipped v2.6.0: closes session-theft → password change → lockout attack chain
+- ~~Grace period (two-tier expiry)~~ — shipped v2.6.0: 120 s grace window after expiry; session-token-verified, deferred cleanup
+
 ### ✓ Completed in v2.5.x
 
 - ~~WPGraphQL surface gating (Disabled / Limited / Unrestricted)~~ — shipped v2.5.0, fixed v2.5.1–v2.5.2
@@ -33,13 +39,6 @@
 - ~~Security hardening (Opus audit)~~ — fixed v2.5.2: MU-plugin AJAX, app-password AJAX, user.promote rule
 - ~~WPGraphQL headless authentication boundary~~ — documented v2.5.2
 - ~~Abilities API (WordPress 6.9+)~~ — documented v2.5.1: covered by existing REST API (App Passwords) policy
-
-### Short-term (v2.6 — High Priority)
-
-**Core Design Features:**
-- **Login grants sudo session** — user just authenticated, no need to challenge again immediately
-- **Gate `user.change_password`** — prevent session theft → password change → lockout attack
-- **Grace period (two-tier expiry)** — prevent form failures when sudo expires mid-submission
 
 ### Medium-term (v2.6–v2.7)
 
@@ -78,8 +77,8 @@
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.5.2):
-- **361 unit tests**, 882 assertions, across 12 test files (Brain\Monkey mocks)
+Current project state (as of v2.6.0):
+- **375 unit tests**, 905 assertions, across 13 test files (Brain\Monkey mocks)
 - **73 integration tests** across 11 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.1–8.4, WordPress latest + trunk, single-site + multisite
 - WordPress 7.0 Beta 1 tested (February 19, 2026); GA is April 9, 2026
@@ -303,7 +302,7 @@ not context retrieval.
 6. ~~WPGraphQL surface gating~~ — done (v2.5.0–v2.5.2)
 7. ~~Abilities API coverage documented~~ — done (v2.5.1)
 8. **Update "Tested up to"** when WP 7.0 ships (April 9, 2026)
-9. **Core design features** — login=sudo, gate password changes, grace period (see section 8)
+9. ~~**Core design features** — login=sudo, gate password changes, grace period~~ — done (v2.6.0)
 10. **Plan environment diversity testing** (see section 5)
 
 ---

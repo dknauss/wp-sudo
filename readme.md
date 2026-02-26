@@ -3,7 +3,7 @@
 **WordPress security plugins guard the door. Sudo governs what can happen inside the house.**
 
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![WordPress: 6.2–7.0β](https://img.shields.io/badge/WordPress-6.2–7.0β-0073aa.svg)](https://wordpress.org/)
+[![WordPress: 6.2–7.0](https://img.shields.io/badge/WordPress-6.2–7.0-0073aa.svg)](https://wordpress.org/)
 [![PHP: 8.0+](https://img.shields.io/badge/PHP-8.0%2B-777bb4.svg)](https://www.php.net/)
 [![PHPUnit](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml)
 [![Try in Playground](https://img.shields.io/badge/Try%20it-Playground-3858e9?logo=wordpress&logoColor=white)](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/dknauss/wp-sudo/main/blueprint.json)
@@ -40,7 +40,7 @@ Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is repre
 |---|---|
 | **Plugins** | Activate, deactivate, delete, install, update |
 | **Themes** | Switch, delete, install, update |
-| **Users** | Delete, change role, create new user, create application password |
+| **Users** | Delete, change role, change password, create new user, create application password |
 | **File editors** | Plugin editor, theme editor |
 | **Critical options** | `siteurl`, `home`, `admin_email`, `default_role`, `users_can_register` |
 | **WordPress core** | Update, reinstall |
@@ -137,12 +137,12 @@ Hook signatures, filter reference, custom rule structure, and testing instructio
 
 WP Sudo is built for correctness and contributor legibility, not just functionality.
 
-**Architecture.** A single SPL autoloader maps the `WP_Sudo\*` namespace to `includes/class-*.php`. The `Gate` class is the heart of the plugin: it detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords), matches the incoming request against a registry of 28+ rules, and either challenges, soft-blocks, or hard-blocks depending on surface and policy. All gating decisions happen server-side in PHP action hooks — JavaScript is used only for UX (countdown timer, keyboard shortcut).
+**Architecture.** A single SPL autoloader maps the `WP_Sudo\*` namespace to `includes/class-*.php`. The `Gate` class is the heart of the plugin: it detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords), matches the incoming request against a registry of 29+ rules, and either challenges, soft-blocks, or hard-blocks depending on surface and policy. All gating decisions happen server-side in PHP action hooks — JavaScript is used only for UX (countdown timer, keyboard shortcut).
 
 **Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
 
-- **Unit tests** (364 tests, 887 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
-- **Integration tests** (73 tests, 210 assertions) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
+- **Unit tests** (375 tests, 905 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
+- **Integration tests** (73 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
 
 **Static analysis and code style.** PHPStan level 6 (zero errors) and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early.
 
@@ -181,6 +181,13 @@ WP Sudo is built for correctness and contributor legibility, not just functional
    ![Active sudo session](assets/screenshot-7.png?v=2)
 
 ## Changelog
+
+### 2.6.0
+
+- **Login implicitly grants a sudo session** — a successful browser-based login now automatically activates a sudo session. No second challenge required immediately after logging in. Application Password and XML-RPC logins are unaffected.
+- **`user.change_password` gated** — password changes on the profile and user-edit pages now require a sudo session. Closes the session-theft → silent password change → lockout attack chain. The REST API endpoint is also gated.
+- **Grace period (120 s)** — a 2-minute grace window after session expiry lets in-flight form submissions complete without triggering a re-challenge. Session binding is verified throughout the grace window.
+- **375 unit tests, 905 assertions. 73 integration tests in CI.**
 
 ### 2.5.0
 

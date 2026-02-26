@@ -5,6 +5,7 @@ WP Sudo is a **hook-based interception layer**. It operates within WordPress's p
 ## What It Protects Against
 
 - **Compromised admin sessions** — a stolen session cookie cannot perform gated actions without reauthenticating. The sudo session is cryptographically bound to the browser.
+- **Session theft → password change → lockout** — password changes on the profile/user-edit pages and via the REST API are a gated action (`user.change_password`). An attacker who steals a session cookie cannot silently change the victim's password without triggering the challenge.
 - **Insider threats** — even legitimate administrators must prove their identity before destructive operations.
 - **Automated abuse** — headless entry points (WP-CLI, Cron, XML-RPC, Application Passwords, WPGraphQL) can be disabled entirely or restricted to non-gated operations.
 - **2FA replay** — the two-factor challenge is bound to the originating browser via a one-time cookie, preventing cross-browser replay.
@@ -83,6 +84,17 @@ For headless deployments that need to gate mutations by authentication — requi
 ## Session Binding
 
 When sudo is activated, a cryptographic token is stored in a secure httponly cookie and its hash is saved in user meta. On every gated request, both must match. A stolen session cookie on a different browser will not have a valid sudo session.
+
+## Grace Period
+
+Since v2.6.0, sudo sessions have a 120-second grace window (`Sudo_Session::GRACE_SECONDS`) after they expire. If a user was filling in a form when the session expired, the gate calls `Sudo_Session::is_within_grace()` before redirecting to the challenge page.
+
+**Security properties of the grace window:**
+
+- **Token binding is enforced** — `is_within_grace()` calls `verify_token()` before returning `true`. The session cookie must still be present and match the stored hash. A browser without the original sudo cookie cannot gain grace access.
+- **Grace applies to interactive surfaces only** — the admin UI, REST API, and WPGraphQL gating points check grace. The admin bar timer does not — it reflects the true session state so the user sees accurately when their session has expired.
+- **Meta cleanup is deferred** — `is_active()` does not delete the session meta while the grace window is open. This allows `is_within_grace()` to read the expiry timestamp and token. Cleanup runs when `time() > $expires + GRACE_SECONDS`.
+- **No new permissions** — the grace window only prevents a re-challenge for work that was already in progress when the session expired. It does not allow new gated actions to be initiated.
 
 ## 2FA Browser Binding
 

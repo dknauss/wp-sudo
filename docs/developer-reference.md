@@ -82,6 +82,28 @@ Code style: `composer lint` (PHPCS, WordPress-Extra + WordPress-Docs + WordPress
 
 Manual testing: see [`tests/MANUAL-TESTING.md`](../tests/MANUAL-TESTING.md) for step-by-step verification procedures against a real WordPress environment.
 
+## Session API
+
+### `Sudo_Session::is_active( int $user_id ): bool`
+
+Returns `true` if the user has an unexpired sudo session with a valid token. This is the primary check used throughout the plugin. Returns `false` and defers meta cleanup if the session has expired within the grace window (see `is_within_grace()`).
+
+### `Sudo_Session::is_within_grace( int $user_id ): bool`
+
+Returns `true` when the session has expired **within the last `GRACE_SECONDS` (120 s)** and the session token still matches the cookie. Used by the Gate at interactive decision points (admin UI, REST, WPGraphQL) to allow in-flight form submissions to complete after the session timer expires.
+
+Session binding is enforced during the grace window — `verify_token()` is called before returning `true`. A stolen cookie on a different browser does not gain grace access.
+
+The admin bar UI uses `is_active()` only; it always reflects the true session state.
+
+### `Sudo_Session::activate( int $user_id ): void`
+
+Creates a new sudo session: generates a token, writes user meta, sets the httponly cookie, and fires `wp_sudo_activated`. Also called automatically by `Plugin::grant_session_on_login()` on successful browser-based login (`wp_login` hook).
+
+### `Sudo_Session::GRACE_SECONDS`
+
+Class constant (`int 120`). The length of the grace window in seconds. Can be referenced in custom code that inspects session state.
+
 ## WPGraphQL Surface
 
 WP Sudo adds WPGraphQL as a fifth non-interactive surface alongside WP-CLI, Cron, XML-RPC, and Application Passwords. The policy setting key is `wpgraphql_policy` (stored in `wp_sudo_settings`). The three-tier model applies: Disabled, Limited (default), Unrestricted.

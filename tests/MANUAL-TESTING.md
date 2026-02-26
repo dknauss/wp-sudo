@@ -1,6 +1,6 @@
 # WP Sudo Manual Testing Guide
 
-Manual verification tests for WP Sudo v2.5.2+. These complement the
+Manual verification tests for WP Sudo v2.6.0+. These complement the
 automated PHPUnit suite (`composer test`) and should be run against a
 real WordPress environment before each release.
 
@@ -241,6 +241,33 @@ authentication, the original POST request is replayed automatically.
 2. On the challenge page, click **Cancel**.
 3. **Expected:** Returned to the page you started from, not the
    dashboard.
+
+### 2.15 Change Password (Profile Page)
+
+> Tests the `user.change_password` gated action (v2.6.0+).
+
+1. Go to **Users > Your Profile** with **no sudo session active**.
+2. Scroll to the **New Password** section, click **Set New Password**.
+3. Enter a new password in the field, click **Update Profile**.
+4. **Expected:** Redirected to the challenge page. Action label shows
+   "Change password."
+5. Authenticate.
+6. **Expected:** Profile is updated (password changed). Redirected back
+   to the profile page.
+7. Verify: changing **only bio, email address, or display name** (with
+   no password field filled in) does **not** trigger a challenge.
+
+### 2.16 Change Password (Edit User Page)
+
+> Tests the `user.change_password` gated action on another user (v2.6.0+).
+
+1. Go to **Users**, click **Edit** on a non-admin user.
+2. Scroll to **New Password**, click **Set New Password**, enter a value.
+3. Click **Update User**.
+4. **Expected:** Redirected to the challenge page. Action label shows
+   "Change password."
+5. Authenticate.
+6. **Expected:** User's password is updated.
 
 ---
 
@@ -866,3 +893,71 @@ still return a schema-level error if the mutation is invalid — that is
 expected and unrelated to WP Sudo.)
 
 > **Cleanup:** Restore the WPGraphQL policy to **Limited** after testing.
+
+---
+
+## 17. v2.6.0 Feature Verification
+
+### 17.1 Login Grants Sudo Session
+
+1. Log out completely.
+2. Log back in via the standard WordPress login form.
+3. **Expected:** After login, the admin bar immediately shows a green
+   countdown timer — no challenge page is shown.
+4. Verify you can perform a gated action (e.g., go to **Plugins** and
+   click an Activate link) without being redirected to the challenge page.
+5. **Expected:** Action proceeds immediately.
+6. Verify: logging in via **Application Passwords** (REST API) does
+   **not** start a sudo session — the admin bar shows no timer when
+   accessed directly after an app-password API call.
+
+### 17.2 Change Password Gated (Admin UI — Profile)
+
+> See also section 2.15.
+
+1. Log out and log back in (so a sudo session is active from the login grant).
+2. Let the session expire (set duration to 1 minute in Settings > Sudo,
+   then wait).
+3. Go to **Users > Your Profile**, scroll to **New Password**, set a new
+   password, click **Update Profile**.
+4. **Expected:** Redirected to the challenge page. Action label shows
+   "Change password."
+5. Authenticate.
+6. **Expected:** Password is changed. No challenge fires for a plain
+   profile update (bio, email) in the same session.
+
+### 17.3 Change Password Gated (REST API)
+
+1. Ensure **no sudo session is active**.
+2. Send a `PATCH` request to `/wp/v2/users/me` with a `password` field:
+
+```bash
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -H "Content-Type: application/json" \
+  -X PATCH "YOUR_SITE_URL/wp-json/wp/v2/users/me" \
+  -d '{"password":"NewPassword123!"}'
+```
+
+3. **Expected:** HTTP 403 with a `sudo_blocked` error (or `sudo_disabled`
+   if the REST App Passwords policy is set to Disabled).
+4. A `PATCH` request **without** a `password` field (e.g. only `name`)
+   should return HTTP 200.
+
+### 17.4 Grace Period (In-Flight Form)
+
+> This test requires precise timing. Set session duration to 1 minute.
+
+1. Set session duration to **1 minute** in Settings > Sudo.
+2. Activate a sudo session.
+3. Navigate to **Users > Your Profile**.
+4. Wait for the admin bar timer to expire (the timer disappears and the
+   page auto-reloads after expiry).
+5. **Immediately** (within 2 minutes of expiry) fill in a non-password
+   profile field and click **Update Profile**.
+6. **Expected:** Profile update succeeds **without** a challenge. The
+   grace window (120 s) allows the in-flight submission through.
+7. Wait more than 2 minutes after expiry, then repeat steps 5–6.
+8. **Expected:** The update is intercepted and the challenge page appears
+   — the grace window has closed.
+
+> **Cleanup:** Restore session duration to its original value after testing.

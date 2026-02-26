@@ -22,7 +22,7 @@ No. Sudo adds a reauthentication layer on top of the existing permission model. 
 |---|---|
 | **Plugins** | Activate, deactivate, delete, install, update |
 | **Themes** | Switch, delete, install, update |
-| **Users** | Delete, change role, create new user, create application password |
+| **Users** | Delete, change role, change password, create new user, create application password |
 | **File editors** | Plugin editor, theme editor |
 | **Critical options** | `siteurl`, `home`, `admin_email`, `default_role`, `users_can_register` |
 | **WordPress core** | Update, reinstall |
@@ -91,3 +91,21 @@ Yes. Use the `wp_sudo_gated_actions` filter to add custom rules. See [Developer 
 ## Can I change the 2FA verification window?
 
 Yes. The default window is 5 minutes. Use the `wp_sudo_two_factor_window` filter to adjust it (value in seconds). See [Developer Reference](developer-reference.md).
+
+## Does logging in automatically start a sudo session?
+
+Yes (since v2.6.0). A successful browser-based WordPress login implicitly activates a sudo session. The user just proved their identity via the login form — requiring a second challenge immediately is unnecessary friction. This mirrors the behaviour of Unix `sudo` and GitHub's sudo mode.
+
+Application Password and XML-RPC logins are **not** affected — the `wp_login` hook only fires for browser form logins, and these non-interactive paths don't produce a session cookie anyway.
+
+## What happens when I change my password — does it affect my sudo session?
+
+Password changes on `profile.php`, `user-edit.php`, or via the REST API (`PUT`/`PATCH /wp/v2/users/{id}`) are themselves a **gated action** (since v2.6.0), so they already require an active sudo session to proceed. Automatically expiring the session on password change is planned for a future release.
+
+## What is the grace period?
+
+A 2-minute grace window (since v2.6.0) allows form submissions to complete even if the sudo session expired while the user was filling in the form. Without this, a user who spent three minutes on a form would have their work rejected and need to reauthenticate — and any unsaved input would be lost.
+
+**How it works:** when the gate checks the session, it first calls `Sudo_Session::is_active()`. If the session has expired, it also calls `is_within_grace()`. If the expiry happened within the last 120 seconds *and* the session token still matches (session binding is enforced throughout), the request passes.
+
+**What it does not relax:** session binding. A stolen cookie on a different browser does not gain grace-period access. The session token must still match — `is_within_grace()` calls `verify_token()` before returning true. The admin bar timer always reflects the true session state, not the grace state.

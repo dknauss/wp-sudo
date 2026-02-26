@@ -7,7 +7,7 @@ Contributors:      dpknauss
 Donate link:       https://dan.knauss.ca
 Tags:              sudo, security, reauthentication, access control, admin protection
 Requires at least: 6.2
-Tested up to:      7.0-beta1
+Tested up to:      7.0
 Requires PHP:      8.0
 Stable tag:        2.6.0
 License:           GPL-2.0-or-later
@@ -25,7 +25,7 @@ This is not role-based escalation. Every logged-in user is treated the same: att
 
 * **Plugins** — activate, deactivate, delete, install, update
 * **Themes** — switch, delete, install, update
-* **Users** — delete, change role, create new user, create application password
+* **Users** — delete, change role, change password, create new user, create application password
 * **File editors** — plugin editor, theme editor
 * **Critical options** — `siteurl`, `home`, `admin_email`, `default_role`, `users_can_register`
 * **WordPress core** — update, reinstall
@@ -110,9 +110,9 @@ Yes. Settings and sessions are network-wide. The action registry includes networ
 
 WP Sudo is built for correctness and contributor legibility, not just functionality.
 
-Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords), matches the incoming request against a registry of 28+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
+Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords), matches the incoming request against a registry of 29+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
 
-Testing: the suite is split into two tiers. Unit tests (364 tests, 887 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (73 tests, 210 assertions) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, and all 9 audit hooks.
+Testing: the suite is split into two tiers. Unit tests (375 tests, 905 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (73 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, and all 9 audit hooks.
 
 CI: GitHub Actions runs PHPStan level 6 and PHPCS on every push and PR, the full test matrix across PHP 8.1-8.4 and WordPress latest + trunk, and a nightly scheduled run against WordPress trunk.
 
@@ -129,6 +129,12 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.6.0 =
+* **Login implicitly grants a sudo session** — a successful browser-based login now automatically activates a sudo session. No second challenge required immediately after logging in. Application Password and XML-RPC logins are unaffected.
+* **user.change_password gated** — password changes on the profile and user-edit pages now require a sudo session. Closes the session-theft → silent password change → lockout attack chain. The REST API endpoint is also gated.
+* **Grace period (120 s)** — a 2-minute grace window after session expiry lets in-flight form submissions complete without triggering a re-challenge. Session binding is verified throughout the grace window.
+* **375 unit tests, 905 assertions. 73 integration tests in CI.**
 
 = 2.5.0 =
 * **WPGraphQL surface gating** — adds WPGraphQL as a fifth non-interactive surface. Three-tier policy (Disabled / Limited / Unrestricted); default is Limited. Mutations are blocked without a sudo session; queries pass through. Fires wp_sudo_action_blocked on block.
@@ -182,6 +188,9 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 See the plugin's `CHANGELOG.md` for all versions.
 
 == Upgrade Notice ==
+
+= 2.6.0 =
+Login now automatically grants a sudo session. Password changes are now gated. A 2-minute grace period prevents form failures when the session expires mid-submission. No settings migration required.
 
 = 2.4.0 =
 Integration test suite, CI pipeline, multisite gate fix, admin bar CSS fix, WP 7.0 compatibility. No settings migration required.
