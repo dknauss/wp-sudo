@@ -115,7 +115,11 @@
 	 * rows are added, then augment them with our policy dropdown.
 	 */
 	function init() {
-		var table = document.querySelector( '.application-passwords-list-table' );
+		// WordPress renders the Application Passwords table inside a
+		// .application-passwords-list-table-wrapper div. The <table> itself
+		// carries generic WP_List_Table classes, not a unique class of its own.
+		var wrapper = document.querySelector( '.application-passwords-list-table-wrapper' );
+		var table = wrapper ? wrapper.querySelector( 'table' ) : null;
 		if ( ! table ) {
 			return;
 		}
@@ -200,27 +204,8 @@
 	 * @return {string|null} The UUID, or null if not found.
 	 */
 	function extractUuid( row ) {
-		// Try the revoke button (WordPress adds data-slug on the button).
-		var revokeBtn = row.querySelector( 'button.delete' );
-		if ( revokeBtn ) {
-			// The button's click handler sends the UUID; check its parent's model.
-			var slug = revokeBtn.getAttribute( 'data-slug' );
-			if ( slug ) {
-				return slug;
-			}
-		}
-
-		// Try finding a cell with a UUID pattern.
-		var cells = row.querySelectorAll( 'td' );
-		var uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-		for ( var i = 0; i < cells.length; i++ ) {
-			var text = cells[ i ].textContent.trim();
-			if ( uuidPattern.test( text ) ) {
-				return text;
-			}
-		}
-
-		// Try the row's data-uuid attribute if WordPress sets one.
+		// WordPress sets data-uuid directly on the <tr> element in both the
+		// PHP-rendered and Backbone JS-rendered versions of the table.
 		return row.getAttribute( 'data-uuid' ) || null;
 	}
 
