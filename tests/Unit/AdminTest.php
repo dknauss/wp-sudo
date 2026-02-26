@@ -229,7 +229,7 @@ class AdminTest extends TestCase {
 	// add_help_tabs()
 	// -----------------------------------------------------------------
 
-	public function test_add_help_tabs_registers_eight_tabs(): void {
+	public function test_add_help_tabs_registers_ten_tabs(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -239,7 +239,7 @@ class AdminTest extends TestCase {
 		$admin = new Admin();
 		$admin->add_help_tabs();
 
-		$this->assertCount( 8, $screen->get_help_tabs() );
+		$this->assertCount( 10, $screen->get_help_tabs() );
 	}
 
 	public function test_add_help_tabs_has_expected_tab_ids(): void {
@@ -256,11 +256,13 @@ class AdminTest extends TestCase {
 		$ids  = array_keys( $tabs );
 
 		$this->assertContains( 'wp-sudo-how-it-works', $ids );
+		$this->assertContains( 'wp-sudo-session-policies', $ids );
+		$this->assertContains( 'wp-sudo-app-passwords', $ids );
+		$this->assertContains( 'wp-sudo-mu-plugin', $ids );
 		$this->assertContains( 'wp-sudo-security', $ids );
 		$this->assertContains( 'wp-sudo-security-model', $ids );
 		$this->assertContains( 'wp-sudo-environment', $ids );
 		$this->assertContains( 'wp-sudo-recommended-plugins', $ids );
-		$this->assertContains( 'wp-sudo-settings-help', $ids );
 		$this->assertContains( 'wp-sudo-extending', $ids );
 		$this->assertContains( 'wp-sudo-audit-hooks', $ids );
 	}
@@ -316,7 +318,7 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-settings-help']['content'] ?? '';
+		$content = $tabs['wp-sudo-session-policies']['content'] ?? '';
 
 		// Must start with a full sentence, not a fragment.
 		$this->assertStringContainsString( 'This setting controls', $content );
@@ -370,7 +372,7 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-settings-help']['content'] ?? '';
+		$content = $tabs['wp-sudo-mu-plugin']['content'] ?? '';
 
 		$this->assertStringContainsString( 'MU-Plugin', $content );
 		$this->assertStringContainsString( 'Multisite', $content );

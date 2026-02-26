@@ -205,21 +205,40 @@ class Admin {
 
 		$screen->add_help_tab(
 			array(
-				'id'      => 'wp-sudo-settings-help',
-				'title'   => __( 'Settings', 'wp-sudo' ),
+				'id'      => 'wp-sudo-session-policies',
+				'title'   => __( 'Session &amp; Policies', 'wp-sudo' ),
 				'content' =>
 					'<h3>' . __( 'Session Duration', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'This setting controls how long the sudo session stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Entry Point Policies', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Each non-interactive entry point has three modes:', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Each non-interactive entry point (REST API, WP-CLI, Cron, XML-RPC, WPGraphQL) has three modes:', 'wp-sudo' ) . '</p>'
 					. '<ul>'
 					. '<li>' . __( '<strong>Disabled</strong> — Shuts off the entire surface/protocol. No requests are processed, no checks run, nothing is logged.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>Limited</strong> (default) — Only gated (dangerous) actions are blocked and logged. Non-gated operations work normally.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>Unrestricted</strong> — Everything passes through as if WP Sudo is not installed. No checks, no logging.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
-					. '<h3>' . __( 'Per-Application-Password Policies', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Individual application passwords can override the global REST API policy. On the user profile page, each application password shows a Sudo Policy dropdown. "Global default" inherits the REST API (App Passwords) setting above. Setting a specific policy on an individual password lets you grant different access levels to different tools — for example, a deployment pipeline might be Unrestricted while an AI assistant stays Limited.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'WPGraphQL works differently from the other surfaces: when set to Limited, all GraphQL mutations require an active sudo session — the block is at the surface level rather than per-action.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-app-passwords',
+				'title'   => __( 'App Passwords', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Per-Application-Password Policies', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Individual application passwords can override the global REST API policy. On the user profile page, each application password shows a Sudo Policy dropdown. "Global default" inherits the REST API (App Passwords) setting above.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Setting a specific policy on an individual password lets you grant different access levels to different tools — for example, a deployment pipeline can be set to Unrestricted while an AI writing assistant stays Limited.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'This is also the recommended way to handle headless AI agents and MCP-based tools: assign each tool its own application password and set an explicit policy, rather than relaxing the global REST API setting.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-mu-plugin',
+				'title'   => __( 'MU-Plugin', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
 					. '<p>' . __( 'If the one-click installer fails (for example, due to file permission restrictions on your host), install the mu-plugin manually: copy <code>wp-sudo-gate.php</code> from <code>wp-content/plugins/wp-sudo/mu-plugin/</code> into your <code>wp-content/mu-plugins/</code> directory, creating that directory first if it does not exist. The mu-plugin will be active on the next page load.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'
