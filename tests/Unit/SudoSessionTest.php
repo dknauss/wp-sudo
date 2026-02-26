@@ -161,7 +161,10 @@ class SudoSessionTest extends TestCase {
 	}
 
 	public function test_is_active_clears_session_when_expired(): void {
-		$past = time() - 60;
+		// Use a timestamp well beyond the grace window (GRACE_SECONDS = 120 s)
+		// to ensure cleanup actually fires. A value within the grace window would
+		// be deferred and this assertion would fail.
+		$past = time() - ( Sudo_Session::GRACE_SECONDS + 60 );
 		Functions\when( 'get_user_meta' )->justReturn( $past );
 		Functions\when( 'is_ssl' )->justReturn( false );
 		Functions\when( 'headers_sent' )->justReturn( false );
@@ -629,5 +632,157 @@ class SudoSessionTest extends TestCase {
 
 		// Cookie should be unset from superglobal.
 		$this->assertArrayNotHasKey( Sudo_Session::CHALLENGE_COOKIE, $_COOKIE );
+	}
+
+	// =================================================================
+	// is_within_grace() — grace period (two-tier expiry)
+	// =================================================================
+
+	/**
+	 * is_within_grace() returns false when no session meta exists.
+	 *
+	 * A user with no sudo session has no expiry record, so there is nothing
+	 * to be in grace for.
+	 */
+	public function test_is_within_grace_returns_false_when_no_session(): void {
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		$this->assertFalse( Sudo_Session::is_within_grace( 1 ) );
+	}
+
+	/**
+	 * is_within_grace() returns false when the session is still active.
+	 *
+	 * Grace only applies after expiry — an active session is not in grace.
+	 */
+	public function test_is_within_grace_returns_false_when_session_still_active(): void {
+		$future = time() + 60;
+
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $future ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return $future;
+			}
+			return '';
+		} );
+
+		$this->assertFalse( Sudo_Session::is_within_grace( 1 ) );
+	}
+
+	/**
+	 * is_within_grace() returns true when just expired with a valid cookie token.
+	 *
+	 * A session that expired 30 seconds ago is within the GRACE_SECONDS window.
+	 * The cookie token must still match — grace does not bypass session binding.
+	 */
+	public function test_is_within_grace_returns_true_when_just_expired_with_valid_token(): void {
+		$past  = time() - 30;
+		$token = 'grace-valid-token';
+
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $past, $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return $past;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		$this->assertTrue( Sudo_Session::is_within_grace( 1 ) );
+	}
+
+	/**
+	 * is_within_grace() returns false when the session is beyond the grace window.
+	 *
+	 * Once GRACE_SECONDS has elapsed after expiry, the grace window is closed and
+	 * the user must re-authenticate.
+	 */
+	public function test_is_within_grace_returns_false_when_beyond_grace_window(): void {
+		$past = time() - ( Sudo_Session::GRACE_SECONDS + 60 );
+
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $past ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return $past;
+			}
+			return '';
+		} );
+
+		$this->assertFalse( Sudo_Session::is_within_grace( 1 ) );
+	}
+
+	/**
+	 * is_within_grace() returns false when the cookie token does not match.
+	 *
+	 * Grace does not relax session binding — a mismatched or absent cookie means
+	 * the request is not from the same browser that authenticated, so grace is denied.
+	 */
+	public function test_is_within_grace_returns_false_without_valid_token(): void {
+		$past = time() - 30;
+
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $past ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return $past;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', 'correct-token' );
+			}
+			return '';
+		} );
+
+		// No matching cookie set.
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+
+		$this->assertFalse( Sudo_Session::is_within_grace( 1 ) );
+	}
+
+	// =================================================================
+	// is_active() — deferred cleanup behaviour with grace window
+	// =================================================================
+
+	/**
+	 * is_active() does NOT call delete_user_meta when expiry is within the grace window.
+	 *
+	 * The session meta must remain readable so is_within_grace() can verify the
+	 * token and let an in-flight form submission through, even though is_active()
+	 * itself returns false.
+	 */
+	public function test_is_active_defers_cleanup_during_grace_window(): void {
+		$past = time() - 30; // Expired 30 s ago — still within GRACE_SECONDS (120 s).
+
+		Functions\when( 'get_user_meta' )->justReturn( $past );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+
+		// Cleanup must be deferred — meta must survive for is_within_grace() to read.
+		Functions\expect( 'delete_user_meta' )->never();
+
+		$result = Sudo_Session::is_active( 1 );
+
+		$this->assertFalse( $result );
+	}
+
+	/**
+	 * is_active() DOES call delete_user_meta when the session is beyond the grace window.
+	 *
+	 * Once GRACE_SECONDS has elapsed, the meta is no longer needed and must be
+	 * cleaned up to prevent stale data from accumulating.
+	 */
+	public function test_is_active_cleans_up_after_grace_window(): void {
+		$past = time() - ( Sudo_Session::GRACE_SECONDS + 60 ); // Well beyond grace.
+
+		Functions\when( 'get_user_meta' )->justReturn( $past );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+
+		Functions\expect( 'delete_user_meta' )
+			->twice(); // META_KEY + TOKEN_META_KEY
+
+		$result = Sudo_Session::is_active( 1 );
+
+		$this->assertFalse( $result );
 	}
 }

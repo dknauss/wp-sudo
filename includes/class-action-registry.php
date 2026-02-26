@@ -268,6 +268,38 @@ class Action_Registry {
 			),
 
 			array(
+				'id'       => 'user.change_password',
+				'label'    => __( 'Change password', 'wp-sudo' ),
+				'category' => 'users',
+				'admin'    => array(
+					'pagenow'  => array( 'profile.php', 'user-edit.php' ),
+					'actions'  => array( 'update' ),
+					'method'   => 'POST',
+					'callback' => function (): bool {
+						// Only gate when a new password is being set.
+						// profile.php and user-edit.php both use action=update for ALL profile
+						// changes (bio, email, role, etc.) so the callback narrows to password changes.
+						// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Gate routing: checking presence only, value not used as data.
+						$pass1 = isset( $_POST['pass1'] ) ? $_POST['pass1'] : '';
+						// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+						$pass2 = isset( $_POST['pass2'] ) ? $_POST['pass2'] : '';
+						return '' !== $pass1 || '' !== $pass2;
+					},
+				),
+				'ajax'     => null,
+				'rest'     => array(
+					'route'    => '#^/wp/v2/users/(?:\\d+|me)$#',
+					'methods'  => array( 'PUT', 'PATCH' ),
+					'callback' => function ( $request ): bool {
+						// Gate only when a password field is present in the request body.
+						// /wp/v2/users/{id} also handles role changes (covered by user.promote),
+						// so the callback isolates the password-change use case.
+						return array_key_exists( 'password', $request->get_params() );
+					},
+				),
+			),
+
+			array(
 				'id'       => 'user.create',
 				'label'    => __( 'Create new user', 'wp-sudo' ),
 				'category' => 'users',

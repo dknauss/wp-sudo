@@ -88,6 +88,23 @@ class Sudo_Session {
 	public const LOCKOUT_DURATION = 300;
 
 	/**
+	 * Grace period in seconds after session expiry.
+	 *
+	 * When a session expires while a user is filling out a form, the
+	 * Gate would redirect them to the challenge page and they would
+	 * lose their work. This two-minute window allows in-flight form
+	 * submissions to complete without requiring re-authentication.
+	 *
+	 * The grace period does NOT relax session binding — the browser cookie
+	 * must still match, so a stolen cookie cannot exploit the grace window
+	 * from a different browser.
+	 *
+	 * @since 2.6.0
+	 * @var int
+	 */
+	public const GRACE_SECONDS = 120;
+
+	/**
 	 * Progressive delay tiers in seconds, keyed by attempt number.
 	 *
 	 * Attempts 1–3 are immediate. Attempt 4 gets a 2-second delay,
@@ -136,8 +153,11 @@ class Sudo_Session {
 		}
 
 		if ( time() > $expires ) {
-			// Expired — clean up.
-			self::clear_session_data( $user_id );
+			// Session expired. Defer meta cleanup until the grace window has also
+			// elapsed — is_within_grace() still needs the meta to verify the token.
+			if ( time() > $expires + self::GRACE_SECONDS ) {
+				self::clear_session_data( $user_id );
+			}
 			self::$active_cache[ $user_id ] = false;
 			return false;
 		}
@@ -150,6 +170,44 @@ class Sudo_Session {
 
 		self::$active_cache[ $user_id ] = true;
 		return true;
+	}
+
+	/**
+	 * Whether the session has just expired but is still within the grace window.
+	 *
+	 * Used by the Gate to allow in-flight admin form submissions to complete
+	 * even when the sudo session expired while the user was filling out the
+	 * form. The grace window is GRACE_SECONDS (120 s / 2 min) from expiry.
+	 *
+	 * Token binding is still enforced — a stolen cookie does not gain
+	 * grace-period access from a different browser. Returns false for any
+	 * fully active session (expiry in the future) to keep the semantics
+	 * distinct from is_active().
+	 *
+	 * @since 2.6.0
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return bool True only when the session has expired within the last GRACE_SECONDS.
+	 */
+	public static function is_within_grace( int $user_id ): bool {
+		$expires = (int) get_user_meta( $user_id, self::META_KEY, true );
+
+		if ( ! $expires ) {
+			return false;
+		}
+
+		$now = time();
+
+		if ( $now <= $expires ) {
+			return false; // Still active — not in grace yet.
+		}
+
+		if ( $now > $expires + self::GRACE_SECONDS ) {
+			return false; // Grace window has closed — full re-auth required.
+		}
+
+		// Token must still match: grace does not relax session binding.
+		return self::verify_token( $user_id );
 	}
 
 	/**

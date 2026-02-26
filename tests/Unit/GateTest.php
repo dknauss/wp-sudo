@@ -54,6 +54,8 @@ class GateTest extends TestCase {
 			$_REQUEST['changeit'],
 			$_REQUEST['new_role'],
 			$_POST['role'],
+			$_POST['pass1'],
+			$_POST['pass2'],
 			$_POST['approve'],
 			$_POST['super_admin'],
 			$_POST['slug'],
@@ -345,6 +347,102 @@ class GateTest extends TestCase {
 		$rule = $this->gate->match_request( 'admin' );
 
 		$this->assertNull( $rule );
+	}
+
+	// ── Password change matching ──────────────────────────────────────
+
+	/**
+	 * Test match_request matches a password change on profile.php.
+	 *
+	 * profile.php submits action=update for all profile edits; the callback
+	 * narrows to password changes by checking $_POST['pass1'] is non-empty.
+	 */
+	public function test_match_request_matches_profile_password_change(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$GLOBALS['pagenow']        = 'profile.php';
+		$_REQUEST['action']        = 'update';
+		$_POST['pass1']            = 'new-secret-password';
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'user.change_password', $rule['id'] );
+	}
+
+	/**
+	 * Test match_request does not match profile.php when no password is being set.
+	 *
+	 * A routine profile update (bio, email, etc.) without pass1 or pass2 should
+	 * not trigger the sudo gate for the password-change rule.
+	 */
+	public function test_match_request_skips_profile_update_without_password(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$GLOBALS['pagenow']        = 'profile.php';
+		$_REQUEST['action']        = 'update';
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		// No pass1 or pass2 — a normal profile field update.
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNull( $rule );
+	}
+
+	/**
+	 * Test match_request matches a password change on user-edit.php.
+	 *
+	 * user-edit.php (editing another user's profile) also uses action=update.
+	 * The callback must catch pass2 being set, not just pass1.
+	 */
+	public function test_match_request_matches_user_edit_password_change(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$GLOBALS['pagenow']        = 'user-edit.php';
+		$_REQUEST['action']        = 'update';
+		$_POST['pass2']            = 'new-secret-password';
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'user.change_password', $rule['id'] );
+	}
+
+	/**
+	 * Test match_request matches user.promote_profile (not user.change_password)
+	 * when only a role change — and no password — is submitted on user-edit.php.
+	 *
+	 * Verifies callback-based narrowing: when pass1/pass2 are absent the
+	 * user.change_password rule does not fire, and the earlier user.promote_profile
+	 * rule (which checks for $_POST['role']) matches instead.
+	 */
+	public function test_match_request_skips_user_edit_update_without_password(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$GLOBALS['pagenow']        = 'user-edit.php';
+		$_REQUEST['action']        = 'update';
+		$_POST['role']             = 'editor';
+		$_SERVER['REQUEST_METHOD'] = 'POST';
+		// No pass1 or pass2 — only a role change.
+
+		$rule = $this->gate->match_request( 'admin' );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'user.promote_profile', $rule['id'] );
 	}
 
 	// ── User creation matching ────────────────────────────────────────

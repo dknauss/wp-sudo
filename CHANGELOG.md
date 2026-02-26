@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.0
+
+- **Feature: login implicitly grants a sudo session** — a successful WordPress browser-based login (via `wp_login`) now automatically activates a sudo session. The user just proved their identity via the login form; requiring a second challenge immediately is unnecessary friction. This mirrors the behaviour of Unix `sudo` and GitHub's sudo mode. Application Password and XML-RPC logins are unaffected (`wp_login` does not fire for those). Implemented in `Plugin::grant_session_on_login()`.
+- **Feature: `user.change_password` gated action** — changing a user's password on `profile.php` or `user-edit.php` now requires an active sudo session. The rule fires only when `pass1` or `pass2` is present in the POST body, narrowing it to actual password changes (not bio, email, or role updates, which also use `action=update`). The REST counterpart gates any `PUT`/`PATCH` to `/wp/v2/users/{id}` or `/wp/v2/users/me` that includes a `password` parameter. Closes the "session theft → silent password change → lockout" attack chain.
+- **Feature: grace period (two-tier expiry)** — sudo sessions now have a 120-second grace window (`GRACE_SECONDS = 120`) after they expire. If a user was filling in a form while the session expired, the form submission still passes the gate without requiring re-authentication. The grace window is session-token-verified — a stolen cookie in a different browser does not gain grace access. Session meta cleanup is deferred until the grace window closes so the token is available for verification throughout. The four admin-bar UI call sites are intentionally excluded (the timer always reflects the true session state).
+- **375 unit tests, 905 assertions. 73 integration tests in CI.**
+
 ## 2.5.2
 
 - **Fix: WPGraphQL Limited policy now blocks unauthenticated mutations** — cross-origin requests (e.g. from a SvelteKit frontend) do not carry WordPress session cookies, so `get_current_user_id()` returns 0. Previously the Limited policy silently passed these through via an `if (!$user_id) return` guard before the session check was reached. Now, unauthenticated mutations are blocked with the same `sudo_blocked` 403 response as authenticated-without-session mutations. The `$user_id &&` short-circuit prevents `Sudo_Session::is_active()` from ever being called with user 0.

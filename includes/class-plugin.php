@@ -122,6 +122,11 @@ class Plugin {
 		// Gate UI: disable action buttons on gated pages when no session.
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_gate_ui' ) );
 
+		// Login grant: a successful form login implicitly satisfies reauthentication.
+		// wp_login fires for browser-based logins only (not App Passwords / XML-RPC),
+		// so the session cookie set by activate() is guaranteed to reach the browser.
+		add_action( 'wp_login', array( $this, 'grant_session_on_login' ), 10, 2 );
+
 		// Admin settings page (admin-only).
 		if ( is_admin() ) {
 			$this->admin = new Admin();
@@ -258,6 +263,28 @@ class Plugin {
 				'page' => $page,
 			)
 		);
+	}
+
+	/**
+	 * Grant a sudo session immediately after a successful WordPress login.
+	 *
+	 * The user just proved their identity via the login form — challenging again
+	 * immediately is unnecessary friction. This mirrors the behaviour of Unix sudo
+	 * and GitHub's sudo mode: a fresh login implicitly satisfies the
+	 * reauthentication requirement.
+	 *
+	 * wp_login fires for browser-based form logins only (not Application Passwords
+	 * or XML-RPC), so session-cookie binding via setcookie() is safe here —
+	 * headers have not yet been sent at this point.
+	 *
+	 * @since 2.6.0
+	 *
+	 * @param string   $user_login The user's login name (unused; ID is read from object).
+	 * @param \WP_User $user       The authenticated user object.
+	 * @return void
+	 */
+	public function grant_session_on_login( string $user_login, \WP_User $user ): void {
+		Sudo_Session::activate( $user->ID );
 	}
 
 	/**

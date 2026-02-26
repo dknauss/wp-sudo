@@ -593,8 +593,8 @@ class Gate {
 			return;
 		}
 
-		// If a sudo session is active, let the request through.
-		if ( Sudo_Session::is_active( $user_id ) ) {
+		// If a sudo session is active (or just expired within the grace window), let the request through.
+		if ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) {
 			return;
 		}
 
@@ -804,7 +804,7 @@ class Gate {
 			return $response;
 		}
 
-		if ( Sudo_Session::is_active( $user_id ) ) {
+		if ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) {
 			return $response;
 		}
 
@@ -911,8 +911,8 @@ class Gate {
 
 		$user_id = get_current_user_id();
 
-		if ( $user_id && Sudo_Session::is_active( $user_id ) ) {
-			return; // Active sudo session — pass through.
+		if ( $user_id && ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) ) {
+			return; // Active sudo session (or grace window) — pass through.
 		}
 
 		/**
