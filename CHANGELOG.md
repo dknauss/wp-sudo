@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.1
+
+- **Fix: WPGraphQL gating now functional** — v2.5.0 hooked into `rest_request_before_callbacks`, but WPGraphQL dispatches requests via WordPress rewrite rules at `parse_request`, not through the REST API pipeline. The REST filter never fired for GraphQL requests. The fix hooks into WPGraphQL's own `graphql_process_http_request` action, which fires after authentication but before body reading, regardless of how the endpoint is named or configured. No endpoint URL matching is needed.
+- **Remove `wp_sudo_wpgraphql_route` filter** — the filter was designed for the now-dead URL-matching approach and has no effect. Removed from the codebase and all documentation.
+- **361 unit tests, 881 assertions. 73 integration tests in CI.**
+
 ## 2.5.0
 
 - **WPGraphQL surface gating** — adds WPGraphQL as a fifth non-interactive surface alongside WP-CLI, Cron, XML-RPC, and Application Passwords. Three-tier policy (Disabled / Limited / Unrestricted); default is Limited. In Limited mode, GraphQL mutations are blocked without an active sudo session while read-only queries pass through. Fires the `wp_sudo_action_blocked` audit hook on block. The policy setting (`wpgraphql_policy`) is stored regardless of whether WPGraphQL is installed; the settings field is only shown when WPGraphQL is active.
