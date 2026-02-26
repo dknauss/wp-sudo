@@ -452,6 +452,24 @@ class Admin {
 				'description' => __( 'Disabled shuts off the entire XML-RPC protocol. Limited blocks only gated operations. Unrestricted allows everything. Default: Limited.', 'wp-sudo' ),
 			)
 		);
+
+		// Only show the WPGraphQL field when WPGraphQL is active.
+		// The setting is stored and enforced regardless — this just hides a
+		// non-relevant field when the plugin is absent.
+		if ( function_exists( 'graphql' ) ) {
+			add_settings_field(
+				Gate::SETTING_WPGRAPHQL_POLICY,
+				__( 'WPGraphQL', 'wp-sudo' ),
+				array( $this, 'render_field_policy' ),
+				self::PAGE_SLUG,
+				'wp_sudo_policies',
+				array(
+					'label_for'   => Gate::SETTING_WPGRAPHQL_POLICY,
+					'key'         => Gate::SETTING_WPGRAPHQL_POLICY,
+					'description' => __( 'Disabled blocks all WPGraphQL requests. Limited (default) blocks only mutations without an active sudo session; read-only queries pass through. Unrestricted allows all GraphQL operations. Default: Limited.', 'wp-sudo' ),
+				)
+			);
+		}
 	}
 
 	/**
@@ -466,6 +484,7 @@ class Admin {
 			'cli_policy'               => Gate::POLICY_LIMITED,
 			'cron_policy'              => Gate::POLICY_LIMITED,
 			'xmlrpc_policy'            => Gate::POLICY_LIMITED,
+			'wpgraphql_policy'         => Gate::POLICY_LIMITED,
 			'app_password_policies'    => array(),
 		);
 	}
@@ -522,6 +541,7 @@ class Admin {
 			Gate::SETTING_CLI_POLICY,
 			Gate::SETTING_CRON_POLICY,
 			Gate::SETTING_XMLRPC_POLICY,
+			Gate::SETTING_WPGRAPHQL_POLICY,
 		);
 
 		$valid_policies = array( Gate::POLICY_DISABLED, Gate::POLICY_LIMITED, Gate::POLICY_UNRESTRICTED );

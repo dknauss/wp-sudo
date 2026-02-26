@@ -120,6 +120,7 @@ class Site_Health {
 			Gate::SETTING_CLI_POLICY           => __( 'WP-CLI', 'wp-sudo' ),
 			Gate::SETTING_CRON_POLICY          => __( 'Cron', 'wp-sudo' ),
 			Gate::SETTING_XMLRPC_POLICY        => __( 'XML-RPC', 'wp-sudo' ),
+			Gate::SETTING_WPGRAPHQL_POLICY     => __( 'WPGraphQL', 'wp-sudo' ),
 		);
 
 		$unrestricted = array();

@@ -99,6 +99,7 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		private string $route;
 		private array  $params;
 		private array  $headers = [];
+		private string $body    = '';
 
 		public function __construct( string $method = 'GET', string $route = '', array $params = array() ) {
 			$this->method = $method;
@@ -125,6 +126,14 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 
 		public function set_header( string $key, string $value ): void {
 			$this->headers[ strtolower( $key ) ] = $value;
+		}
+
+		public function get_body(): string {
+			return $this->body ?? '';
+		}
+
+		public function set_body( string $body ): void {
+			$this->body = $body;
 		}
 	}
 }

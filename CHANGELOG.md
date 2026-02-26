@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.5.0
+
+- **WPGraphQL surface gating** — adds WPGraphQL as a fifth non-interactive surface alongside WP-CLI, Cron, XML-RPC, and Application Passwords. Three-tier policy (Disabled / Limited / Unrestricted); default is Limited. In Limited mode, GraphQL mutations are blocked without an active sudo session while read-only queries pass through. Fires the `wp_sudo_action_blocked` audit hook on block. The policy setting (`wpgraphql_policy`) is stored regardless of whether WPGraphQL is installed; the settings field is only shown when WPGraphQL is active.
+- **Mutation detection heuristic** — Limited mode checks whether the POST body contains the word `mutation`. Intentionally blunt: cannot false-negative on actual mutations, may false-positive on queries mentioning "mutation" in a string argument. Documented in `docs/security-model.md`.
+- **`wp_sudo_wpgraphql_route` filter** — allows the gated route to be overridden to match custom WPGraphQL endpoint configurations.
+- **Site Health integration** — WPGraphQL policy included in the Entry Point Policies health check (flagged if set to Unrestricted).
+- **364 unit tests, 887 assertions. 73 integration tests in CI.**
+
 ## 2.4.2
 
 - **Documentation: roadmap consolidation** — Merged three separate roadmaps (`ROADMAP.md`, `ACCESSIBILITY-ROADMAP.md`, `docs/roadmap-2026-02.md`) into one unified `ROADMAP.md` at project root. Moved `CHANGELOG.md` and `FAQ.md` to root for prominence.

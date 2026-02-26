@@ -61,7 +61,7 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter. See [Dev
 
 - **Zero-trust architecture** — a valid login session is never sufficient on its own. Dangerous operations require explicit identity confirmation every time.
 - **Role-agnostic** — any user attempting a gated action is challenged, including administrators.
-- **Full attack surface** — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and Application Passwords.
+- **Full attack surface** — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, Application Passwords, and WPGraphQL.
 - **Session binding** — sudo sessions are cryptographically bound to the browser via a secure httponly cookie token.
 - **2FA browser binding** — the two-factor challenge is bound to the originating browser with a one-time challenge cookie.
 - **Rate limiting** — 5 failed password attempts trigger a 5-minute lockout.
@@ -142,7 +142,7 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 **Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
 
-- **Unit tests** (349 tests, 863 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
+- **Unit tests** (364 tests, 887 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
 - **Integration tests** (73 tests, 210 assertions) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
 
 **Static analysis and code style.** PHPStan level 6 (zero errors) and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early.
@@ -182,6 +182,13 @@ WP Sudo is built for correctness and contributor legibility, not just functional
    ![Active sudo session](assets/screenshot-7.png?v=2)
 
 ## Changelog
+
+### 2.5.0
+
+- **WPGraphQL surface gating** — adds WPGraphQL as a fifth non-interactive surface alongside WP-CLI, Cron, XML-RPC, and Application Passwords. Three-tier policy (Disabled / Limited / Unrestricted); default is Limited. GraphQL mutations are blocked without a sudo session; read-only queries pass through. Fires `wp_sudo_action_blocked` on block.
+- **`wp_sudo_wpgraphql_route` filter** — allows the gated endpoint to be overridden for custom WPGraphQL configurations.
+- **Site Health** — WPGraphQL policy included in Entry Point Policies health check.
+- **364 unit tests, 887 assertions. 73 integration tests in CI.**
 
 ### 2.4.1
 

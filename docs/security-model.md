@@ -6,7 +6,7 @@ WP Sudo is a **hook-based interception layer**. It operates within WordPress's p
 
 - **Compromised admin sessions** — a stolen session cookie cannot perform gated actions without reauthenticating. The sudo session is cryptographically bound to the browser.
 - **Insider threats** — even legitimate administrators must prove their identity before destructive operations.
-- **Automated abuse** — headless entry points (WP-CLI, Cron, XML-RPC, Application Passwords) can be disabled entirely or restricted to non-gated operations.
+- **Automated abuse** — headless entry points (WP-CLI, Cron, XML-RPC, Application Passwords, WPGraphQL) can be disabled entirely or restricted to non-gated operations.
 - **2FA replay** — the two-factor challenge is bound to the originating browser via a one-time cookie, preventing cross-browser replay.
 - **Capability tampering** — direct database modifications to restore `unfiltered_html` on the Editor role are detected and reversed at `init`.
 
@@ -16,6 +16,16 @@ WP Sudo is a **hook-based interception layer**. It operates within WordPress's p
 - **File system access** — PHP scripts that load `wp-load.php` and call WordPress functions directly may bypass the gate if they don't trigger the standard hook sequence.
 - **Other plugins that bypass hooks** — if a plugin calls `activate_plugin()` in a way that suppresses `do_action('activate_plugin')`, the gate won't fire. The mu-plugin mitigates this by loading the gate before other plugins.
 - **Server-level operations** — database migrations, WP-CLI commands run as root with direct PHP execution, or deployment scripts that modify files are outside WordPress's hook system.
+
+## WPGraphQL Surface
+
+WPGraphQL registers a REST endpoint at `/graphql` (filterable via `wp_sudo_wpgraphql_route`). WordPress's standard REST authentication applies — cookies, nonces, and Application Passwords are all valid. The wp-sudo REST interceptor's existing route matching is scoped to `/wp/v2/*` patterns and does not catch `/graphql`.
+
+WP Sudo adds WPGraphQL as a fifth non-interactive surface with the same three-tier policy model (Disabled / Limited / Unrestricted) as WP-CLI, Cron, XML-RPC, and Application Passwords. The default is **Limited**.
+
+**Mutation detection heuristic.** In Limited mode, WP Sudo checks whether the POST body contains the word `mutation`. This is a deliberately blunt heuristic — it cannot false-negative on an actual GraphQL mutation, but it may false-positive on a query that mentions `mutation` in a string argument. The tradeoff is intentional: safe to over-block, impossible to under-block, and independent of WPGraphQL's schema.
+
+**Scope.** WPGraphQL core exposes `deleteUser`, `updateUser`, `createUser`, and related mutations that map directly to gated operations. Third-party WPGraphQL extensions may add further mutations. The surface-level policy gates all mutations uniformly without requiring a schema-coupled rule set.
 
 ## Environmental Considerations
 

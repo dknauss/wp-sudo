@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0-beta1
 Requires PHP:      8.0
-Stable tag:        2.4.1
+Stable tag:        2.5.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,7 +45,7 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 * **Zero-trust architecture** — a valid login session is never sufficient on its own. Dangerous operations require explicit identity confirmation every time.
 * **Role-agnostic** — any user attempting a gated action is challenged, including administrators.
-* **Full attack surface** — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and Application Passwords.
+* **Full attack surface** — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, Application Passwords, and WPGraphQL.
 * **Session binding** — sudo sessions are cryptographically bound to the browser via a secure httponly cookie token.
 * **2FA browser binding** — the two-factor challenge is bound to the originating browser with a one-time challenge cookie.
 * **Rate limiting** — 5 failed password attempts trigger a 5-minute lockout.
@@ -112,7 +112,7 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords), matches the incoming request against a registry of 28+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
 
-Testing: the suite is split into two tiers. Unit tests (349 tests, 863 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (73 tests, 210 assertions) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, and all 9 audit hooks.
+Testing: the suite is split into two tiers. Unit tests (364 tests, 887 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (73 tests, 210 assertions) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, and all 9 audit hooks.
 
 CI: GitHub Actions runs PHPStan level 6 and PHPCS on every push and PR, the full test matrix across PHP 8.1-8.4 and WordPress latest + trunk, and a nightly scheduled run against WordPress trunk.
 
@@ -129,6 +129,12 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.5.0 =
+* **WPGraphQL surface gating** — adds WPGraphQL as a fifth non-interactive surface. Three-tier policy (Disabled / Limited / Unrestricted); default is Limited. Mutations are blocked without a sudo session; queries pass through. Fires wp_sudo_action_blocked on block.
+* **wp_sudo_wpgraphql_route filter** — allows the gated endpoint to be overridden for custom WPGraphQL configurations.
+* **Site Health** — WPGraphQL policy included in Entry Point Policies health check.
+* **364 unit tests, 887 assertions. 73 integration tests in CI.**
 
 = 2.4.1 =
 * **AJAX gating integration tests** — 11 new tests covering the AJAX surface: rule matching for all 7 declared AJAX actions, full intercept flow, session bypass, non-gated pass-through, blocked transient lifecycle, admin notice fallback, and wp.updates slug passthrough.
