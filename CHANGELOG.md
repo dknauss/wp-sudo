@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.2
+
+- **Fix: WPGraphQL Limited policy now blocks unauthenticated mutations** — cross-origin requests (e.g. from a SvelteKit frontend) do not carry WordPress session cookies, so `get_current_user_id()` returns 0. Previously the Limited policy silently passed these through via an `if (!$user_id) return` guard before the session check was reached. Now, unauthenticated mutations are blocked with the same `sudo_blocked` 403 response as authenticated-without-session mutations. The `$user_id &&` short-circuit prevents `Sudo_Session::is_active()` from ever being called with user 0.
+- **361 unit tests, 882 assertions. 73 integration tests in CI.**
+
 ## 2.5.1
 
 - **Fix: WPGraphQL gating now functional** — v2.5.0 hooked into `rest_request_before_callbacks`, but WPGraphQL dispatches requests via WordPress rewrite rules at `parse_request`, not through the REST API pipeline. The REST filter never fired for GraphQL requests. The fix hooks into WPGraphQL's own `graphql_process_http_request` action, which fires after authentication but before body reading, regardless of how the endpoint is named or configured. No endpoint URL matching is needed.

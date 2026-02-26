@@ -911,11 +911,7 @@ class Gate {
 
 		$user_id = get_current_user_id();
 
-		if ( ! $user_id ) {
-			return; // Anonymous requests are not gated.
-		}
-
-		if ( Sudo_Session::is_active( $user_id ) ) {
+		if ( $user_id && Sudo_Session::is_active( $user_id ) ) {
 			return; // Active sudo session — pass through.
 		}
 

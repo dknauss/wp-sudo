@@ -182,12 +182,28 @@ class WpGraphQLGatingTest extends TestCase {
 	}
 
 	/** @test */
-	public function test_limited_passes_unauthenticated_mutation(): void {
+	public function test_limited_blocks_unauthenticated_mutation(): void {
 		Functions\when( 'get_option' )->justReturn( array() );
 		$this->with_body( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		Functions\when( 'get_current_user_id' )->justReturn( 0 ); // no user
+		Functions\when( 'get_current_user_id' )->justReturn( 0 ); // unauthenticated
 
-		Functions\expect( 'wp_send_json' )->never();
+		// No get_user_meta stub needed — is_active() is never called (short-circuit on $user_id=0).
+
+		Actions\expectDone( 'wp_sudo_action_blocked' )
+			->once()
+			->with( 0, 'wpgraphql', 'wpgraphql' );
+
+		Functions\expect( 'wp_send_json' )
+			->once()
+			->with(
+				\Mockery::on(
+					static function ( array $data ): bool {
+						return 'sudo_blocked' === $data['code']
+							&& 403 === $data['data']['status'];
+					}
+				),
+				403
+			);
 
 		$this->gate->gate_wpgraphql();
 	}
