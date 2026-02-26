@@ -882,6 +882,17 @@ class Admin {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
 		}
 
+		$user_id = get_current_user_id();
+		if ( ! Sudo_Session::is_active( $user_id ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'sudo_required',
+					'message' => __( 'A sudo session is required. Activate one then try again.', 'wp-sudo' ),
+				),
+				403
+			);
+		}
+
 		$source = WP_SUDO_PLUGIN_DIR . 'mu-plugin/wp-sudo-gate.php';
 		$mu_dir = self::get_mu_plugin_dir();
 		$dest   = $mu_dir . '/wp-sudo-gate.php';
@@ -926,6 +937,17 @@ class Admin {
 		$required_cap = is_multisite() ? 'manage_network_options' : 'manage_options';
 		if ( ! current_user_can( $required_cap ) ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
+		}
+
+		$user_id = get_current_user_id();
+		if ( ! Sudo_Session::is_active( $user_id ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'sudo_required',
+					'message' => __( 'A sudo session is required. Activate one then try again.', 'wp-sudo' ),
+				),
+				403
+			);
 		}
 
 		$mu_file = self::get_mu_plugin_dir() . '/wp-sudo-gate.php';
@@ -1121,6 +1143,9 @@ class Admin {
 					'limited'      => __( 'Limited', 'wp-sudo' ),
 					'unrestricted' => __( 'Unrestricted', 'wp-sudo' ),
 				),
+				'i18n'     => array(
+					'sudoRequired' => __( 'A sudo session is required. Activate one then try again.', 'wp-sudo' ),
+				),
 			)
 		);
 	}
@@ -1159,6 +1184,17 @@ class Admin {
 		$required_cap = is_multisite() ? 'manage_network_options' : 'manage_options';
 		if ( ! current_user_can( $required_cap ) ) {
 			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'wp-sudo' ) ), 403 );
+		}
+
+		$user_id = get_current_user_id();
+		if ( ! Sudo_Session::is_active( $user_id ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'sudo_required',
+					'message' => __( 'A sudo session is required. Activate one then try again.', 'wp-sudo' ),
+				),
+				403
+			);
 		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- sanitize_text_field handles slashes.

@@ -91,6 +91,16 @@
 					setTimeout( function () {
 						select.style.outline = '';
 					}, 1000 );
+				} else if ( result.data && result.data.code === 'sudo_required' ) {
+					// No active sudo session — restore the previous value and inform the user.
+					var previous = ( config.policies && config.policies[ uuid ] ) || '';
+					select.value = previous;
+					select.style.outline = '2px solid #dba617';
+					setTimeout( function () {
+						select.style.outline = '';
+					}, 3000 );
+					// eslint-disable-next-line no-alert
+					window.alert( result.data.message || config.i18n.sudoRequired );
 				} else {
 					select.style.outline = '2px solid #d63638';
 					setTimeout( function () {

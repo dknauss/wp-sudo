@@ -226,7 +226,7 @@ class Action_Registry {
 				'admin'    => array(
 					'pagenow'  => 'users.php',
 					'actions'  => array( 'promote', '-1' ),
-					'method'   => 'GET',
+					'method'   => 'ANY',
 					'callback' => function (): bool {
 						// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Gate routing, not data processing.
 						$action = isset( $_REQUEST['action'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['action'] ) ) : '';
