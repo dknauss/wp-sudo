@@ -2,9 +2,9 @@
 /**
  * Integration tests for WPGraphQL surface gating.
  *
- * Tests Gate::intercept_rest() against a real WordPress + MySQL environment
- * for the /graphql route, covering all three policy modes and session bypass.
- * WPGraphQL does not need to be installed — the Gate is called directly.
+ * Tests Gate::check_wpgraphql() against a real WordPress + MySQL environment,
+ * covering all three policy modes and session bypass. WPGraphQL does not need
+ * to be installed — the Gate is called directly with a raw body string.
  *
  * @package WP_Sudo\Tests\Integration
  */
@@ -23,21 +23,15 @@ class WpGraphQLGatingTest extends TestCase {
 
 	private Gate $gate;
 
+	private const MUTATION_BODY = '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}';
+	private const QUERY_BODY    = '{"query":"{ posts { nodes { id title } } }"}';
+
 	public function set_up(): void {
 		parent::set_up();
 		$this->gate = new Gate( new Sudo_Session(), new Request_Stash() );
 	}
 
 	// ── Helpers ────────────────────────────────────────────────────────
-
-	/**
-	 * Build a POST /graphql request with the given GraphQL body.
-	 */
-	private function graphql_request( string $body ): \WP_REST_Request {
-		$request = new \WP_REST_Request( 'POST', '/graphql' );
-		$request->set_body( $body );
-		return $request;
-	}
 
 	/**
 	 * Persist a specific wpgraphql_policy value in the settings option.
@@ -59,8 +53,7 @@ class WpGraphQLGatingTest extends TestCase {
 		$user = $this->make_admin();
 		wp_set_current_user( $user->ID );
 
-		$request = $this->graphql_request( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'sudo_blocked', $result->get_error_code() );
@@ -72,8 +65,7 @@ class WpGraphQLGatingTest extends TestCase {
 		$user = $this->make_admin();
 		wp_set_current_user( $user->ID );
 
-		$request = $this->graphql_request( '{"query":"{ posts { nodes { id title } } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
+		$result = $this->gate->check_wpgraphql( self::QUERY_BODY );
 
 		$this->assertNull( $result );
 	}
@@ -85,8 +77,7 @@ class WpGraphQLGatingTest extends TestCase {
 
 		Sudo_Session::activate( $user->ID );
 
-		$request = $this->graphql_request( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
 
 		$this->assertNull( $result );
 	}
@@ -106,12 +97,33 @@ class WpGraphQLGatingTest extends TestCase {
 			3
 		);
 
-		$request = $this->graphql_request( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		$this->gate->intercept_rest( null, array(), $request );
+		$this->gate->check_wpgraphql( self::MUTATION_BODY );
 
 		$this->assertSame( $user->ID, $blocked_args[0] ?? null );
 		$this->assertSame( 'wpgraphql', $blocked_args[1] ?? null );
 		$this->assertSame( 'wpgraphql', $blocked_args[2] ?? null );
+	}
+
+	/** @test */
+	public function test_unauthenticated_mutation_blocked_when_limited(): void {
+		// Since v2.5.2, unauthenticated mutations are blocked in Limited mode.
+		// get_current_user_id() returns 0, the sudo session check is skipped,
+		// and the mutation falls through to the sudo_blocked response.
+		wp_set_current_user( 0 );
+
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sudo_blocked', $result->get_error_code() );
+	}
+
+	/** @test */
+	public function test_unauthenticated_query_passes_when_limited(): void {
+		wp_set_current_user( 0 );
+
+		$result = $this->gate->check_wpgraphql( self::QUERY_BODY );
+
+		$this->assertNull( $result );
 	}
 
 	// ── Disabled policy ────────────────────────────────────────────────
@@ -122,8 +134,7 @@ class WpGraphQLGatingTest extends TestCase {
 		wp_set_current_user( $user->ID );
 		$this->set_policy( Gate::POLICY_DISABLED );
 
-		$request = $this->graphql_request( '{"query":"{ posts { nodes { id } } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
+		$result = $this->gate->check_wpgraphql( self::QUERY_BODY );
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
@@ -135,8 +146,7 @@ class WpGraphQLGatingTest extends TestCase {
 		wp_set_current_user( $user->ID );
 		$this->set_policy( Gate::POLICY_DISABLED );
 
-		$request = $this->graphql_request( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
 
 		$this->assertWPError( $result );
 		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
@@ -156,8 +166,7 @@ class WpGraphQLGatingTest extends TestCase {
 			}
 		);
 
-		$request = $this->graphql_request( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		$this->gate->intercept_rest( null, array(), $request );
+		$this->gate->check_wpgraphql( self::MUTATION_BODY );
 
 		$this->assertFalse( $hook_fired );
 	}
@@ -170,8 +179,7 @@ class WpGraphQLGatingTest extends TestCase {
 		wp_set_current_user( $user->ID );
 		$this->set_policy( Gate::POLICY_UNRESTRICTED );
 
-		$request = $this->graphql_request( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
 
 		$this->assertNull( $result );
 	}
@@ -182,8 +190,7 @@ class WpGraphQLGatingTest extends TestCase {
 		wp_set_current_user( $user->ID );
 		$this->set_policy( Gate::POLICY_UNRESTRICTED );
 
-		$request = $this->graphql_request( '{"query":"{ posts { nodes { id } } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
+		$result = $this->gate->check_wpgraphql( self::QUERY_BODY );
 
 		$this->assertNull( $result );
 	}
@@ -209,17 +216,5 @@ class WpGraphQLGatingTest extends TestCase {
 		$policy = Admin::get( Gate::SETTING_WPGRAPHQL_POLICY, Gate::POLICY_LIMITED );
 
 		$this->assertSame( Gate::POLICY_LIMITED, $policy );
-	}
-
-	// ── Unauthenticated ────────────────────────────────────────────────
-
-	/** @test */
-	public function test_unauthenticated_request_passes_through(): void {
-		wp_set_current_user( 0 );
-
-		$request = $this->graphql_request( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
-		$result  = $this->gate->intercept_rest( null, array(), $request );
-
-		$this->assertNull( $result );
 	}
 }

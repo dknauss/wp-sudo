@@ -859,6 +859,69 @@ class Gate {
 	}
 
 	/**
+	 * Evaluate a WPGraphQL request body against the current policy.
+	 *
+	 * Extracted from gate_wpgraphql() for testability: the hook handler
+	 * calls this with the real php://input body; integration tests call it
+	 * directly with any body string, without needing WPGraphQL installed.
+	 *
+	 * Returns a WP_Error to signal a block (sudo_disabled or sudo_blocked),
+	 * or null to pass through. The wp_sudo_action_blocked audit hook fires
+	 * here for the Limited-blocked path only; the Disabled path has no
+	 * audit hook by design.
+	 *
+	 * @since 2.6.0
+	 *
+	 * @param string $body The raw GraphQL request body.
+	 * @return \WP_Error|null WP_Error to block, null to pass through.
+	 */
+	public function check_wpgraphql( string $body ): ?\WP_Error {
+		$policy = $this->get_policy( self::SETTING_WPGRAPHQL_POLICY );
+
+		// Unrestricted: pass everything through without any checks.
+		if ( self::POLICY_UNRESTRICTED === $policy ) {
+			return null;
+		}
+
+		// Disabled: block all requests, no audit hook.
+		if ( self::POLICY_DISABLED === $policy ) {
+			return new \WP_Error(
+				'sudo_disabled',
+				__( 'WPGraphQL is disabled by WP Sudo policy.', 'wp-sudo' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Limited: block mutations without an active sudo session.
+		if ( ! str_contains( $body, 'mutation' ) ) {
+			return null; // Not a mutation — pass through.
+		}
+
+		$user_id = get_current_user_id();
+
+		if ( $user_id && ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) ) {
+			return null; // Active sudo session (or grace window) — pass through.
+		}
+
+		/**
+		 * Fires when a gated action is blocked by policy.
+		 *
+		 * @since 2.0.0
+		 *
+		 * @param int    $user_id The user who triggered the action.
+		 * @param string $rule_id Always 'wpgraphql' for this surface.
+		 * @param string $surface Always 'wpgraphql'.
+		 */
+		do_action( 'wp_sudo_action_blocked', $user_id, 'wpgraphql', 'wpgraphql' );
+
+		return new \WP_Error(
+			'sudo_blocked',
+			__( 'This GraphQL mutation requires sudo. Activate a sudo session and try again.', 'wp-sudo' ),
+			array( 'status' => 403 )
+		);
+	}
+
+	/**
 	 * Gate WPGraphQL surface requests.
 	 *
 	 * Hooked to graphql_process_http_request, which fires inside WPGraphQL's
@@ -881,58 +944,23 @@ class Gate {
 	 * @return void
 	 */
 	public function gate_wpgraphql(): void {
-		$policy = $this->get_policy( self::SETTING_WPGRAPHQL_POLICY );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPressVIPMinimum.Performance.FetchingRemoteData.FileGetContentsRemoteFile -- php://input is a local stream, not a remote request.
+		$body   = (string) file_get_contents( 'php://input' );
+		$result = $this->check_wpgraphql( $body );
 
-		// Unrestricted: pass everything through without any checks.
-		if ( self::POLICY_UNRESTRICTED === $policy ) {
+		if ( null === $result ) {
 			return;
 		}
 
-		// Disabled: block all requests, no audit hook.
-		if ( self::POLICY_DISABLED === $policy ) {
-			wp_send_json(
-				array(
-					'code'    => 'sudo_disabled',
-					'message' => __( 'WPGraphQL is disabled by WP Sudo policy.', 'wp-sudo' ),
-					'data'    => array( 'status' => 403 ),
-				),
-				403
-			);
-			return; // @codeCoverageIgnore -- wp_send_json calls die().
-		}
-
-		// Limited: block mutations without an active sudo session.
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPressVIPMinimum.Performance.FetchingRemoteData.FileGetContentsRemoteFile -- php://input is a local stream, not a remote request.
-		$body = (string) file_get_contents( 'php://input' );
-
-		if ( ! str_contains( $body, 'mutation' ) ) {
-			return; // Not a mutation — pass through.
-		}
-
-		$user_id = get_current_user_id();
-
-		if ( $user_id && ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) ) {
-			return; // Active sudo session (or grace window) — pass through.
-		}
-
-		/**
-		 * Fires when a gated action is blocked by policy.
-		 *
-		 * @since 2.0.0
-		 *
-		 * @param int    $user_id The user who triggered the action.
-		 * @param string $rule_id Always 'wpgraphql' for this surface.
-		 * @param string $surface Always 'wpgraphql'.
-		 */
-		do_action( 'wp_sudo_action_blocked', $user_id, 'wpgraphql', 'wpgraphql' );
+		$data = $result->get_error_data();
 
 		wp_send_json(
 			array(
-				'code'    => 'sudo_blocked',
-				'message' => __( 'This GraphQL mutation requires sudo. Activate a sudo session and try again.', 'wp-sudo' ),
-				'data'    => array( 'status' => 403 ),
+				'code'    => $result->get_error_code(),
+				'message' => $result->get_error_message(),
+				'data'    => is_array( $data ) ? $data : array( 'status' => 403 ),
 			),
-			403
+			is_array( $data ) ? ( $data['status'] ?? 403 ) : 403
 		);
 	}
 
