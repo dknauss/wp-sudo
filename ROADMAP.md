@@ -1,20 +1,20 @@
 # Roadmap: Past and Future Planning — Integration Tests, WP 7.0 Prep, Collaboration, TDD, and Core Design
 
-*Updated February 20, 2026*
+*Updated February 26, 2026*
 
 ## Table of Contents
 
 - **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
-- **[Context](#context)** — v2.4.1 state: 349 unit + 73 integration tests, CI matrix, WP 7.0 status
+- **[Context](#context)** — v2.5.2 state: 361 unit + 73 integration tests, CI matrix, WP 7.0 status
 - **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (73 tests), coverage analysis, remaining gaps
-- **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-beta-1-today-ga-april-9)** — Verified changes, action plan
+- **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-ga-april-9-2026)** — Beta 1 tested ✓, one task remaining: "Tested up to" bump on GA day
 - **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
 - **[4. Context Collapse & TDD](#4-context-collapse-and-tdd)** — LLM confabulation defense, test-driven development
 - **[Recommended Next Steps](#recommended-next-steps-priority-order)** — Immediate, short-term, medium-term priorities
 - **[5. Environment Diversity Testing](#5-environment-diversity-testing-future-milestone)** — Apache, PHP 8.0, MariaDB, backward compat
 - **[6. Coverage Tooling](#6-coverage-tooling-deferred)** — Deferred until matrix stabilizes
 - **[7. Mutation Testing](#7-mutation-testing-deferred-to-post-environment-diversity)** — Deferred until integration suite is fast enough
-- **[8. Core Sudo Design](#8-core-sudo-design)** — Already achieved (15), to implement (6), to consider (4), discarded (6)
+- **[8. Core Sudo Design](#8-core-sudo-design)** — Already achieved (13), to implement (6), to consider (4), discarded (5)
 - **[9. Feature Backlog](#9-feature-backlog)** — WSAL sensor, IP+user rate limiting, dashboard widget, Gutenberg, network policy
 - **[Appendix A: Accessibility](#appendix-a-accessibility-roadmap)** — 15 resolved WCAG items (v2.2.0–v2.3.1)
 
@@ -25,17 +25,23 @@
 ### Immediate (Blocking WP 7.0 GA — April 9, 2026)
 - **Update "Tested up to"** in readme files when WordPress 7.0 ships
 
-### Short-term (v2.5.x / v2.6 — High Priority)
+### ✓ Completed in v2.5.x
+
+- ~~WPGraphQL surface gating (Disabled / Limited / Unrestricted)~~ — shipped v2.5.0, fixed v2.5.1–v2.5.2
+- ~~Cross-origin headless mutation bypass~~ — fixed v2.5.2 (SvelteKit testing revealed unauthenticated mutations passed through)
+- ~~Per-app-password policy dropdown~~ — fixed v2.5.2 (was silently broken since v2.3)
+- ~~Security hardening (Opus audit)~~ — fixed v2.5.2: MU-plugin AJAX, app-password AJAX, user.promote rule
+- ~~WPGraphQL headless authentication boundary~~ — documented v2.5.2
+- ~~Abilities API (WordPress 6.9+)~~ — documented v2.5.1: covered by existing REST API (App Passwords) policy
+
+### Short-term (v2.6 — High Priority)
 
 **Core Design Features:**
 - **Login grants sudo session** — user just authenticated, no need to challenge again immediately
 - **Gate `user.change_password`** — prevent session theft → password change → lockout attack
 - **Grace period (two-tier expiry)** — prevent form failures when sudo expires mid-submission
 
-**Monitoring:**
-- Abilities API (WordPress 6.9+, `/wp-abilities/v1/`): covered by the existing REST API (App Passwords) policy. Destructive abilities (`DELETE /run`) can be gated with custom `wp_sudo_gated_actions` rules. Document in FAQ and ai-agentic-guidance.md — ✓ done v2.5.1.
-
-### Medium-term (v2.5–v2.6)
+### Medium-term (v2.6–v2.7)
 
 **Core Design:**
 - Expire sudo session on password change
@@ -49,7 +55,7 @@
 - Gutenberg block editor integration
 - Network policy hierarchy for multisite
 
-### Later (v2.6+) — Deferred, Need Design Work
+### Later (v2.7+) — Deferred, Need Design Work
 
 **Major Features (require architectural design first):**
 - Client-side modal challenge (UX like GitHub) — significant complexity
@@ -123,7 +129,9 @@ These gaps have been closed by the integration suite:
 
 ---
 
-## 2. WordPress 7.0 Prep (Beta 1 today, GA April 9)
+## 2. WordPress 7.0 Prep (GA April 9, 2026)
+
+> **Status:** WP 7.0 Beta 1 manually tested February 19, 2026 — all sections PASS. One task remains: bump "Tested up to" in readme files when 7.0 GA ships.
 
 ### Verified changes that affect WP Sudo
 
@@ -140,15 +148,13 @@ These gaps have been closed by the integration suite:
 
 ### What to do now
 
-1. **Install WP 7.0 Beta 1** on Local or Studio dev site (available today)
-2. **Run the manual testing guide** (`tests/MANUAL-TESTING.md`) against 7.0-beta
-3. **Visual check:** settings page, help tabs, admin bar timer, challenge interstitial,
-   admin notices — all against the refreshed admin chrome
-4. **Run `composer test`** — unit tests should pass unchanged (no WP core dependency)
-5. **Update version references** when 7.0 ships:
-   - `docs/security-model.md` — "WordPress 6.2+" minimum
+1. ~~**Install WP 7.0 Beta 1** on Local or Studio dev site~~ — done (February 19, 2026)
+2. ~~**Run the manual testing guide** against 7.0-beta~~ — done; all 15 sections PASS
+3. ~~**Visual check:** settings page, help tabs, admin bar timer, challenge interstitial, admin notices~~ — done; all pass against refreshed admin chrome
+4. ~~**Run `composer test`**~~ — passing on WP 7.0-alpha / 7.0-beta; CI covers WP trunk
+5. **Update version references** when 7.0 ships (April 9):
    - `readme.txt` / `readme.md` — "Tested up to" bump
-   - Any docs mentioning "WordPress 6.9" as latest
+   - Any docs still referencing "WordPress 6.9" as latest
 
 ### Abilities API: the longer-range question
 
@@ -285,17 +291,18 @@ not context retrieval.
 
 ## Recommended Next Steps (Priority Order)
 
-> Steps 1–5 were completed in v2.4.0–v2.4.1. Remaining work:
+> Steps 1–5 completed in v2.4.0–v2.4.1. Steps 6–7 completed in v2.5.0–v2.5.2. Remaining work:
 
 1. ~~Add TDD requirement to CLAUDE.md~~ — done (v2.4.0)
 2. ~~Install WP 7.0 Beta 1, run manual testing guide~~ — done (v2.4.0)
 3. ~~Scaffold integration test harness~~ — done (v2.4.0, 55 tests)
 4. ~~Write first integration tests~~ — done (v2.4.1, 73 tests)
 5. ~~Visual review against 7.0 admin refresh~~ — done (v2.4.0)
-6. **Update "Tested up to"** when 7.0 ships (April 9)
-7. **Monitor Abilities API** for destructive abilities that should be gated
-8. **Plan environment diversity testing** (see section 5)
+6. ~~WPGraphQL surface gating~~ — done (v2.5.0–v2.5.2)
+7. ~~Abilities API coverage documented~~ — done (v2.5.1)
+8. **Update "Tested up to"** when WP 7.0 ships (April 9, 2026)
 9. **Core design features** — login=sudo, gate password changes, grace period (see section 8)
+10. **Plan environment diversity testing** (see section 5)
 
 ---
 
@@ -440,12 +447,12 @@ regression in the session token comparison or rate limiting logic?"
 
 ## 8. Core Sudo Design
 
-*February 20, 2026*
+*February 26, 2026*
 
 ### Already achieved
 
 The following areas from our initial design planning and input from others are
-fully implemented in WP Sudo v2.3.x:
+fully implemented in WP Sudo (through v2.5.2):
 
 - All five threat model scenarios (XSS→RCE, session theft, device compromise,
   device loss, undetected persistence)
@@ -461,11 +468,11 @@ fully implemented in WP Sudo v2.3.x:
 - 9 audit hooks for external logging
 - Proactive session-only authentication (no pending action required)
 - `unfiltered_html` capability tamper detection
-- WPGraphQL surface gating — three-tier policy for GraphQL mutations, mutation detection heuristic, `wp_sudo_wpgraphql_route` filter (v2.5.0)
+- WPGraphQL surface gating — three-tier policy for GraphQL mutations (Disabled / Limited / Unrestricted), mutation detection heuristic, headless authentication boundary documented (v2.5.0–v2.5.2)
 
 ### Features to implement
 
-**High priority — target v2.5**
+**High priority — target v2.6**
 
 | Feature | Rationale | Effort |
 |---------|-----------|--------|
@@ -473,7 +480,7 @@ fully implemented in WP Sudo v2.3.x:
 | **Gate `user.change_password`** | Session theft → silently change password → lock out user is a real attack chain. The document calls this out. `profile.php` action `update` with `pass1`/`pass2` in POST fits the existing rule pattern. | Small |
 | **Grace period (two-tier expiry)** | Prevent form submissions failing when sudo expires during processing. Active = within (duration − 2 min), valid = within duration. Requires a second check in `is_active()` or a new `is_within_grace()` method. | Small |
 
-**Medium priority — target v2.5 or v2.6**
+**Medium priority — target v2.6**
 
 | Feature | Rationale | Effort |
 |---------|-----------|--------|
