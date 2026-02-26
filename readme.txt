@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0
 Requires PHP:      8.0
-Stable tag:        2.6.0
+Stable tag:        2.6.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -130,6 +130,10 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 
 == Changelog ==
 
+= 2.6.1 =
+* **Fix: WPGraphQL integration tests** — extract `Gate::check_wpgraphql()` to fix pre-existing CI test regression; no behavioral change in production.
+* **Docs: v2.6.0 documentation update** — FAQ, ROADMAP, developer-reference.md, security-model.md, MANUAL-TESTING.md updated to reflect v2.6.0 features.
+
 = 2.6.0 =
 * **Login implicitly grants a sudo session** — a successful browser-based login now automatically activates a sudo session. No second challenge required immediately after logging in. Application Password and XML-RPC logins are unaffected.
 * **user.change_password gated** — password changes on the profile and user-edit pages now require a sudo session. Closes the session-theft → silent password change → lockout attack chain. The REST API endpoint is also gated.
@@ -188,6 +192,9 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 See the plugin's `CHANGELOG.md` for all versions.
 
 == Upgrade Notice ==
+
+= 2.6.1 =
+No behavioral changes. CI fix and documentation update only.
 
 = 2.6.0 =
 Login now automatically grants a sudo session. Password changes are now gated. A 2-minute grace period prevents form failures when the session expires mid-submission. No settings migration required.

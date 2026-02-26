@@ -182,6 +182,11 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 ## Changelog
 
+### 2.6.1
+
+- **Fix: WPGraphQL integration tests** — extract `Gate::check_wpgraphql()` to fix pre-existing CI test regression; no behavioral change in production.
+- **Docs: v2.6.0 documentation update** — FAQ, ROADMAP, developer-reference.md, security-model.md, MANUAL-TESTING.md updated to reflect v2.6.0 features.
+
 ### 2.6.0
 
 - **Login implicitly grants a sudo session** — a successful browser-based login now automatically activates a sudo session. No second challenge required immediately after logging in. Application Password and XML-RPC logins are unaffected.

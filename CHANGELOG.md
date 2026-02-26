@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1
+
+- **Fix: WPGraphQL integration tests now call `check_wpgraphql()` directly** — `Gate::check_wpgraphql( string $body ): ?WP_Error` extracted from `gate_wpgraphql()` so integration tests can exercise the policy logic without WPGraphQL installed or `wp_send_json()`/`exit` side effects. No behavioral change in production. Fixes a pre-existing CI regression introduced in v2.5.1 when WPGraphQL gating moved from `rest_request_before_callbacks` to `graphql_process_http_request`.
+- **Docs: full documentation update for v2.6.0** — FAQ, ROADMAP, readme.txt, readme.md, developer-reference.md, security-model.md, MANUAL-TESTING.md, CLAUDE.md updated to reflect all v2.6.0 features (login grant, password-change gating, grace period).
+- **375 unit tests, 905 assertions. 73 integration tests in CI.**
+
 ## 2.6.0
 
 - **Feature: login implicitly grants a sudo session** — a successful WordPress browser-based login (via `wp_login`) now automatically activates a sudo session. The user just proved their identity via the login form; requiring a second challenge immediately is unnecessary friction. This mirrors the behaviour of Unix `sudo` and GitHub's sudo mode. Application Password and XML-RPC logins are unaffected (`wp_login` does not fire for those). Implemented in `Plugin::grant_session_on_login()`.
