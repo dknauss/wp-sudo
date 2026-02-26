@@ -197,7 +197,7 @@ class Admin {
 					'<h3>' . __( 'Zero-Trust Reauthentication', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'WP Sudo brings zero-trust principles to WordPress admin operations. A valid login session is never sufficient on its own — dangerous operations require explicit identity confirmation every time.', 'wp-sudo' ) . '</p>'
 					. '<p>' . __( 'This is role-agnostic: administrators, editors, and any custom role are all challenged equally. Sessions are time-bounded and non-extendable. WordPress capability checks still run after the gate.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'Browser requests (admin UI, AJAX, REST with cookie auth) get an interactive challenge. Non-interactive entry points (WP-CLI, Cron, XML-RPC, App Passwords) are governed by configurable policies.', 'wp-sudo' ) . '</p>'
+					. '<p>' . __( 'Browser requests (admin UI, AJAX, REST with cookie auth) get an interactive challenge. Non-interactive entry points (WP-CLI, Cron, XML-RPC, App Passwords, WPGraphQL) are governed by configurable policies.', 'wp-sudo' ) . '</p>'
 					. '<h3>' . __( 'Keyboard Shortcut', 'wp-sudo' ) . '</h3>'
 					. '<p>' . __( 'Press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to open the sudo challenge without triggering a gated action first. This is useful when you know you are about to perform several gated actions and want to authenticate once upfront. When a session is already active, the shortcut flashes the admin bar timer.', 'wp-sudo' ) . '</p>',
 			)
