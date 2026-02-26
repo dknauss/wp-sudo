@@ -57,6 +57,12 @@ In **Disabled** mode, all non-cookie REST API requests are rejected regardless o
 
 In **Unrestricted** mode, all operations pass through as if WP Sudo is not installed. No gating checks, no audit logging.
 
+#### WordPress Abilities API (6.9+)
+
+The WordPress Abilities API (`/wp-abilities/v1/`) uses standard WordPress REST authentication — Application Passwords, cookie nonces, and other supported methods. Requests authenticated via Application Password are governed by the **REST API (App Passwords)** policy exactly like any other non-cookie REST request. No special configuration is needed.
+
+In **Disabled** mode, all Abilities API requests via Application Passwords are blocked. In **Limited** mode, ability reads (`GET /run`) and standard executions (`POST /run`) pass through as non-gated operations; to require sudo for a specific destructive ability execution (`DELETE /run`), add a custom REST rule via the `wp_sudo_gated_actions` filter targeting the relevant route. In **Unrestricted** mode, all ability executions pass through.
+
 ### WP-CLI Agents
 
 AI-driven deployment scripts, site management tools, and automation frameworks that operate through WP-CLI are governed by the **WP-CLI** policy setting.

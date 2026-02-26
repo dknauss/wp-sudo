@@ -42,6 +42,10 @@ Each has its own three-tier policy setting: Disabled, Limited (default), or Unre
 
 When the [WPGraphQL](https://wordpress.org/plugins/wp-graphql/) plugin is active, WP Sudo adds its own **WPGraphQL** policy setting with the same three modes: Disabled, Limited (default), and Unrestricted. WPGraphQL gating works at the surface level rather than per-action: in Limited mode, all mutations require an active sudo session while read-only queries always pass through. In Disabled mode, all requests to the endpoint are rejected. WP Sudo detects mutations by inspecting the request body for a `mutation` operation type. WPGraphQL handles its own URL routing, so gating works regardless of how the endpoint is configured.
 
+## What about the WordPress Abilities API?
+
+The [Abilities API](https://developer.wordpress.org/apis/abilities-api/) (introduced in WordPress 6.9) registers its own REST namespace at `/wp-abilities/v1/`. It uses standard WordPress REST authentication, so Application Password–authenticated requests are governed by WP Sudo's **REST API (App Passwords)** policy — no special configuration is needed. In Disabled mode, all Abilities API requests via Application Passwords are blocked. In Limited mode, ability reads and standard executions pass through as non-gated operations; site owners who want to require sudo for specific destructive ability executions can add custom rules via the `wp_sudo_gated_actions` filter.
+
 ## How does session binding work?
 
 When sudo is activated, a cryptographic token is stored in a secure httponly cookie and its hash is saved in user meta. On every gated request, both must match. A stolen session cookie on a different browser will not have a valid sudo session. See [Security Model](security-model.md) for full details.

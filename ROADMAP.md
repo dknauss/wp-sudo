@@ -33,7 +33,7 @@
 - **Grace period (two-tier expiry)** — prevent form failures when sudo expires mid-submission
 
 **Monitoring:**
-- Watch Abilities API (WP 7.0) for destructive abilities that should be gated
+- Abilities API (WordPress 6.9+, `/wp-abilities/v1/`): covered by the existing REST API (App Passwords) policy. Destructive abilities (`DELETE /run`) can be gated with custom `wp_sudo_gated_actions` rules. Document in FAQ and ai-agentic-guidance.md — ✓ done v2.5.1.
 
 ### Medium-term (v2.5–v2.6)
 
