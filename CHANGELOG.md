@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 2.7.0
 
 - **Feature: `wp_sudo_wpgraphql_bypass` filter** — fires in Limited mode before mutation detection. Return `true` to allow a request through without sudo session checks. Solves compatibility with [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication): the JWT `login` mutation is sent by unauthenticated users and was blocked by the default Limited policy, breaking the entire JWT authentication flow. A documented bridge mu-plugin exempts `login` and `refreshJwtAuthToken` mutations while keeping all other mutations gated. The filter does not fire in Disabled or Unrestricted mode.
+- **Fix: WPGraphQL now listed in non-interactive entry points** — the "How Sudo Works" help tab text omitted WPGraphQL from the list of non-interactive surfaces.
 - **379 unit tests, 915 assertions.**
 
 ## 2.6.1

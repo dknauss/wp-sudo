@@ -182,6 +182,11 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 ## Changelog
 
+### 2.7.0
+
+- **`wp_sudo_wpgraphql_bypass` filter** — new filter for WPGraphQL JWT authentication compatibility. Fires in Limited mode before mutation detection; return `true` to exempt specific requests (e.g. JWT login/refresh mutations). See [developer reference](docs/developer-reference.md#wp_sudo_wpgraphql_bypass-filter) for a bridge mu-plugin example.
+- **Fix: WPGraphQL listed in non-interactive entry points** — the "How Sudo Works" help tab now includes WPGraphQL in the list of policy-governed surfaces.
+
 ### 2.6.1
 
 - **Fix: WPGraphQL integration tests** — extract `Gate::check_wpgraphql()` to fix pre-existing CI test regression; no behavioral change in production.

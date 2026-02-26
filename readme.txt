@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0
 Requires PHP:      8.0
-Stable tag:        2.6.1
+Stable tag:        2.7.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -130,6 +130,10 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 
 == Changelog ==
 
+= 2.7.0 =
+* **`wp_sudo_wpgraphql_bypass` filter** — new filter for WPGraphQL JWT authentication compatibility. Fires in Limited mode before mutation detection; return `true` to exempt specific requests (e.g. JWT login/refresh mutations). See developer reference for a bridge mu-plugin example.
+* **Fix: WPGraphQL listed in non-interactive entry points** — the "How Sudo Works" help tab now includes WPGraphQL in the list of policy-governed surfaces.
+
 = 2.6.1 =
 * **Fix: WPGraphQL integration tests** — extract `Gate::check_wpgraphql()` to fix pre-existing CI test regression; no behavioral change in production.
 * **Docs: v2.6.0 documentation update** — FAQ, ROADMAP, developer-reference.md, security-model.md, MANUAL-TESTING.md updated to reflect v2.6.0 features.
@@ -192,6 +196,9 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 See the plugin's `CHANGELOG.md` for all versions.
 
 == Upgrade Notice ==
+
+= 2.7.0 =
+New `wp_sudo_wpgraphql_bypass` filter for JWT authentication compatibility. No settings migration required.
 
 = 2.6.1 =
 No behavioral changes. CI fix and documentation update only.
