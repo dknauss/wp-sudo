@@ -466,7 +466,7 @@ class Admin {
 				array(
 					'label_for'   => Gate::SETTING_WPGRAPHQL_POLICY,
 					'key'         => Gate::SETTING_WPGRAPHQL_POLICY,
-					'description' => __( 'Disabled blocks all WPGraphQL requests. Limited (default) blocks only mutations without an active sudo session; read-only queries pass through. Unrestricted allows all GraphQL operations. Default: Limited.', 'wp-sudo' ),
+					'description' => __( 'Controls the WPGraphQL endpoint (/graphql by default). Disabled blocks all GraphQL requests. Limited blocks mutations without an active sudo session; queries always pass through. Unrestricted allows everything. Use the wp_sudo_wpgraphql_route filter to override the endpoint. Default: Limited.', 'wp-sudo' ),
 				)
 			);
 		}
@@ -707,7 +707,7 @@ class Admin {
 		?>
 		<h2><?php esc_html_e( 'Gated Actions', 'wp-sudo' ); ?></h2>
 		<p class="description">
-			<?php esc_html_e( 'The following actions require reauthentication before execution. The surfaces shown (Admin, AJAX, REST) reflect interactive entry points where WordPress provides APIs. All gated actions are also protected on non-interactive surfaces (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings above. Developers can add custom rules via the wp_sudo_gated_actions filter.', 'wp-sudo' ); ?>
+			<?php esc_html_e( 'The following actions require reauthentication before execution. The surfaces shown (Admin, AJAX, REST) reflect interactive entry points where WordPress provides APIs. All gated actions are also protected on non-interactive surfaces (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings above. WPGraphQL is governed separately at the surface level — when the WPGraphQL policy is Limited, all mutations require an active sudo session regardless of which operation is being performed. Developers can add custom rules via the wp_sudo_gated_actions filter.', 'wp-sudo' ); ?>
 		</p>
 		<table class="widefat striped">
 			<caption class="screen-reader-text"><?php esc_html_e( 'Gated actions requiring reauthentication, grouped by category', 'wp-sudo' ); ?></caption>
