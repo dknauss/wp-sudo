@@ -894,6 +894,49 @@ expected and unrelated to WP Sudo.)
 
 > **Cleanup:** Restore the WPGraphQL policy to **Limited** after testing.
 
+### 16.5 Bypass Filter — JWT Login Mutation
+
+> Requires the [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication) plugin to be active and configured with a `GRAPHQL_JWT_AUTH_SECRET_KEY` constant.
+
+1. Set WPGraphQL policy to **Limited** (the default).
+2. **Without** the bypass filter, send a JWT login mutation:
+
+```bash
+curl -sk -H "Content-Type: application/json" \
+  -X POST "YOUR_SITE_URL/graphql" \
+  -d '{"query":"mutation { login(input: {username: \"admin\", password: \"admin\"}) { authToken } }"}'
+```
+
+**Expected:** HTTP 403 with `sudo_blocked` — the login mutation is blocked because the request is unauthenticated.
+
+3. Add the bypass filter mu-plugin (see `docs/developer-reference.md` for the full example), then repeat the same request.
+
+**Expected:** HTTP 200 with a valid `authToken` in the response. The `login` mutation passes through because the filter exempts it.
+
+4. Use the returned `authToken` to send an authenticated mutation:
+
+```bash
+curl -sk -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -X POST "YOUR_SITE_URL/graphql" \
+  -d '{"query":"mutation { __typename }"}'
+```
+
+**Expected:** HTTP 403 with `sudo_blocked` — the user is authenticated (JWT sets `get_current_user_id()`), but has no sudo session. Non-exempt mutations remain gated.
+
+5. Send a query with the same token:
+
+```bash
+curl -sk -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_AUTH_TOKEN" \
+  -X POST "YOUR_SITE_URL/graphql" \
+  -d '{"query":"{ viewer { name } }"}'
+```
+
+**Expected:** HTTP 200 with the authenticated user's name. Queries always pass through in Limited mode.
+
+> **Cleanup:** Restore the WPGraphQL policy to **Limited** after testing. Remove the bypass filter mu-plugin if it was only for testing.
+
 ---
 
 ## 17. v2.6.0 Feature Verification
