@@ -767,6 +767,13 @@ class Admin {
 					endforeach;
 					?>
 				<?php endforeach; ?>
+			<?php if ( function_exists( 'graphql' ) ) : ?>
+				<tr>
+					<td><?php esc_html_e( 'GraphQL', 'wp-sudo' ); ?></td>
+					<td><?php esc_html_e( 'All mutations (surface-level policy — see WPGraphQL setting above)', 'wp-sudo' ); ?></td>
+					<td><?php esc_html_e( 'GraphQL', 'wp-sudo' ); ?></td>
+				</tr>
+			<?php endif; ?>
 			</tbody>
 		</table>
 		<?php

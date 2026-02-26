@@ -589,6 +589,56 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'REST', $output );
 	}
 
+	public function test_render_gated_actions_table_shows_graphql_row_when_wpgraphql_active(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html_e' )->alias(
+			function ( $text ) {
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'function_exists' )->alias(
+			function ( string $name ): bool {
+				return 'graphql' === $name;
+			}
+		);
+
+		$admin = new Admin();
+
+		ob_start();
+		$admin->render_gated_actions_table();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'GraphQL', $output );
+		$this->assertStringContainsString( 'All mutations', $output );
+	}
+
+	public function test_render_gated_actions_table_hides_graphql_row_when_wpgraphql_inactive(): void {
+		// graphql() is not defined in the test environment, so function_exists('graphql')
+		// returns false naturally — no mocking required.
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html_e' )->alias(
+			function ( $text ) {
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		$admin = new Admin();
+
+		ob_start();
+		$admin->render_gated_actions_table();
+		$output = ob_get_clean();
+
+		// "All mutations" only appears in the conditional GraphQL table row —
+		// the description paragraph uses lowercase "all mutations".
+		$this->assertStringNotContainsString( 'All mutations', $output );
+	}
+
 	// -----------------------------------------------------------------
 	// MU-plugin AJAX constants
 	// -----------------------------------------------------------------

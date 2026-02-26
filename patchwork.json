@@ -3,6 +3,7 @@
         "setcookie",
         "header",
         "hash_equals",
-        "headers_sent"
+        "headers_sent",
+        "function_exists"
     ]
 }
