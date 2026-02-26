@@ -1,6 +1,6 @@
 # WP Sudo Manual Testing Guide
 
-Manual verification tests for WP Sudo v2.5.0+. These complement the
+Manual verification tests for WP Sudo v2.5.1+. These complement the
 automated PHPUnit suite (`composer test`) and should be run against a
 real WordPress environment before each release.
 
