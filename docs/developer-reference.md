@@ -81,3 +81,13 @@ Static analysis: `composer analyse` runs PHPStan level 6 (use `--memory-limit=1G
 Code style: `composer lint` (PHPCS, WordPress-Extra + WordPress-Docs + WordPressVIPMinimum rulesets). Auto-fix with `composer lint:fix`.
 
 Manual testing: see [`tests/MANUAL-TESTING.md`](../tests/MANUAL-TESTING.md) for step-by-step verification procedures against a real WordPress environment.
+
+## WPGraphQL Surface
+
+WP Sudo adds WPGraphQL as a fifth non-interactive surface alongside WP-CLI, Cron, XML-RPC, and Application Passwords. The policy setting key is `wpgraphql_policy` (stored in `wp_sudo_settings`). The three-tier model applies: Disabled, Limited (default), Unrestricted.
+
+**How gating works.** WPGraphQL does not use the WordPress REST API pipeline — it dispatches requests via rewrite rules at `parse_request`. WP Sudo hooks into WPGraphQL's own `graphql_process_http_request` action, which fires after authentication but before body reading, regardless of how the endpoint is named or configured. In Limited mode, requests whose POST body contains the string `mutation` are blocked unless the requesting user has an active sudo session.
+
+**Headless deployments.** The Limited policy requires both a recognized WordPress user and an active sudo session cookie. For frontends running at a different origin, this means mutations will be blocked in most configurations — the sudo session cookie is browser-bound and can only be created via the WordPress admin UI. See [WPGraphQL: Headless Authentication Boundary](security-model.md#wpgraphql-headless-authentication-boundary) in the security model for full details and per-deployment policy recommendations.
+
+**Persisted queries.** The `str_contains($body, 'mutation')` heuristic does not detect mutations sent via WPGraphQL's Persisted Queries extension. Use the Disabled policy if mutation blocking is a hard security requirement in a persisted-query environment.

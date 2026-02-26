@@ -44,9 +44,35 @@ HTTP POST /graphql
 
 WP Sudo adds WPGraphQL as a fifth non-interactive surface with the same three-tier policy model (Disabled / Limited / Unrestricted) as WP-CLI, Cron, XML-RPC, and Application Passwords. The default is **Limited**.
 
-**Mutation detection heuristic.** In Limited mode, WP Sudo checks whether the POST body contains the word `mutation`. This is a deliberately blunt heuristic — it cannot false-negative on an actual GraphQL mutation, but it may false-positive on a query that mentions `mutation` in a string argument. The tradeoff is intentional: safe to over-block, impossible to under-block, and independent of WPGraphQL's schema.
+**Mutation detection heuristic.** In Limited mode, WP Sudo checks whether the POST body contains the word `mutation`. This is a deliberately blunt heuristic — it cannot false-negative on a standard inline GraphQL mutation, but it may false-positive on a query that mentions `mutation` in a string argument. The tradeoff is intentional: safe to over-block (for inline queries), and independent of WPGraphQL's schema. **Exception: persisted queries.** When using the WPGraphQL Persisted Queries extension (or Automatic Persisted Queries), the POST body contains only a query ID or hash — the word `mutation` never appears. The heuristic cannot detect these. If your environment uses persisted queries and mutation gating is a security requirement, use the **Disabled** policy rather than relying on Limited.
 
 **Scope.** WPGraphQL core exposes `deleteUser`, `updateUser`, `createUser`, and related mutations that map directly to gated operations. Third-party WPGraphQL extensions may add further mutations. The surface-level policy gates all mutations uniformly without requiring a schema-coupled rule set.
+
+### WPGraphQL: Headless Authentication Boundary
+
+The **Limited** policy has a constraint that does not apply to the other surfaces:
+a sudo session can only be created from the WordPress admin interface, and it is
+bound to the specific browser that completed the challenge.
+
+For a mutation to pass through in Limited mode, two conditions must be met simultaneously:
+
+1. **WordPress must identify the requesting user** — `get_current_user_id()` must return a non-zero value. This requires the request to carry valid WordPress authentication: a session cookie (browser-based admin access), an Application Password (`Authorization` header), or a JWT token if a JWT plugin is active.
+
+2. **The sudo session cookie must be present** — the `_wp_sudo_token` cookie must accompany the request and match the token hash in user meta. This cookie is only set when the user completes a sudo challenge in the WordPress admin UI.
+
+**Why this matters for headless deployments.** A frontend running at a different origin from the WordPress backend (e.g. a SvelteKit app at `localhost:5173` calling WordPress at `site.wp.local`) cannot automatically share the sudo session cookie. Cross-origin requests do not carry cookies unless CORS is configured with `Access-Control-Allow-Credentials: true` and a matching origin, and the frontend fetch uses `credentials: 'include'`. Without this, `get_current_user_id()` returns `0` and the sudo session cookie is absent — mutations are blocked by the Limited policy regardless of whether the frontend user is "logged in" from the application's perspective.
+
+In practice, for most headless deployments, **Limited behaves identically to Disabled**: all mutations are blocked. The difference only becomes relevant when a user is simultaneously accessing the WordPress admin in the same browser with an active sudo session, and the frontend is configured to share credentials cross-origin.
+
+**Recommended policy by deployment type:**
+
+| Deployment | Recommended policy |
+|---|---|
+| Public-facing headless app (ratings, comments, contact forms) | Unrestricted |
+| Internal admin tool with concurrent wp-admin access, same browser | Limited |
+| Block all GraphQL mutations unconditionally | Disabled |
+
+For headless deployments that need to gate mutations by authentication — require a WordPress user but not a full sudo session — the recommended approach is to use Application Password authentication on the GraphQL endpoint and set the global REST API (App Passwords) policy to Limited. Unauthenticated requests will still be blocked by the WPGraphQL Limited policy (since `get_current_user_id()` = 0), while authenticated app-password requests are governed by the REST API policy.
 
 ## Environmental Considerations
 
