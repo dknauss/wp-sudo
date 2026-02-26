@@ -11,6 +11,7 @@
 namespace WP_Sudo\Tests\Unit;
 
 use Brain\Monkey\Actions;
+use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
 use WP_Sudo\Gate;
 use WP_Sudo\Request_Stash;
@@ -237,5 +238,64 @@ class WpGraphQLGatingTest extends TestCase {
 		Functions\expect( 'wp_send_json' )->never();
 
 		$this->gate->gate_wpgraphql();
+	}
+
+	// ── Bypass filter ─────────────────────────────────────────────────
+
+	private const MUTATION_BODY = '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}';
+	private const QUERY_BODY    = '{"query":"{ posts { nodes { id title } } }"}';
+
+	/** @test */
+	public function test_limited_bypass_filter_passes_mutation_when_true(): void {
+		Functions\when( 'get_option' )->justReturn( array() ); // limited default
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( false ); // no session
+
+		Filters\expectApplied( 'wp_sudo_wpgraphql_bypass' )
+			->once()
+			->andReturn( true );
+
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		$this->assertNull( $result );
+	}
+
+	/** @test */
+	public function test_limited_bypass_filter_default_still_blocks_mutation(): void {
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( false );
+
+		Filters\expectApplied( 'wp_sudo_wpgraphql_bypass' )
+			->once()
+			->andReturn( false );
+
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'sudo_blocked', $result->get_error_code() );
+	}
+
+	/** @test */
+	public function test_disabled_does_not_fire_bypass_filter(): void {
+		$this->with_policy( Gate::POLICY_DISABLED );
+
+		Filters\expectApplied( 'wp_sudo_wpgraphql_bypass' )->never();
+
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
+	}
+
+	/** @test */
+	public function test_unrestricted_does_not_fire_bypass_filter(): void {
+		$this->with_policy( Gate::POLICY_UNRESTRICTED );
+
+		Filters\expectApplied( 'wp_sudo_wpgraphql_bypass' )->never();
+
+		$result = $this->gate->check_wpgraphql( self::QUERY_BODY );
+
+		$this->assertNull( $result );
 	}
 }

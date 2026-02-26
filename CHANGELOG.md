@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Feature: `wp_sudo_wpgraphql_bypass` filter** — fires in Limited mode before mutation detection. Return `true` to allow a request through without sudo session checks. Solves compatibility with [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication): the JWT `login` mutation is sent by unauthenticated users and was blocked by the default Limited policy, breaking the entire JWT authentication flow. A documented bridge mu-plugin exempts `login` and `refreshJwtAuthToken` mutations while keeping all other mutations gated. The filter does not fire in Disabled or Unrestricted mode.
+- **379 unit tests, 915 assertions.**
+
 ## 2.6.1
 
 - **Fix: WPGraphQL integration tests now call `check_wpgraphql()` directly** — `Gate::check_wpgraphql( string $body ): ?WP_Error` extracted from `gate_wpgraphql()` so integration tests can exercise the policy logic without WPGraphQL installed or `wp_send_json()`/`exit` side effects. No behavioral change in production. Fixes a pre-existing CI regression introduced in v2.5.1 when WPGraphQL gating moved from `rest_request_before_callbacks` to `graphql_process_http_request`.

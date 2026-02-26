@@ -217,4 +217,58 @@ class WpGraphQLGatingTest extends TestCase {
 
 		$this->assertSame( Gate::POLICY_LIMITED, $policy );
 	}
+
+	// ── Bypass filter ─────────────────────────────────────────────────
+
+	/** @test */
+	public function test_bypass_filter_exempts_mutation_in_limited_mode(): void {
+		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
+		// No sudo session — would normally be blocked.
+
+		add_filter( 'wp_sudo_wpgraphql_bypass', '__return_true' );
+
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		$this->assertNull( $result );
+
+		remove_filter( 'wp_sudo_wpgraphql_bypass', '__return_true' );
+	}
+
+	/** @test */
+	public function test_bypass_filter_does_not_affect_disabled_mode(): void {
+		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
+		$this->set_policy( Gate::POLICY_DISABLED );
+
+		add_filter( 'wp_sudo_wpgraphql_bypass', '__return_true' );
+
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		// Disabled policy returns before the filter fires — still blocked.
+		$this->assertWPError( $result );
+		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
+
+		remove_filter( 'wp_sudo_wpgraphql_bypass', '__return_true' );
+	}
+
+	/** @test */
+	public function test_bypass_filter_receives_correct_body(): void {
+		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
+
+		$captured_body = null;
+		$callback      = static function ( bool $bypass, string $body ) use ( &$captured_body ): bool {
+			$captured_body = $body;
+			return true; // bypass so test doesn't need a session.
+		};
+
+		add_filter( 'wp_sudo_wpgraphql_bypass', $callback, 10, 2 );
+
+		$this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		$this->assertSame( self::MUTATION_BODY, $captured_body );
+
+		remove_filter( 'wp_sudo_wpgraphql_bypass', $callback );
+	}
 }

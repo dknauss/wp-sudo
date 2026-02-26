@@ -44,6 +44,26 @@ Each has its own three-tier policy setting: Disabled, Limited (default), or Unre
 
 When the [WPGraphQL](https://wordpress.org/plugins/wp-graphql/) plugin is active, WP Sudo adds its own **WPGraphQL** policy setting with the same three modes: Disabled, Limited (default), and Unrestricted. WPGraphQL gating works at the surface level rather than per-action: in Limited mode, all mutations require an active sudo session while read-only queries always pass through. In Disabled mode, all requests to the endpoint are rejected. WP Sudo detects mutations by inspecting the request body for a `mutation` operation type. WPGraphQL handles its own URL routing, so gating works regardless of how the endpoint is configured.
 
+## Does WP Sudo work with WPGraphQL JWT Authentication?
+
+The [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication) plugin is the standard way to authenticate WPGraphQL requests using JSON Web Tokens. With WP Sudo's default **Limited** policy, two issues arise: (1) the JWT `login` mutation is sent by unauthenticated users who cannot have a sudo session, so it is blocked; (2) JWT-authenticated mutations fail because JWT requests do not carry the browser-bound sudo session cookie. The result is that Limited mode breaks the JWT authentication flow entirely.
+
+**Solution:** Use the `wp_sudo_wpgraphql_bypass` filter (added in v2.7.0) to exempt authentication mutations. Add this to an mu-plugin:
+
+```php
+add_filter( 'wp_sudo_wpgraphql_bypass', function ( bool $bypass, string $body ): bool {
+    if ( $bypass ) {
+        return $bypass;
+    }
+    if ( str_contains( $body, 'login' ) || str_contains( $body, 'refreshJwtAuthToken' ) ) {
+        return true;
+    }
+    return false;
+}, 10, 2 );
+```
+
+This exempts only the `login` and `refreshJwtAuthToken` mutations — all other mutations remain gated. Alternatively, set the policy to **Unrestricted** if you do not need mutation-level gating. See the [developer reference](docs/developer-reference.md#wp_sudo_wpgraphql_bypass-filter) for full details.
+
 ## What about the WordPress Abilities API?
 
 The [Abilities API](https://developer.wordpress.org/apis/abilities-api/) (introduced in WordPress 6.9) registers its own REST namespace at `/wp-abilities/v1/`. It uses standard WordPress REST authentication, so Application Password–authenticated requests are governed by WP Sudo's **REST API (App Passwords)** policy — no special configuration is needed. In Disabled mode, all Abilities API requests via Application Passwords are blocked. In Limited mode, ability reads and standard executions pass through as non-gated operations; site owners who want to require sudo for specific destructive ability executions can add custom rules via the `wp_sudo_gated_actions` filter.

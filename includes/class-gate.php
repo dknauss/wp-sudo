@@ -893,6 +893,29 @@ class Gate {
 		}
 
 		// Limited: block mutations without an active sudo session.
+
+		/**
+		 * Filter whether to bypass WPGraphQL gating for this request.
+		 *
+		 * Fires in Limited mode before mutation detection. Return true to
+		 * allow the request through without sudo session checks. Useful for
+		 * exempting authentication mutations (e.g. JWT login/refresh) that
+		 * must work without a sudo session.
+		 *
+		 * Does NOT fire in Disabled or Unrestricted mode — those policies
+		 * return before this point.
+		 *
+		 * @since 2.7.0
+		 *
+		 * @param bool   $bypass Whether to bypass gating. Default false.
+		 * @param string $body   The raw GraphQL request body.
+		 */
+		$bypass = (bool) apply_filters( 'wp_sudo_wpgraphql_bypass', false, $body );
+
+		if ( $bypass ) {
+			return null;
+		}
+
 		if ( ! str_contains( $body, 'mutation' ) ) {
 			return null; // Not a mutation — pass through.
 		}

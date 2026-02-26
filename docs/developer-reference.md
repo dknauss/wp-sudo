@@ -113,3 +113,33 @@ WP Sudo adds WPGraphQL as a fifth non-interactive surface alongside WP-CLI, Cron
 **Headless deployments.** The Limited policy requires both a recognized WordPress user and an active sudo session cookie. For frontends running at a different origin, this means mutations will be blocked in most configurations — the sudo session cookie is browser-bound and can only be created via the WordPress admin UI. See [WPGraphQL: Headless Authentication Boundary](security-model.md#wpgraphql-headless-authentication-boundary) in the security model for full details and per-deployment policy recommendations.
 
 **Persisted queries.** The `str_contains($body, 'mutation')` heuristic does not detect mutations sent via WPGraphQL's Persisted Queries extension. Use the Disabled policy if mutation blocking is a hard security requirement in a persisted-query environment.
+
+### `wp_sudo_wpgraphql_bypass` filter
+
+Fires in Limited mode before mutation detection. Return `true` to allow the request through without sudo session checks. Does **not** fire in Disabled or Unrestricted mode — those policies return before this point.
+
+```php
+/**
+ * @param bool   $bypass Whether to bypass gating. Default false.
+ * @param string $body   The raw GraphQL request body.
+ * @return bool
+ */
+apply_filters( 'wp_sudo_wpgraphql_bypass', false, $body );
+```
+
+**JWT authentication example.** The [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication) plugin adds `login` and `refreshJwtAuthToken` mutations. These must bypass WP Sudo because they *are* the authentication mechanism — the `login` mutation is sent by unauthenticated users who cannot have a sudo session. Add this to an mu-plugin or theme:
+
+```php
+add_filter( 'wp_sudo_wpgraphql_bypass', function ( bool $bypass, string $body ): bool {
+    if ( $bypass ) {
+        return $bypass;
+    }
+    // Exempt JWT authentication mutations only.
+    if ( str_contains( $body, 'login' ) || str_contains( $body, 'refreshJwtAuthToken' ) ) {
+        return true;
+    }
+    return false;
+}, 10, 2 );
+```
+
+This uses the same `str_contains()` heuristic as the mutation detection. For more precise matching, use `preg_match()` to extract the mutation operation name from the body.
