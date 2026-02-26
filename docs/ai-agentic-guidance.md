@@ -2,7 +2,7 @@
 
 WP Sudo provides action-gated reauthentication for WordPress. This document explains how AI assistants, automated agents, and agentic toolchains interact with WP Sudo's policies -- and how to configure the plugin for common AI-driven workflows.
 
-The key insight: **AI tools do not introduce new WordPress entry points.** They use existing ones -- REST API, WP-CLI, browser-based cookie authentication -- all of which WP Sudo already governs through its configurable three-tier policies.
+The key insight: **AI tools do not introduce new WordPress entry points.** They use existing ones -- REST API, WPGraphQL, WP-CLI, browser-based cookie authentication -- all of which WP Sudo already governs through its configurable three-tier policies.
 
 ---
 
@@ -12,6 +12,7 @@ The key insight: **AI tools do not introduce new WordPress entry points.** They 
   - [Browser-Based AI](#browser-based-ai)
   - [Headless AI Agents](#headless-ai-agents)
   - [WP-CLI Agents](#wp-cli-agents)
+  - [WPGraphQL Agents](#wpgraphql-agents)
 - [Recommended Policy Configurations](#recommended-policy-configurations)
   - [Conservative (Default)](#conservative-default)
   - [AI Content Workflow](#ai-content-workflow)
@@ -74,13 +75,27 @@ In **Limited** mode:
 
 In **Disabled** mode, all WP-CLI commands are blocked immediately at `init`.
 
+### WPGraphQL Agents
+
+Headless frontends, decoupled CMS setups, and AI tools that query WordPress through WPGraphQL are governed by the **WPGraphQL** policy setting. WPGraphQL gating operates at the surface level rather than the per-action rule level: when the policy is Limited, **all mutations** require an active sudo session regardless of which mutation is being performed. Read-only queries are never blocked.
+
+| Mode | Queries | Mutations |
+|---|---|---|
+| **Disabled** | Blocked | Blocked |
+| **Limited** (default) | Pass through | Blocked |
+| **Unrestricted** | Pass through | Pass through |
+
+WP Sudo detects mutations using a heuristic: any request to the WPGraphQL endpoint (`/graphql` by default) whose body contains a `mutation` operation type is treated as a mutation. The endpoint pattern can be overridden with the `wp_sudo_wpgraphql_route` filter.
+
+In **Limited** mode, mutation requests without an active sudo session receive a GraphQL-structured error response (HTTP 200 with an `errors` array). In **Disabled** mode, all requests to the endpoint are rejected with HTTP 403.
+
 ---
 
 ## Recommended Policy Configurations
 
 ### Conservative (Default)
 
-All four policies set to **Limited**:
+All five policies set to **Limited**:
 
 | Surface | Policy |
 |---|---|
@@ -88,6 +103,7 @@ All four policies set to **Limited**:
 | WP-CLI | Limited |
 | Cron | Limited |
 | XML-RPC | Limited |
+| WPGraphQL | Limited |
 
 AI agents can perform content operations (create posts, upload media, read data) but cannot make structural changes (install plugins, delete users, modify critical settings). This is the default configuration and is appropriate for most sites.
 
@@ -107,7 +123,7 @@ For CI/CD pipelines or deployment bots that need to activate plugins, switch the
 
 ### Lockdown
 
-All four policies set to **Disabled**:
+All five policies set to **Disabled**:
 
 | Surface | Policy |
 |---|---|
@@ -115,6 +131,7 @@ All four policies set to **Disabled**:
 | WP-CLI | Disabled |
 | Cron | Disabled |
 | XML-RPC | Disabled |
+| WPGraphQL | Disabled |
 
 Only browser-based operations with interactive reauthentication are permitted. All non-interactive entry points are shut off entirely. This is appropriate for sites that do not use any headless automation and want maximum protection against compromised credentials.
 
@@ -214,7 +231,7 @@ All blocked operations on non-interactive surfaces fire the `wp_sudo_action_bloc
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
 ```
 
-The `$surface` parameter identifies the entry point: `rest_app_password`, `cli`, `cron`, or `xmlrpc`. The `$rule_id` identifies the specific gated action (e.g., `plugin.activate`, `user.delete`, `options.critical`).
+The `$surface` parameter identifies the entry point: `rest_app_password`, `cli`, `cron`, `xmlrpc`, or `wpgraphql`. The `$rule_id` identifies the specific gated action (e.g., `plugin.activate`, `user.delete`, `options.critical`). For WPGraphQL, the `$rule_id` is `wpgraphql.mutation` and the hook fires once per blocked mutation request.
 
 Logging plugins such as [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) or [Stream](https://wordpress.org/plugins/stream/) can subscribe to this hook to create a searchable audit record of what AI tools and automated agents attempted and what was blocked.
 

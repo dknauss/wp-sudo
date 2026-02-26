@@ -46,6 +46,7 @@ do_action( 'wp_sudo_reauth_failed', int $user_id, int $attempts );
 do_action( 'wp_sudo_lockout', int $user_id, int $attempts );
 
 // Action gating.
+// $surface values: 'admin', 'ajax', 'rest_app_password', 'cli', 'cron', 'xmlrpc', 'wpgraphql'
 do_action( 'wp_sudo_action_gated', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_allowed', int $user_id, string $rule_id, string $surface );
@@ -60,6 +61,7 @@ do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 | Filter | Description |
 |---|---|
 | `wp_sudo_gated_actions` | Add or modify gated action rules. |
+| `wp_sudo_wpgraphql_route` | Override the WPGraphQL endpoint route pattern used for mutation detection (default: `#^/graphql#`). |
 | `wp_sudo_two_factor_window` | 2FA verification window in seconds (default: 300). |
 | `wp_sudo_requires_two_factor` | Whether a user needs 2FA for sudo (for third-party 2FA plugins). |
 | `wp_sudo_validate_two_factor` | Validate a 2FA code (for third-party 2FA plugins). |

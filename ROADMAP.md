@@ -25,7 +25,7 @@
 ### Immediate (Blocking WP 7.0 GA — April 9, 2026)
 - **Update "Tested up to"** in readme files when WordPress 7.0 ships
 
-### Short-term (v2.5 — High Priority)
+### Short-term (v2.5.x / v2.6 — High Priority)
 
 **Core Design Features:**
 - **Login grants sudo session** — user just authenticated, no need to challenge again immediately
@@ -72,8 +72,8 @@
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.4.1):
-- **349 unit tests**, 863 assertions, across 10 test files (Brain\Monkey mocks)
+Current project state (as of v2.5.0):
+- **366 unit tests**, 892 assertions, across 12 test files (Brain\Monkey mocks)
 - **73 integration tests** across 11 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.1–8.4, WordPress latest + trunk, single-site + multisite
 - WordPress 7.0 Beta 1 tested (February 19, 2026); GA is April 9, 2026
@@ -461,6 +461,7 @@ fully implemented in WP Sudo v2.3.x:
 - 9 audit hooks for external logging
 - Proactive session-only authentication (no pending action required)
 - `unfiltered_html` capability tamper detection
+- WPGraphQL surface gating — three-tier policy for GraphQL mutations, mutation detection heuristic, `wp_sudo_wpgraphql_route` filter (v2.5.0)
 
 ### Features to implement
 
@@ -521,7 +522,6 @@ dispatch for SSO providers in the challenge flow. Would need a provider interfac
 | `sudo-{$cap}` capability wrapper | Backward-incompatible on older WP versions, conflates authentication state with role capabilities. |
 | Process-scoped tokens (UAC style) | No session persistence per HTTP request. The session model is correct for web. |
 | Assumed roles / role-switching | Facilitating Editor-by-default → assume-Admin is a different product concern, closer to User Switching. Out of scope. |
-| GraphQL surface | No core WP surface. Third-party plugins can use `wp_sudo_gated_actions` filter. |
 | Require sudo to access Network Admin | Low value relative to complexity. Gate specific destructive actions instead. |
 
 ### Relationship to other roadmap sections
