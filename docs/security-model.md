@@ -21,6 +21,27 @@ WP Sudo is a **hook-based interception layer**. It operates within WordPress's p
 
 WPGraphQL registers its endpoint via WordPress rewrite rules and dispatches requests at the `parse_request` hook — it does not use the WordPress REST API pipeline. WordPress's standard authentication still applies — cookies, nonces, and Application Passwords are valid. WP Sudo hooks into WPGraphQL's own `graphql_process_http_request` action, which fires after authentication but before body reading, regardless of how the endpoint is named or configured.
 
+```
+HTTP POST /graphql
+        │
+        ▼  parse_request (WPGraphQL Router)
+        │
+        ▼  graphql_process_http_request  ◄── WP Sudo intercepts here
+        │  (after auth validation, before body read)
+        │  Policy check:
+        │    Disabled     → wp_send_json(sudo_disabled, 403) + exit
+        │    Limited+mutation, no session → wp_send_json(sudo_blocked, 403) + exit
+        │    otherwise    → pass through
+        │
+        ▼  new Request() — php://input read
+        │
+        ▼  execute_http() — GraphQL schema execution
+        │
+        ▼  graphql_process_http_request_response
+        │
+        ▼  HTTP Response
+```
+
 WP Sudo adds WPGraphQL as a fifth non-interactive surface with the same three-tier policy model (Disabled / Limited / Unrestricted) as WP-CLI, Cron, XML-RPC, and Application Passwords. The default is **Limited**.
 
 **Mutation detection heuristic.** In Limited mode, WP Sudo checks whether the POST body contains the word `mutation`. This is a deliberately blunt heuristic — it cannot false-negative on an actual GraphQL mutation, but it may false-positive on a query that mentions `mutation` in a string argument. The tradeoff is intentional: safe to over-block, impossible to under-block, and independent of WPGraphQL's schema.

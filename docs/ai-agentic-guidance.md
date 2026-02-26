@@ -231,7 +231,7 @@ All blocked operations on non-interactive surfaces fire the `wp_sudo_action_bloc
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
 ```
 
-The `$surface` parameter identifies the entry point: `rest_app_password`, `cli`, `cron`, `xmlrpc`, or `wpgraphql`. The `$rule_id` identifies the specific gated action (e.g., `plugin.activate`, `user.delete`, `options.critical`). For WPGraphQL, the `$rule_id` is `wpgraphql.mutation` and the hook fires once per blocked mutation request.
+The `$surface` parameter identifies the entry point: `rest_app_password`, `cli`, `cron`, `xmlrpc`, or `wpgraphql`. The `$rule_id` identifies the specific gated action (e.g., `plugin.activate`, `user.delete`, `options.critical`). For WPGraphQL, the `$rule_id` is `wpgraphql` and the hook fires once per blocked mutation request.
 
 Logging plugins such as [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) or [Stream](https://wordpress.org/plugins/stream/) can subscribe to this hook to create a searchable audit record of what AI tools and automated agents attempted and what was blocked.
 
