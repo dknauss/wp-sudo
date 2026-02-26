@@ -1,6 +1,6 @@
 # WP Sudo Manual Testing Guide
 
-Manual verification tests for WP Sudo v2.3.1+. These complement the
+Manual verification tests for WP Sudo v2.5.0+. These complement the
 automated PHPUnit suite (`composer test`) and should be run against a
 real WordPress environment before each release.
 
@@ -515,8 +515,9 @@ All scheduled events run as if WP Sudo is not installed.
 ### 9.1 Three-Option Policy Dropdowns
 
 1. Go to **Settings > Sudo**.
-2. **Expected:** Four policy fields, each with three options: Disabled,
-   Limited (default), Unrestricted.
+2. **Expected:** Five policy fields, each with three options: Disabled,
+   Limited (default), Unrestricted. The fifth (WPGraphQL) is visible only
+   when WPGraphQL is active.
 3. Change a policy, save, reload.
 4. **Expected:** The saved value persists.
 
@@ -530,16 +531,16 @@ All scheduled events run as if WP Sudo is not installed.
 ### 9.3 Help Tabs
 
 1. Click the **Help** button (top-right of Settings > Sudo).
-2. **Expected:** 8 help tabs: How Sudo Works, Settings, Security
-   Features, Security Model, Environment, Recommended Plugins,
-   Extending, Audit Hooks. The Settings tab describes the three policy
-   modes and per-app-password policies.
+2. **Expected:** 10 help tabs: How Sudo Works, Session & Policies,
+   App Passwords, MU-Plugin, Security Features, Security Model,
+   Environment, Recommended Plugins, Extending, Audit Hooks.
 
 ### 9.4 Gated Actions Table
 
 1. Scroll down on Settings > Sudo.
-2. **Expected:** A table listing all 29 gated actions grouped by
-   category, showing which surfaces each action covers.
+2. **Expected:** A table listing all 28 gated rules grouped by
+   category, showing which surfaces each action covers. When WPGraphQL
+   is active, an additional GraphQL row appears at the bottom of the table.
 
 ### 9.5 MU-Plugin Toggle
 
@@ -559,7 +560,7 @@ All scheduled events run as if WP Sudo is not installed.
 
 ### 10.1 All Limited or Disabled
 
-- Set all four policies to Limited (or Disabled).
+- Set all five policies to Limited (or Disabled).
 - **Expected:** Status is **Good** (green/blue shield).
 
 ### 10.2 Any Unrestricted
@@ -790,3 +791,78 @@ admin UI renders correctly under the WP 7.0 admin visual refresh (Trac #64308).
    - Inline `color:#787c82; cursor:default` renders correctly.
    - No conflict with new row-action hover styles from the admin refresh.
 3. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61698, Studio)
+
+---
+
+## 16. WPGraphQL Surface Policy
+
+> Requires the [WPGraphQL](https://wordpress.org/plugins/wp-graphql/) plugin to be
+> active. If WPGraphQL is not installed, skip this section.
+
+WPGraphQL gating is **surface-level** (not per-action): in Limited mode, all
+mutations are blocked regardless of which operation they perform. Queries always
+pass through. The endpoint defaults to `/graphql`; see the `wp_sudo_wpgraphql_route`
+filter to override it.
+
+For these tests, use an Application Password for authentication. In the `curl`
+commands below, replace `YOUR_SITE_URL` and `YOUR_USERNAME:YOUR_APP_PASS`
+accordingly (strip spaces from the application password).
+
+### 16.1 Limited (Default) — Query passes through
+
+Ensure WPGraphQL policy is set to **Limited** (the default), then:
+
+```bash
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -H "Content-Type: application/json" \
+  -X POST "YOUR_SITE_URL/graphql" \
+  -d '{"query":"{ __typename }"}'
+```
+
+**Expected:** HTTP 200 with a valid GraphQL response body (e.g.
+`{"data":{"__typename":"RootQuery"}}`). The query is not blocked.
+
+### 16.2 Limited — Mutation blocked (no sudo session)
+
+With the policy still on **Limited** and **no active sudo session**:
+
+```bash
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -H "Content-Type: application/json" \
+  -X POST "YOUR_SITE_URL/graphql" \
+  -d '{"query":"mutation { __typename }"}'
+```
+
+**Expected:** HTTP 403 with a `sudo_blocked` error:
+
+```json
+{"code":"sudo_blocked","message":"This GraphQL mutation requires sudo. Activate a sudo session and try again.","data":{"status":403}}
+```
+
+### 16.3 Disabled — All requests blocked
+
+Set WPGraphQL policy to **Disabled** in Settings > Sudo, then:
+
+```bash
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -H "Content-Type: application/json" \
+  -X POST "YOUR_SITE_URL/graphql" \
+  -d '{"query":"{ __typename }"}'
+```
+
+**Expected:** HTTP 403 with a `sudo_disabled` error:
+
+```json
+{"code":"sudo_disabled","message":"WPGraphQL is disabled by WP Sudo policy.","data":{"status":403}}
+```
+
+### 16.4 Unrestricted — Mutation passes through
+
+Set WPGraphQL policy to **Unrestricted**, then repeat the mutation request
+from 16.2.
+
+**Expected:** HTTP 200. WP Sudo does not block the request. (WPGraphQL may
+still return a schema-level error if the mutation is invalid — that is
+expected and unrelated to WP Sudo.)
+
+> **Cleanup:** Restore the WPGraphQL policy to **Limited** after testing.
