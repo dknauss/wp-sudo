@@ -397,6 +397,8 @@ curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
 
 ### 5.4 Unrestricted
 
+> See also §19.1 for audit hook verification.
+
 Set REST API policy to Unrestricted, then:
 
 ```bash
@@ -459,6 +461,8 @@ Set XML-RPC policy to Disabled, then repeat the request above.
 
 ### 6.3 Unrestricted
 
+> See also §19.3 for audit hook verification.
+
 Set XML-RPC policy to Unrestricted. All methods pass through without
 gating.
 
@@ -498,6 +502,8 @@ operations are killed.
 
 ### 7.4 Unrestricted
 
+> See also §19.2 for audit hook verification.
+
 Set CLI policy to Unrestricted, then:
 
 ```bash
@@ -532,6 +538,8 @@ All cron execution is killed at `init`. Covers both WP-Cron (page-load
 trigger) and server-level cron hitting `wp-cron.php`.
 
 ### 8.3 Unrestricted
+
+> See also §19.4 for audit hook verification.
 
 All scheduled events run as if WP Sudo is not installed.
 
@@ -903,6 +911,8 @@ curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
 
 ### 16.4 Unrestricted — Mutation passes through
 
+> See also §19.5 for audit hook verification.
+
 Set WPGraphQL policy to **Unrestricted**, then repeat the mutation request
 from 16.2.
 
@@ -1063,3 +1073,130 @@ curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
    wp user meta get <user_id> _wp_sudo_expires
    ```
    **Expected:** Empty output — the meta key has been deleted.
+
+---
+
+## 19. Unrestricted Audit Hook (v2.9.0)
+
+> Verifies that the `wp_sudo_action_allowed` hook fires on all five
+> non-interactive surfaces when their policy is set to Unrestricted.
+
+### Prerequisites
+
+Add a listener mu-plugin to your dev site so hook calls are logged to
+`debug.log`:
+
+```php
+<?php
+// mu-plugins/wp-sudo-audit-log.php
+add_action( 'wp_sudo_action_allowed', function ( int $user_id, string $rule_id, string $surface ): void {
+    error_log( sprintf( '[WP Sudo] action_allowed: user=%d rule=%s surface=%s', $user_id, $rule_id, $surface ) );
+}, 10, 3 );
+```
+
+Ensure `WP_DEBUG` and `WP_DEBUG_LOG` are enabled in `wp-config.php`.
+Tail the log during testing:
+
+```bash
+tail -f /path/to/wp-content/debug.log | grep 'action_allowed'
+```
+
+### 19.1 REST App Passwords
+
+1. Set REST API (App Passwords) policy to **Unrestricted** in Settings > Sudo.
+2. Send a gated request:
+
+```bash
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -X POST "YOUR_SITE_URL/wp-json/wp/v2/users/me/application-passwords" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"audit-test"}'
+```
+
+3. **Expected:** HTTP 200 with password data.
+4. **Expected in debug.log:**
+   `[WP Sudo] action_allowed: user=<id> rule=user.create_app_password surface=rest_app_password`
+
+> **Cleanup:** Delete the test app password.
+
+### 19.2 WP-CLI
+
+1. Set CLI policy to **Unrestricted**.
+2. Run a gated command:
+
+```bash
+wp plugin deactivate hello-dolly --path=/path/to/wordpress
+```
+
+3. **Expected:** Plugin deactivated successfully.
+4. **Expected in debug.log:**
+   `[WP Sudo] action_allowed: user=0 rule=plugin.deactivate surface=cli`
+
+> **Cleanup:** Reactivate the plugin.
+
+### 19.3 XML-RPC
+
+1. Set XML-RPC policy to **Unrestricted**.
+2. Send a request (any listed method triggers it, though XML-RPC rules
+   match specific method names — use `system.listMethods` to confirm
+   connectivity, then a gated method if your XML-RPC client supports it):
+
+```bash
+curl -sk -X POST "YOUR_SITE_URL/xmlrpc.php" \
+  -H "Content-Type: text/xml" \
+  -d '<?xml version="1.0"?><methodCall><methodName>wp.getOptions</methodName><params><param><value>1</value></param><param><value>YOUR_USERNAME</value></param><param><value>YOUR_PASSWORD</value></param></params></methodCall>'
+```
+
+3. **Expected:** Valid XML response.
+4. **Expected in debug.log:**
+   `[WP Sudo] action_allowed: user=0 rule=<matched_rule> surface=xmlrpc`
+
+### 19.4 Cron
+
+1. Set Cron policy to **Unrestricted**.
+2. Trigger a gated cron action. The simplest method is via WP-CLI:
+
+```bash
+wp cron event run --all --path=/path/to/wordpress
+```
+
+   Or wait for a natural wp-cron trigger (page load after due time).
+
+3. **Expected:** Cron events execute normally.
+4. **Expected in debug.log** (if a gated action fires during cron):
+   `[WP Sudo] action_allowed: user=0 rule=<matched_rule> surface=cron`
+
+> **Note:** The hook only fires when a registered gated action actually
+> runs during cron. If no gated action fires, no log entry is expected.
+
+### 19.5 WPGraphQL
+
+> Requires WPGraphQL plugin to be installed and active.
+
+1. Set WPGraphQL policy to **Unrestricted**.
+2. Send a mutation:
+
+```bash
+curl -sk -X POST "YOUR_SITE_URL/graphql" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"mutation { updateSettings(input: {}) { allSettings { generalSettingsTitle } } }"}'
+```
+
+3. **Expected:** The request completes (WPGraphQL may return a schema error if
+   the mutation is invalid — that is expected and unrelated to WP Sudo).
+4. **Expected in debug.log:**
+   `[WP Sudo] action_allowed: user=<id> rule=wpgraphql surface=wpgraphql`
+
+5. Now send a query (not a mutation):
+
+```bash
+curl -sk -X POST "YOUR_SITE_URL/graphql" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"{ generalSettings { title } }"}'
+```
+
+6. **Expected:** HTTP 200 with query result. **No** `action_allowed` log entry
+   is written — only mutations fire the hook.
+
+> **Cleanup:** Restore WPGraphQL policy to **Limited**. Remove the
+> mu-plugin listener when testing is complete.

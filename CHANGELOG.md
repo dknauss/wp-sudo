@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.0
+
+- **Feature: `wp_sudo_action_allowed` audit hook** — fires when a gated action is permitted by an Unrestricted policy. Covers all five non-interactive surfaces: REST App Passwords (`$user_id, $rule_id, 'rest_app_password'`), WP-CLI (`0, $rule_id, 'cli'`), Cron (`0, $rule_id, 'cron'`), XML-RPC (`0, $rule_id, 'xmlrpc'`), and WPGraphQL (`$user_id, 'wpgraphql', 'wpgraphql'` — mutations only). WPGraphQL queries do not fire the hook. Implemented by adding an `'audit'` mode to `register_function_hooks()` for CLI/Cron/XML-RPC, and inline `do_action()` calls for REST and WPGraphQL. This is the ninth audit hook.
+- **Docs: CLAUDE.md accuracy audit** — corrected six inaccuracies: policy names, missing doc reference, missing password-change hooks in bootstrap sequence, rule count ambiguity, and hook count. Logged one confabulation (fabricated `wp_sudo_action_allowed` documentation in `ai-agentic-guidance.md`) in `llm_lies_log.txt`.
+- **Docs: manual testing** — MANUAL-TESTING.md adds §19 (Unrestricted audit hook verification for all five surfaces) with forward references from existing Unrestricted subsections.
+- **397 unit tests, 944 assertions.**
+
 ## 2.8.0
 
 - **Feature: expire sudo session on password change** — hooks `after_password_reset` (lost-password flow) and `profile_update` (admin profile, user-edit, REST API) to invalidate any active sudo session when a user's password changes. Handlers guard with a meta-existence check before calling `deactivate()` to avoid phantom `wp_sudo_deactivated` audit events for users without sessions. Closes the gap where a compromised session persisted after a password reset.

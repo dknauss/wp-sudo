@@ -98,11 +98,11 @@
             "properties": [
                 {
                     "name": "cdx:composer:package:distReference",
-                    "value": "86975169e1ca25c960006abd6bc46f9cb529ea2a"
+                    "value": "f46c412e11c9a9625881e0631d8cf54403312e3a"
                 },
                 {
                     "name": "cdx:composer:package:sourceReference",
-                    "value": "86975169e1ca25c960006abd6bc46f9cb529ea2a"
+                    "value": "f46c412e11c9a9625881e0631d8cf54403312e3a"
                 },
                 {
                     "name": "cdx:composer:package:type",

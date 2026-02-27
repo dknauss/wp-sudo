@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0
 Requires PHP:      8.0
-Stable tag:        2.8.0
+Stable tag:        2.9.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -129,6 +129,16 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.9.0 =
+* **`wp_sudo_action_allowed` audit hook** — fires when a gated action is permitted by an Unrestricted policy. Covers all five non-interactive surfaces: REST App Passwords, WP-CLI, Cron, XML-RPC, and WPGraphQL (mutations only). This is the ninth audit hook.
+* **Docs: CLAUDE.md accuracy audit** — corrected six inaccuracies; logged one confabulation in `llm_lies_log.txt`.
+* **397 unit tests, 944 assertions.**
+
+= 2.8.0 =
+* **Expire sudo session on password change** — hooks `after_password_reset` and `profile_update` to invalidate any active sudo session when a user's password changes. Closes the gap where a compromised session persisted after a password reset.
+* **WPGraphQL conditional display** — the WPGraphQL policy dropdown, help tab paragraph, and Site Health review all adapt based on whether WPGraphQL is installed.
+* **391 unit tests, 929 assertions.**
 
 = 2.7.0 =
 * **`wp_sudo_wpgraphql_bypass` filter** — new filter for WPGraphQL JWT authentication compatibility. Fires in Limited mode before mutation detection; return `true` to exempt specific requests (e.g. JWT login/refresh mutations). See developer reference for a bridge mu-plugin example.

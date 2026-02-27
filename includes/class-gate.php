@@ -343,6 +343,7 @@ class Gate {
 	 */
 	public function register_function_hooks( string $surface, string $mode = 'block' ): void {
 		if ( 'audit' === $mode ) {
+			// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed, VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- $label required for signature parity with the block callback.
 			$callback = function ( string $rule_id, string $label ) use ( $surface ): void {
 				/**
 				 * Fires when a gated action is permitted by Unrestricted policy.
