@@ -98,11 +98,11 @@
             "properties": [
                 {
                     "name": "cdx:composer:package:distReference",
-                    "value": "49f937aba3f17a46964cb00a9dfb765e83b3684e"
+                    "value": "ee565276127ecefcf7de9afa6a26d5d13dbfd69d"
                 },
                 {
                     "name": "cdx:composer:package:sourceReference",
-                    "value": "49f937aba3f17a46964cb00a9dfb765e83b3684e"
+                    "value": "ee565276127ecefcf7de9afa6a26d5d13dbfd69d"
                 },
                 {
                     "name": "cdx:composer:package:type",
@@ -3199,6 +3199,74 @@
                     "value": "true"
                 }
             ]
+        },
+        {
+            "bom-ref": "yoast/phpunit-polyfills-2.0.5.0",
+            "type": "library",
+            "name": "phpunit-polyfills",
+            "version": "2.0.5",
+            "group": "yoast",
+            "description": "Set of polyfills for changed PHPUnit functionality to allow for creating PHPUnit cross-version compatible tests",
+            "author": "Team Yoast, Contributors",
+            "licenses": [
+                {
+                    "license": {
+                        "id": "BSD-3-Clause",
+                        "acknowledgement": "declared"
+                    }
+                }
+            ],
+            "purl": "pkg:composer/yoast/phpunit-polyfills@2.0.5",
+            "externalReferences": [
+                {
+                    "type": "distribution",
+                    "url": "https://api.github.com/repos/Yoast/PHPUnit-Polyfills/zipball/1a6aecc9ebe4a9cea4e1047d0e6c496e52314c27",
+                    "comment": "dist reference: 1a6aecc9ebe4a9cea4e1047d0e6c496e52314c27"
+                },
+                {
+                    "type": "vcs",
+                    "url": "https://github.com/Yoast/PHPUnit-Polyfills.git",
+                    "comment": "source reference: 1a6aecc9ebe4a9cea4e1047d0e6c496e52314c27"
+                },
+                {
+                    "type": "website",
+                    "url": "https://github.com/Yoast/PHPUnit-Polyfills",
+                    "comment": "as detected from Composer manifest 'homepage'"
+                },
+                {
+                    "type": "issue-tracker",
+                    "url": "https://github.com/Yoast/PHPUnit-Polyfills/issues",
+                    "comment": "as detected from Composer manifest 'support.issues'"
+                },
+                {
+                    "type": "other",
+                    "url": "https://github.com/Yoast/PHPUnit-Polyfills/security/policy",
+                    "comment": "as detected from Composer manifest 'support.security'"
+                },
+                {
+                    "type": "vcs",
+                    "url": "https://github.com/Yoast/PHPUnit-Polyfills",
+                    "comment": "as detected from Composer manifest 'support.source'"
+                }
+            ],
+            "properties": [
+                {
+                    "name": "cdx:composer:package:distReference",
+                    "value": "1a6aecc9ebe4a9cea4e1047d0e6c496e52314c27"
+                },
+                {
+                    "name": "cdx:composer:package:sourceReference",
+                    "value": "1a6aecc9ebe4a9cea4e1047d0e6c496e52314c27"
+                },
+                {
+                    "name": "cdx:composer:package:type",
+                    "value": "library"
+                },
+                {
+                    "name": "cdx:composer:package:isDevRequirement",
+                    "value": "true"
+                }
+            ]
         }
     ],
     "dependencies": [
@@ -3459,6 +3527,12 @@
             ]
         },
         {
+            "ref": "yoast/phpunit-polyfills-2.0.5.0",
+            "dependsOn": [
+                "phpunit/phpunit-9.6.34.0"
+            ]
+        },
+        {
             "ref": "dknauss/wp-sudo-dev-main",
             "dependsOn": [
                 "automattic/vipwpcs-3.0.1.0",
@@ -3467,7 +3541,8 @@
                 "mockery/mockery-1.6.12.0",
                 "phpstan/phpstan-2.1.39.0",
                 "phpunit/phpunit-9.6.34.0",
-                "szepeviktor/phpstan-wordpress-2.0.3.0"
+                "szepeviktor/phpstan-wordpress-2.0.3.0",
+                "yoast/phpunit-polyfills-2.0.5.0"
             ]
         }
     ]
