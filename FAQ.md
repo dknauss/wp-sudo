@@ -57,6 +57,8 @@ Each has its own three-tier policy setting: **Disabled**, **Limited** (default),
 
 When the [WPGraphQL](https://wordpress.org/plugins/wp-graphql/) plugin is active, WP Sudo adds its own **WPGraphQL** policy setting with the same three modes: Disabled, Limited (default), and Unrestricted. WPGraphQL gating works at the surface level rather than per-action: in Limited mode, all mutations require an active sudo session while read-only queries always pass through. In Disabled mode, all requests to the endpoint are rejected. WP Sudo detects mutations by inspecting the request body for a `mutation` operation type. WPGraphQL handles its own URL routing, so gating works regardless of how the endpoint is configured.
 
+FYI: In GraphQL, a "mutation" is a type of operation used to modify server-side data, causing side effects on the back end. While queries are used for fetching data, mutations are specifically designed for creating, updating, or deleting data. (This is similar to `POST`, `PUT`, `PATCH`, or `DELETE` in `REST`.) 
+
 ## Does WP Sudo work with WPGraphQL JWT Authentication?
 
 The [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication) plugin is the standard way to authenticate WPGraphQL requests using JSON Web Tokens. With WP Sudo's default **Limited** policy, two issues arise: (1) the JWT `login` mutation is sent by unauthenticated users who cannot have a sudo session, so it is blocked; (2) JWT-authenticated mutations fail because JWT requests do not carry the browser-bound sudo session cookie. The result is that Limited mode breaks the JWT authentication flow entirely.
