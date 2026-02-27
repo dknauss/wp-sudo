@@ -1568,10 +1568,13 @@ class GateTest extends TestCase {
 	}
 
 	/**
-	 * Test gate_cli with unrestricted policy returns immediately.
+	 * Test gate_cli with unrestricted policy does not register admin_init
+	 * (which is the interactive gate path, not applicable to CLI).
 	 */
-	public function test_gate_cli_unrestricted_returns_immediately(): void {
+	public function test_gate_cli_unrestricted_does_not_register_admin_init(): void {
 		Functions\when( 'get_option' )->justReturn( array( 'cli_policy' => 'unrestricted' ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
 
 		Actions\expectAdded( 'admin_init' )->never();
 
@@ -1611,10 +1614,12 @@ class GateTest extends TestCase {
 	}
 
 	/**
-	 * Test gate_cron with unrestricted policy returns immediately.
+	 * Test gate_cron with unrestricted policy does not register admin_init.
 	 */
-	public function test_gate_cron_unrestricted_returns_immediately(): void {
+	public function test_gate_cron_unrestricted_does_not_register_admin_init(): void {
 		Functions\when( 'get_option' )->justReturn( array( 'cron_policy' => 'unrestricted' ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
 
 		Actions\expectAdded( 'admin_init' )->never();
 
@@ -1659,10 +1664,12 @@ class GateTest extends TestCase {
 	}
 
 	/**
-	 * Test gate_xmlrpc with unrestricted policy returns immediately.
+	 * Test gate_xmlrpc with unrestricted policy does not register admin_init.
 	 */
-	public function test_gate_xmlrpc_unrestricted_returns_immediately(): void {
+	public function test_gate_xmlrpc_unrestricted_does_not_register_admin_init(): void {
 		Functions\when( 'get_option' )->justReturn( array( 'xmlrpc_policy' => 'unrestricted' ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
 
 		Actions\expectAdded( 'admin_init' )->never();
 
@@ -2347,5 +2354,81 @@ class GateTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
+	}
+
+	// ── wp_sudo_action_allowed (Unrestricted audit) ─────────────────
+
+	/**
+	 * Test gate_cli with unrestricted policy registers function-level audit hooks.
+	 *
+	 * Proves the Unrestricted path now registers hooks (audit mode) instead
+	 * of returning early. Actual hook firing verified in integration tests.
+	 */
+	public function test_gate_cli_unrestricted_registers_audit_hooks(): void {
+		Functions\when( 'get_option' )->justReturn( array( 'cli_policy' => 'unrestricted' ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		Actions\expectAdded( 'activate_plugin' )->once();
+		Actions\expectAdded( 'delete_plugin' )->once();
+		Actions\expectAdded( 'delete_user' )->once();
+
+		$this->gate->gate_cli();
+	}
+
+	/**
+	 * Test gate_cron with unrestricted policy registers function-level audit hooks.
+	 */
+	public function test_gate_cron_unrestricted_registers_audit_hooks(): void {
+		Functions\when( 'get_option' )->justReturn( array( 'cron_policy' => 'unrestricted' ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		Actions\expectAdded( 'activate_plugin' )->once();
+		Actions\expectAdded( 'delete_plugin' )->once();
+		Actions\expectAdded( 'delete_user' )->once();
+
+		$this->gate->gate_cron();
+	}
+
+	/**
+	 * Test gate_xmlrpc with unrestricted policy registers function-level audit hooks.
+	 */
+	public function test_gate_xmlrpc_unrestricted_registers_audit_hooks(): void {
+		Functions\when( 'get_option' )->justReturn( array( 'xmlrpc_policy' => 'unrestricted' ) );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		Actions\expectAdded( 'activate_plugin' )->once();
+		Actions\expectAdded( 'delete_plugin' )->once();
+		Actions\expectAdded( 'delete_user' )->once();
+
+		$this->gate->gate_xmlrpc();
+	}
+
+	/**
+	 * Test intercept_rest fires wp_sudo_action_allowed when app-password
+	 * policy is unrestricted and a gated action matches.
+	 */
+	public function test_intercept_rest_app_password_unrestricted_fires_action_allowed(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'is_wp_error' )->justReturn( false );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		// No nonce = app-password auth. Policy = unrestricted.
+		Functions\when( 'get_option' )->justReturn( array( 'rest_app_password_policy' => 'unrestricted' ) );
+
+		Actions\expectDone( 'wp_sudo_action_allowed' )
+			->once()
+			->with( 1, 'user.promote', 'rest_app_password' );
+
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42', array( 'roles' => array( 'editor' ) ) );
+		$handler = array();
+
+		$result = $this->gate->intercept_rest( null, $handler, $request );
+
+		$this->assertNull( $result );
 	}
 }

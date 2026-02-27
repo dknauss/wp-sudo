@@ -135,4 +135,4 @@ Use the `wp_sudo_gated_actions` filter. See [docs/developer-reference.md](docs/d
 
 ## Audit Hooks
 
-Eight action hooks are available for external logging. See [docs/developer-reference.md](docs/developer-reference.md).
+Nine action hooks are available for external logging. See [docs/developer-reference.md](docs/developer-reference.md).

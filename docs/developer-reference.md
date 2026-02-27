@@ -34,7 +34,7 @@ add_filter( 'wp_sudo_gated_actions', function ( array $rules ): array {
 
 ## Audit Hook Signatures
 
-Sudo fires 8 action hooks for external logging integration with [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/), [Stream](https://wordpress.org/plugins/stream/), and similar plugins.
+Sudo fires 9 action hooks for external logging integration with [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/), [Stream](https://wordpress.org/plugins/stream/), and similar plugins.
 
 ```php
 // Session lifecycle.
@@ -49,6 +49,7 @@ do_action( 'wp_sudo_lockout', int $user_id, int $attempts );
 // $surface values: 'admin', 'ajax', 'rest_app_password', 'cli', 'cron', 'xmlrpc', 'wpgraphql'
 do_action( 'wp_sudo_action_gated', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
+do_action( 'wp_sudo_action_allowed', int $user_id, string $rule_id, string $surface ); // Unrestricted policy (v2.9.0).
 do_action( 'wp_sudo_action_replayed', int $user_id, string $rule_id );
 
 // Tamper detection.

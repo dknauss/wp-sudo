@@ -225,6 +225,7 @@ class Gate {
 		$this->enforce_cron_policy_on_cli();
 
 		if ( self::POLICY_UNRESTRICTED === $policy ) {
+			$this->register_function_hooks( 'cli', 'audit' );
 			return;
 		}
 
@@ -286,6 +287,7 @@ class Gate {
 		}
 
 		if ( self::POLICY_UNRESTRICTED === $policy ) {
+			$this->register_function_hooks( 'cron', 'audit' );
 			return;
 		}
 
@@ -316,6 +318,7 @@ class Gate {
 		}
 
 		if ( self::POLICY_UNRESTRICTED === $policy ) {
+			$this->register_function_hooks( 'xmlrpc', 'audit' );
 			return;
 		}
 
@@ -334,46 +337,63 @@ class Gate {
 	 * @since 2.2.0
 	 *
 	 * @param string $surface The surface label: 'cli', 'cron', or 'xmlrpc'.
+	 * @param string $mode    'block' (default) blocks the action; 'audit' fires
+	 *                        wp_sudo_action_allowed and lets the action proceed.
 	 * @return void
 	 */
-	public function register_function_hooks( string $surface ): void {
-		$block = function ( string $rule_id, string $label ) use ( $surface ): void {
-			/**
-			 * Fires when a gated action is blocked by policy.
-			 *
-			 * @since 2.0.0
-			 *
-			 * @param int    $user_id Always 0 for non-interactive surfaces.
-			 * @param string $rule_id The rule ID that matched.
-			 * @param string $surface The surface: 'cli', 'cron', or 'xmlrpc'.
-			 */
-			do_action( 'wp_sudo_action_blocked', 0, $rule_id, $surface );
+	public function register_function_hooks( string $surface, string $mode = 'block' ): void {
+		if ( 'audit' === $mode ) {
+			$callback = function ( string $rule_id, string $label ) use ( $surface ): void {
+				/**
+				 * Fires when a gated action is permitted by Unrestricted policy.
+				 *
+				 * @since 2.9.0
+				 *
+				 * @param int    $user_id Always 0 for non-interactive surfaces.
+				 * @param string $rule_id The rule ID that matched.
+				 * @param string $surface The surface: 'cli', 'cron', or 'xmlrpc'.
+				 */
+				do_action( 'wp_sudo_action_allowed', 0, $rule_id, $surface );
+			};
+		} else {
+			$callback = function ( string $rule_id, string $label ) use ( $surface ): void {
+				/**
+				 * Fires when a gated action is blocked by policy.
+				 *
+				 * @since 2.0.0
+				 *
+				 * @param int    $user_id Always 0 for non-interactive surfaces.
+				 * @param string $rule_id The rule ID that matched.
+				 * @param string $surface The surface: 'cli', 'cron', or 'xmlrpc'.
+				 */
+				do_action( 'wp_sudo_action_blocked', 0, $rule_id, $surface );
 
-			if ( 'cron' === $surface ) {
-				// Silently exit — cron jobs shouldn't produce visible errors.
-				exit;
-			}
+				if ( 'cron' === $surface ) {
+					// Silently exit — cron jobs shouldn't produce visible errors.
+					exit;
+				}
 
-			wp_die(
-				esc_html(
-					sprintf(
-						/* translators: 1: action label, 2: surface name */
-						__( 'This operation (%1$s) requires sudo and cannot be performed via %2$s.', 'wp-sudo' ),
-						$label,
-						'cli' === $surface ? 'WP-CLI' : 'XML-RPC'
-					)
-				),
-				'',
-				array( 'response' => 403 )
-			);
-		};
+				wp_die(
+					esc_html(
+						sprintf(
+							/* translators: 1: action label, 2: surface name */
+							__( 'This operation (%1$s) requires sudo and cannot be performed via %2$s.', 'wp-sudo' ),
+							$label,
+							'cli' === $surface ? 'WP-CLI' : 'XML-RPC'
+						)
+					),
+					'',
+					array( 'response' => 403 )
+				);
+			};
+		}
 
 		// ── Plugin activate ──────────────────────────────────────────
 		// Fires inside activate_plugin() before the plugin is added to active_plugins.
 		add_action(
 			'activate_plugin',
-			function () use ( $block ) {
-				$block( 'plugin.activate', __( 'Activate plugin', 'wp-sudo' ) );
+			function () use ( $callback ) {
+				$callback( 'plugin.activate', __( 'Activate plugin', 'wp-sudo' ) );
 			},
 			0
 		);
@@ -383,12 +403,12 @@ class Gate {
 		// deactivate_{$plugin_file}. We intercept at the option level instead.
 		add_filter(
 			'pre_update_option_active_plugins',
-			function ( $new_value, $old_value ) use ( $block ) {
+			function ( $new_value, $old_value ) use ( $callback ) {
 				// Only block when plugins are being removed (deactivation).
 				if ( is_array( $new_value ) && is_array( $old_value )
 					&& count( $new_value ) < count( $old_value )
 				) {
-					$block( 'plugin.deactivate', __( 'Deactivate plugin', 'wp-sudo' ) );
+					$callback( 'plugin.deactivate', __( 'Deactivate plugin', 'wp-sudo' ) );
 				}
 				return $new_value;
 			},
@@ -400,8 +420,8 @@ class Gate {
 		// Fires inside delete_plugins() before files are removed.
 		add_action(
 			'delete_plugin',
-			function () use ( $block ) {
-				$block( 'plugin.delete', __( 'Delete plugin', 'wp-sudo' ) );
+			function () use ( $callback ) {
+				$callback( 'plugin.delete', __( 'Delete plugin', 'wp-sudo' ) );
 			},
 			0
 		);
@@ -410,9 +430,9 @@ class Gate {
 		// No pre-switch hook exists. Intercept at the option level.
 		add_filter(
 			'pre_update_option_stylesheet',
-			function ( $new_value, $old_value ) use ( $block ) {
+			function ( $new_value, $old_value ) use ( $callback ) {
 				if ( $new_value !== $old_value ) {
-					$block( 'theme.switch', __( 'Switch theme', 'wp-sudo' ) );
+					$callback( 'theme.switch', __( 'Switch theme', 'wp-sudo' ) );
 				}
 				return $new_value;
 			},
@@ -424,8 +444,8 @@ class Gate {
 		// Fires inside delete_theme() before files are removed.
 		add_action(
 			'delete_theme',
-			function () use ( $block ) {
-				$block( 'theme.delete', __( 'Delete theme', 'wp-sudo' ) );
+			function () use ( $callback ) {
+				$callback( 'theme.delete', __( 'Delete theme', 'wp-sudo' ) );
 			},
 			0
 		);
@@ -434,12 +454,12 @@ class Gate {
 		// Fires inside WP_Upgrader::install_package() before extraction.
 		add_filter(
 			'upgrader_pre_install',
-			function ( $response ) use ( $block ) {
+			function ( $response ) use ( $callback ) {
 				if ( is_wp_error( $response ) ) {
 					return $response;
 				}
 				// Block all installs/updates on gated surfaces.
-				$block( 'plugin.install', __( 'Install or update plugin/theme', 'wp-sudo' ) );
+				$callback( 'plugin.install', __( 'Install or update plugin/theme', 'wp-sudo' ) );
 				return $response; // @codeCoverageIgnore
 			},
 			0
@@ -449,8 +469,8 @@ class Gate {
 		// Fires inside wp_delete_user() before the record is removed.
 		add_action(
 			'delete_user',
-			function () use ( $block ) {
-				$block( 'user.delete', __( 'Delete user', 'wp-sudo' ) );
+			function () use ( $callback ) {
+				$callback( 'user.delete', __( 'Delete user', 'wp-sudo' ) );
 			},
 			0
 		);
@@ -459,7 +479,7 @@ class Gate {
 		// Fires inside wp_insert_user() before the database insert.
 		add_filter(
 			'wp_pre_insert_user_data',
-			function ( $data ) use ( $block ) {
+			function ( $data ) use ( $callback ) {
 				// Only block new user creation, not updates.
 				// wp_insert_user sets $update internally; we detect it by
 				// checking if user_login is being inserted (new) vs ID exists.
@@ -467,7 +487,7 @@ class Gate {
 					// Check if this is a creation by seeing if user_login already exists.
 					$existing = get_user_by( 'login', $data['user_login'] );
 					if ( ! $existing ) {
-						$block( 'user.create', __( 'Create new user', 'wp-sudo' ) );
+						$callback( 'user.create', __( 'Create new user', 'wp-sudo' ) );
 					}
 				}
 				return $data;
@@ -480,8 +500,8 @@ class Gate {
 		// On CLI/Cron, wp_die() here still prevents the success output.
 		add_action(
 			'set_user_role',
-			function () use ( $block ) {
-				$block( 'user.promote', __( 'Change user role', 'wp-sudo' ) );
+			function () use ( $callback ) {
+				$callback( 'user.promote', __( 'Change user role', 'wp-sudo' ) );
 			},
 			0
 		);
@@ -491,9 +511,9 @@ class Gate {
 		foreach ( $critical_options as $opt ) {
 			add_filter(
 				"pre_update_option_{$opt}",
-				function ( $new_value, $old_value ) use ( $block ) {
+				function ( $new_value, $old_value ) use ( $callback ) {
 					if ( $new_value !== $old_value ) {
-						$block( 'options.critical', __( 'Change critical site setting', 'wp-sudo' ) );
+						$callback( 'options.critical', __( 'Change critical site setting', 'wp-sudo' ) );
 					}
 					return $new_value;
 				},
@@ -506,8 +526,8 @@ class Gate {
 		// Fires inside export_wp() before headers are sent.
 		add_action(
 			'export_wp',
-			function () use ( $block ) {
-				$block( 'tools.export', __( 'Export site data', 'wp-sudo' ) );
+			function () use ( $callback ) {
+				$callback( 'tools.export', __( 'Export site data', 'wp-sudo' ) );
 			},
 			0
 		);
@@ -818,8 +838,18 @@ class Gate {
 			// Per-app-password override takes precedence over the global policy.
 			$policy = $this->get_app_password_policy();
 
-			// Unrestricted: pass through, no checks, no logging.
+			// Unrestricted: pass through, audit only.
 			if ( self::POLICY_UNRESTRICTED === $policy ) {
+				/**
+				 * Fires when a gated action is permitted by Unrestricted policy.
+				 *
+				 * @since 2.9.0
+				 *
+				 * @param int    $user_id The user who triggered the action.
+				 * @param string $rule_id The rule ID that matched.
+				 * @param string $surface Always 'rest_app_password' here.
+				 */
+				do_action( 'wp_sudo_action_allowed', $user_id, $matched_rule['id'], 'rest_app_password' );
 				return $response;
 			}
 
@@ -878,8 +908,12 @@ class Gate {
 	public function check_wpgraphql( string $body ): ?\WP_Error {
 		$policy = $this->get_policy( self::SETTING_WPGRAPHQL_POLICY );
 
-		// Unrestricted: pass everything through without any checks.
+		// Unrestricted: pass everything through; audit mutations only.
 		if ( self::POLICY_UNRESTRICTED === $policy ) {
+			if ( str_contains( $body, 'mutation' ) ) {
+				/** This action is documented in includes/class-gate.php */
+				do_action( 'wp_sudo_action_allowed', get_current_user_id(), 'wpgraphql', 'wpgraphql' );
+			}
 			return null;
 		}
 

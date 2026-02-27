@@ -66,6 +66,7 @@ class WpGraphQLGatingTest extends TestCase {
 		$this->with_policy( Gate::POLICY_UNRESTRICTED );
 		$this->with_body( '{"query":"mutation { deleteUser(input:{id:\"1\"}) { deletedId } }"}' );
 
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
 		Functions\expect( 'wp_send_json' )->never();
 
 		$this->gate->gate_wpgraphql();
@@ -293,6 +294,34 @@ class WpGraphQLGatingTest extends TestCase {
 		$this->with_policy( Gate::POLICY_UNRESTRICTED );
 
 		Filters\expectApplied( 'wp_sudo_wpgraphql_bypass' )->never();
+
+		$result = $this->gate->check_wpgraphql( self::QUERY_BODY );
+
+		$this->assertNull( $result );
+	}
+
+	// ── wp_sudo_action_allowed (Unrestricted audit) ─────────────────
+
+	/** @test */
+	public function test_unrestricted_fires_action_allowed_for_mutation(): void {
+		$this->with_policy( Gate::POLICY_UNRESTRICTED );
+
+		Functions\when( 'get_current_user_id' )->justReturn( 42 );
+
+		Actions\expectDone( 'wp_sudo_action_allowed' )
+			->once()
+			->with( 42, 'wpgraphql', 'wpgraphql' );
+
+		$result = $this->gate->check_wpgraphql( self::MUTATION_BODY );
+
+		$this->assertNull( $result );
+	}
+
+	/** @test */
+	public function test_unrestricted_does_not_fire_action_allowed_for_query(): void {
+		$this->with_policy( Gate::POLICY_UNRESTRICTED );
+
+		Actions\expectDone( 'wp_sudo_action_allowed' )->never();
 
 		$result = $this->gate->check_wpgraphql( self::QUERY_BODY );
 

@@ -78,6 +78,23 @@ Repos:   wp-sudo, wordpress-2fa-ecosystem
            was added to the action registry in v2.6.0.
 
 
+8. CONFABULATED DOCUMENTATION — wp_sudo_action_allowed in ai-agentic-guidance.md
+   Files:  docs/ai-agentic-guidance.md
+   Claim:  "For Unrestricted surfaces, the wp_sudo_action_allowed hook fires"
+           with full do_action() code example showing the hook signature.
+   Reality: The hook was never wired up. No do_action() call existed in the
+           codebase. The hook was a leftover from the original two-tier
+           (Block/Allow) model and was marked as "legacy; not fired by
+           current three-tier model" in the Site Health help tab.
+   Source:  grep -r 'wp_sudo_action_allowed' includes/ (zero matches
+           at the time of discovery)
+   Notes:  The documentation was fabricated — it described behavior that
+           did not exist and presented it as fact with a code example.
+           Discovered during CLAUDE.md audit, 2026-02-27. The hook has
+           since been revived and now genuinely fires on Unrestricted
+           surfaces for all gated actions.
+
+
 ROOT CAUSE
 ----------
 All errors stem from the same pattern: generating reference content from

@@ -478,15 +478,7 @@ fully implemented in WP Sudo (through v2.5.2):
 
 ### Features to implement
 
-**High priority — target v2.6**
-
-| Feature | Rationale | Effort |
-|---------|-----------|--------|
-| **Login grants sudo session** | User just authenticated; challenging again immediately is unnecessary friction. Hook `wp_login`, call `Sudo_Session::activate()`. Unix sudo, GitHub, and other sources all agree on this. | Small |
-| **Gate `user.change_password`** | Session theft → silently change password → lock out user is a real attack chain. The document calls this out. `profile.php` action `update` with `pass1`/`pass2` in POST fits the existing rule pattern. | Small |
-| **Grace period (two-tier expiry)** | Prevent form submissions failing when sudo expires during processing. Active = within (duration − 2 min), valid = within duration. Requires a second check in `is_active()` or a new `is_within_grace()` method. | Small |
-
-**Medium priority — target v2.9**
+**Medium priority — target v2.9+**
 
 | Feature | Rationale | Effort |
 |---------|-----------|--------|

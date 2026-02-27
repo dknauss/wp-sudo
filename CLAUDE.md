@@ -125,7 +125,7 @@ As a tamper-detection canary, `Plugin::enforce_editor_unfiltered_html()` runs at
 
 ### Audit Hooks
 
-The plugin fires 8 action hooks for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_blocked`, `wp_sudo_action_replayed`, `wp_sudo_capability_tampered`.
+The plugin fires 9 action hooks for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_blocked`, `wp_sudo_action_allowed`, `wp_sudo_action_replayed`, `wp_sudo_capability_tampered`.
 
 ## Testing
 

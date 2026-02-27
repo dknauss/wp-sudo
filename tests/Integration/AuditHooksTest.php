@@ -197,6 +197,115 @@ class AuditHooksTest extends TestCase {
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
+	// wp_sudo_action_allowed — non-interactive surfaces (Unrestricted)
+	// ─────────────────────────────────────────────────────────────────────
+
+	/**
+	 * wp_sudo_action_allowed fires with (0, 'plugin.activate', 'cli')
+	 * when the CLI policy is 'unrestricted' and a gated action is triggered.
+	 */
+	public function test_action_allowed_hook_fires_for_cli_unrestricted(): void {
+		$settings = $this->get_wp_sudo_option( Admin::OPTION_KEY, array() );
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+		$settings[ Gate::SETTING_CLI_POLICY ] = Gate::POLICY_UNRESTRICTED;
+		$this->update_wp_sudo_option( Admin::OPTION_KEY, $settings );
+		Admin::reset_cache();
+
+		$gate = new Gate( new Sudo_Session(), new Request_Stash() );
+		$gate->gate_cli();
+
+		$captured = array();
+		add_action(
+			'wp_sudo_action_allowed',
+			static function ( $uid, $rule_id, $surface ) use ( &$captured ) {
+				$captured = array( $uid, $rule_id, $surface );
+			},
+			10,
+			3
+		);
+
+		// Trigger the gated action — should fire audit hook but NOT block.
+		do_action( 'activate_plugin', 'hello.php', false );
+
+		$this->assertSame( 0, $captured[0] ?? null, 'User ID should be 0 for CLI surface.' );
+		$this->assertSame( 'plugin.activate', $captured[1] ?? null, 'Rule ID should be plugin.activate.' );
+		$this->assertSame( 'cli', $captured[2] ?? null, 'Surface should be cli.' );
+	}
+
+	/**
+	 * wp_sudo_action_allowed fires with (0, 'plugin.activate', 'xmlrpc')
+	 * when the XML-RPC policy is 'unrestricted' and a gated action is triggered.
+	 */
+	public function test_action_allowed_hook_fires_for_xmlrpc_unrestricted(): void {
+		$settings = $this->get_wp_sudo_option( Admin::OPTION_KEY, array() );
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+		$settings[ Gate::SETTING_XMLRPC_POLICY ] = Gate::POLICY_UNRESTRICTED;
+		$this->update_wp_sudo_option( Admin::OPTION_KEY, $settings );
+		Admin::reset_cache();
+
+		$gate = new Gate( new Sudo_Session(), new Request_Stash() );
+		$gate->gate_xmlrpc();
+
+		$captured = array();
+		add_action(
+			'wp_sudo_action_allowed',
+			static function ( $uid, $rule_id, $surface ) use ( &$captured ) {
+				$captured = array( $uid, $rule_id, $surface );
+			},
+			10,
+			3
+		);
+
+		// Trigger the gated action — should fire audit hook but NOT block.
+		do_action( 'activate_plugin', 'hello.php', false );
+
+		$this->assertSame( 0, $captured[0] ?? null, 'User ID should be 0 for XML-RPC surface.' );
+		$this->assertSame( 'plugin.activate', $captured[1] ?? null, 'Rule ID should be plugin.activate.' );
+		$this->assertSame( 'xmlrpc', $captured[2] ?? null, 'Surface should be xmlrpc.' );
+	}
+
+	/**
+	 * wp_sudo_action_allowed fires with (0, 'plugin.activate', 'cron')
+	 * when the Cron policy is 'unrestricted' and a gated action is triggered.
+	 *
+	 * Unlike the Limited/blocked test, there is no exit() to intercept —
+	 * the audit hook fires and the action proceeds normally.
+	 */
+	public function test_action_allowed_hook_fires_for_cron_unrestricted(): void {
+		$settings = $this->get_wp_sudo_option( Admin::OPTION_KEY, array() );
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+		$settings[ Gate::SETTING_CRON_POLICY ] = Gate::POLICY_UNRESTRICTED;
+		$this->update_wp_sudo_option( Admin::OPTION_KEY, $settings );
+		Admin::reset_cache();
+
+		$gate = new Gate( new Sudo_Session(), new Request_Stash() );
+		$gate->gate_cron();
+
+		$captured = array();
+		add_action(
+			'wp_sudo_action_allowed',
+			static function ( $uid, $rule_id, $surface ) use ( &$captured ) {
+				$captured = array( $uid, $rule_id, $surface );
+			},
+			10,
+			3
+		);
+
+		// Trigger the gated action — should fire audit hook but NOT block/exit.
+		do_action( 'activate_plugin', 'hello.php', false );
+
+		$this->assertSame( 0, $captured[0] ?? null, 'User ID should be 0 for Cron surface.' );
+		$this->assertSame( 'plugin.activate', $captured[1] ?? null, 'Rule ID should be plugin.activate.' );
+		$this->assertSame( 'cron', $captured[2] ?? null, 'Surface should be cron.' );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
 	// wp_sudo_action_blocked — non-interactive surfaces (CLI, Cron, XML-RPC)
 	// ─────────────────────────────────────────────────────────────────────
 
