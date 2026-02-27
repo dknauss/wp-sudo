@@ -79,7 +79,7 @@ For the full threat model, boundaries, and environmental considerations, see [Se
 - **Admin bar countdown** — a live M:SS timer shows remaining session time. Turns red in the final 60 seconds.
 - **Keyboard shortcut** — `Ctrl+Shift+S` / `Cmd+Shift+S` to proactively start a sudo session.
 - **Accessible** — WCAG 2.1 AA throughout (screen-reader announcements, ARIA labels, focus management, keyboard support).
-- **Contextual help** — 8 help tabs on the settings page.
+- **Contextual help** — 10 help tabs on the settings page.
 
 ### MU-Plugin for Early Loading
 

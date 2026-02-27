@@ -55,6 +55,29 @@ Repos:   wp-sudo, wordpress-2fa-ecosystem
            drift over time. The Two Factor count was off by 100%.
 
 
+6. STALE COUNT — Help tab count
+   Files:  readme.md, readme.txt, docs/ui-ux-testing-prompts.md
+   Claim:  "10 help tabs on the settings page" — wait, the claim was "8"
+   Reality: 10 help tabs exist: How Sudo Works, Session & Policies,
+           App Passwords, MU-Plugin, Security Features, Security Model,
+           Environment, Recommended Plugins, Extending, Audit Hooks.
+   Source:  grep 'add_help_tab' includes/class-admin.php (10 results)
+   Notes:  Count was set to 8 when there were 8 tabs. Three new tabs
+           were added across v2.3.x–v2.4.x (App Passwords, MU-Plugin,
+           Session & Policies replacing "Settings") but the count in
+           readme files was never updated. The tab name lists in
+           ui-ux-testing-prompts.md also drifted: "Settings" was listed
+           as a tab name when no such tab exists.
+
+7. STALE COUNT — Gated rules count
+   Files:  tests/MANUAL-TESTING.md (section 9.4)
+   Claim:  "A table listing all 28 gated rules"
+   Reality: 29 rules. user.change_password was added in v2.6.0 (2026-02).
+   Source:  grep in includes/class-action-registry.php, readme.txt (29+)
+   Notes:  The MANUAL-TESTING.md was not updated when user.change_password
+           was added to the action registry in v2.6.0.
+
+
 ROOT CAUSE
 ----------
 All errors stem from the same pattern: generating reference content from

@@ -565,7 +565,7 @@ All scheduled events run as if WP Sudo is not installed.
 ### 9.4 Gated Actions Table
 
 1. Scroll down on Settings > Sudo.
-2. **Expected:** A table listing all 28 gated rules grouped by
+2. **Expected:** A table listing all 29 gated rules grouped by
    category, showing which surfaces each action covers. When WPGraphQL
    is active, an additional GraphQL row appears at the bottom of the table.
 
