@@ -1,4 +1,4 @@
-# WP Sudo -- UI/UX Testing Prompts
+# WP Sudo — UI/UX Testing Prompts
 
 Structured checklists for evaluating the three UI surfaces of WP Sudo:
 
@@ -12,7 +12,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 
 ## 1. Heuristic Evaluation (Nielsen's 10 Usability Heuristics)
 
-### H1 -- Visibility of System Status
+### H1 — Visibility of System Status
 
 - [ ] **Challenge page:** Loading spinner and "Verifying..." screen-reader text appear immediately on form submission and disappear when the server responds.
 - [ ] **Challenge page:** Lockout countdown updates visually every second and displays the remaining time prominently in the error notice.
@@ -33,7 +33,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Settings page:** Gated actions table groups rules by familiar WordPress categories (Plugins, Themes, Users, Settings, etc.).
 - [ ] **Admin bar timer:** "Sudo: M:SS" label is concise and recognizable within the admin bar idiom.
 
-### H3 -- User Control and Freedom
+### H3 — User Control and Freedom
 
 - [ ] **Challenge page:** Cancel button returns to the originating page (validates `return_url` parameter, falls back to Dashboard).
 - [ ] **Challenge page:** Escape key announces "Leaving challenge page." and navigates to the cancel URL after a 600 ms delay for screen reader announcement.
@@ -42,7 +42,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Settings page:** All settings have visible defaults; reverting to defaults is possible by setting values back to documented defaults.
 - [ ] **Admin bar timer:** Clicking the timer deactivates the session immediately (nonce-protected), keeping the user on the current page.
 
-### H4 -- Consistency and Standards
+### H4 – Consistency and Standards
 
 - [ ] **Challenge page:** Uses standard WordPress admin CSS classes (`wrap`, `button`, `button-primary`, `notice`, `notice-error`, `notice-warning`, `spinner`).
 - [ ] **Challenge page:** Error notices use `role="alert"` with `aria-atomic="true"`, matching WordPress core notice patterns.
@@ -51,7 +51,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Settings page:** "Settings" action link on the Plugins list page matches the standard WordPress convention.
 - [ ] **Admin bar timer:** Uses the `admin_bar_menu` hook and standard `$wp_admin_bar->add_node()` API with `ab-icon` and `ab-label` classes.
 
-### H5 -- Error Prevention
+### H5 – Error Prevention
 
 - [ ] **Challenge page:** Password field has `required` attribute, preventing empty submissions.
 - [ ] **Challenge page:** Submit button is disabled during AJAX requests, preventing double-submission.
@@ -60,7 +60,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Settings page:** Policy dropdowns only allow three predefined values; unknown values fall back to "Limited" on save.
 - [ ] **Admin bar timer:** Deactivation URL includes a WordPress nonce; invalid nonces produce a `wp_die()` error rather than silently deactivating.
 
-### H6 -- Recognition Rather Than Recall
+### H6 – Recognition Rather Than Recall
 
 - [ ] **Challenge page:** The gated action label is displayed in the challenge description so the user knows what they are confirming without needing to remember.
 - [ ] **Challenge page:** 2FA step heading "Two-Factor Verification" and the step-transition announcement make it clear which phase the user is in.
@@ -68,15 +68,15 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Settings page:** 8 help tabs provide contextual reference (How Sudo Works, Settings, Security Features, Security Model, Environment, Recommended Plugins, Extending, Audit Hooks) without leaving the page.
 - [ ] **Settings page:** Gated actions table shows all registered rules and their surfaces so the administrator does not need to consult code or docs.
 
-### H7 -- Flexibility and Efficiency of Use
+### H7 – Flexibility and Efficiency of Use
 
 - [ ] **Challenge page:** `autofocus` on the password field when not locked out allows immediate typing.
 - [ ] **Challenge page:** Escape key shortcut provides a keyboard-only way to leave the challenge.
 - [ ] **Settings page:** Plugin action link ("Settings") on the Plugins list page provides a one-click shortcut to the settings page.
 - [ ] **Admin bar timer:** Keyboard shortcut Cmd/Ctrl+Shift+S activates a sudo session proactively (when no session exists) or flashes the timer (when active) so power users do not need to wait for a gated action.
-- [ ] **Admin bar timer:** Clicking the timer is a single-action deactivation -- no confirmation dialog.
+- [ ] **Admin bar timer:** Clicking the timer is a single-action deactivation – no confirmation dialog.
 
-### H8 -- Aesthetic and Minimalist Design
+### H8 – Aesthetic and Minimalist Design
 
 - [ ] **Challenge page:** Card layout focuses on the single task (password entry) with minimal surrounding UI.
 - [ ] **Challenge page:** 2FA step is hidden by default and only revealed when needed.
@@ -85,7 +85,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Settings page:** Gated actions table is read-only reference, not a configuration surface, reducing cognitive load.
 - [ ] **Admin bar timer:** Single compact node with icon, label, and countdown; no extraneous elements.
 
-### H9 -- Help Users Recognize, Diagnose, and Recover from Errors
+### H9 – Help Users Recognize, Diagnose, and Recover from Errors
 
 - [ ] **Challenge page:** "Incorrect password" error is specific (not generic "authentication failed").
 - [ ] **Challenge page:** Lockout error includes a live countdown ("Too many failed attempts. Try again in M:SS.") so the user knows exactly when they can retry.
@@ -96,7 +96,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Settings page:** MU-plugin install/uninstall error messages specify the cause (e.g., "Check file permissions.").
 - [ ] **Admin bar timer:** On expiry, announces "Sudo session expired." and auto-reloads to reset state.
 
-### H10 -- Help and Documentation
+### H10 – Help and Documentation
 
 - [ ] **Settings page:** 8 help tabs cover all aspects of the plugin: How Sudo Works, Settings, Security Features, Security Model, Environment, Recommended Plugins, Extending, Audit Hooks.
 - [ ] **Settings page:** Help sidebar links to external resources: Wikipedia sudo article, Two Factor plugin, WebAuthn Provider, WP Activity Log, Stream, Roles & Capabilities developer documentation.
@@ -187,32 +187,32 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 
 For each viewport size, verify the listed checkpoints on each UI surface.
 
-### 3a. Desktop -- 1920x1080
+### 3a. Desktop – 1920x1080
 
 - [ ] **Challenge page:** Card is centered and does not stretch to full width. Password field and buttons are comfortably sized.
 - [ ] **Settings page:** Form table layout is standard two-column (label left, field right). Gated actions table is fully visible without horizontal scroll.
 - [ ] **Admin bar timer:** Timer node is visible in the admin bar. Text is not truncated.
 
-### 3b. Desktop -- 1366x768
+### 3b. Desktop – 1366x768
 
 - [ ] **Challenge page:** Card is centered. No horizontal scrollbar. Error messages do not overflow the card.
 - [ ] **Settings page:** Help tabs are accessible via the "Help" button in the standard location. Gated actions table fits without horizontal overflow.
 - [ ] **Admin bar timer:** Timer text and icon are visible; admin bar does not wrap.
 
-### 3c. Tablet -- 768x1024 (portrait)
+### 3c. Tablet – 768x1024 (portrait)
 
 - [ ] **Challenge page:** Card adapts to narrower width. Password field fills available space. Both "Confirm & Continue" and "Cancel" buttons are tappable (at least 44x44 px touch target).
 - [ ] **Settings page:** Form fields stack or reduce to a single-column layout. Policy dropdowns are usable with touch.
 - [ ] **Settings page:** Gated actions table is readable. If it overflows horizontally, confirm it scrolls within its container.
 - [ ] **Admin bar timer:** Timer is visible. On WordPress mobile admin bar, verify the node is accessible in the collapsed menu if the bar collapses.
 
-### 3d. Tablet -- 1024x768 (landscape)
+### 3d. Tablet – 1024x768 (landscape)
 
 - [ ] **Challenge page:** Layout is similar to narrow desktop. Card is centered with adequate margins.
 - [ ] **Settings page:** Two-column form layout is intact. Help tabs are accessible.
 - [ ] **Admin bar timer:** Timer node displays normally.
 
-### 3e. Mobile -- 375x667
+### 3e. Mobile – 375x667
 
 - [ ] **Challenge page:** Card fills most of the viewport width with adequate padding. No horizontal scroll. Password field is 100% width within the card.
 - [ ] **Challenge page:** Both buttons are full-width or stacked vertically with sufficient spacing. Touch targets meet 44x44 px minimum.
@@ -223,7 +223,7 @@ For each viewport size, verify the listed checkpoints on each UI surface.
 - [ ] **Settings page:** Gated actions table scrolls horizontally if needed (confirm no content is hidden without any scroll affordance).
 - [ ] **Admin bar timer:** Timer is accessible in the WordPress mobile admin bar menu.
 
-### 3f. Mobile -- 390x844
+### 3f. Mobile – 390x844
 
 - [ ] **Challenge page:** Same checks as 375x667. Verify that the taller viewport does not cause the card to appear too far down the page.
 - [ ] **Settings page:** Verify scrolling behavior is smooth and all sections are reachable.
@@ -237,7 +237,7 @@ These are quick checks beyond a full WCAG audit. For the resolved accessibility 
 
 ### 4a. Screen Reader Announcement Flow During Challenge
 
-- [ ] On page load, verify the page title "Confirm Your Identity -- Sudo" is announced.
+- [ ] On page load, verify the page title "Confirm Your Identity – Sudo" is announced.
 - [ ] Submit an incorrect password. Verify the error notice (`role="alert"`, `aria-atomic="true"`) is announced with the specific error message.
 - [ ] Submit the correct password when 2FA is configured. Verify "Password verified. Two-factor authentication required." is announced via `wp.a11y.speak()`.
 - [ ] On the 2FA step, verify focus moves to the first 2FA input field.
