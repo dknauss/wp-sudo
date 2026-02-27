@@ -308,7 +308,9 @@ class Plugin {
 	 * @return void
 	 */
 	public function deactivate_session_on_password_reset( \WP_User $user, string $new_pass ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed, VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
-		Sudo_Session::deactivate( $user->ID );
+		if ( get_user_meta( $user->ID, Sudo_Session::META_KEY, true ) ) {
+			Sudo_Session::deactivate( $user->ID );
+		}
 	}
 
 	/**
@@ -328,7 +330,9 @@ class Plugin {
 	 */
 	public function deactivate_session_on_profile_update( int $user_id, \WP_User $old_user_data, array $userdata ): void {
 		if ( isset( $userdata['user_pass'] ) && $old_user_data->user_pass !== $userdata['user_pass'] ) {
-			Sudo_Session::deactivate( $user_id );
+			if ( get_user_meta( $user_id, Sudo_Session::META_KEY, true ) ) {
+				Sudo_Session::deactivate( $user_id );
+			}
 		}
 	}
 

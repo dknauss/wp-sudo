@@ -39,7 +39,7 @@ Sudo fires 9 action hooks for external logging integration with [WP Activity Log
 ```php
 // Session lifecycle.
 do_action( 'wp_sudo_activated', int $user_id, int $expires, int $duration );
-do_action( 'wp_sudo_deactivated', int $user_id );
+do_action( 'wp_sudo_deactivated', int $user_id ); // Also fires on password change (v2.8.0).
 
 // Authentication failures.
 do_action( 'wp_sudo_reauth_failed', int $user_id, int $attempts );

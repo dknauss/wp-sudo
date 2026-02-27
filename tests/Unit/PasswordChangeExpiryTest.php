@@ -11,6 +11,7 @@
 namespace WP_Sudo\Tests\Unit;
 
 use WP_Sudo\Plugin;
+use WP_Sudo\Sudo_Session;
 use WP_Sudo\Tests\TestCase;
 use Brain\Monkey\Functions;
 use Brain\Monkey\Actions;
@@ -71,6 +72,9 @@ class PasswordChangeExpiryTest extends TestCase {
 	public function test_after_password_reset_deactivates_session(): void {
 		$user = new \WP_User( 7 );
 
+		// Stub get_user_meta to simulate an active session (meta key exists).
+		Functions\when( 'get_user_meta' )->justReturn( time() + 600 );
+
 		// Stubs required by Sudo_Session::deactivate() internals.
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 		Functions\when( 'headers_sent' )->justReturn( true ); // skip setcookie block.
@@ -78,6 +82,24 @@ class PasswordChangeExpiryTest extends TestCase {
 		Actions\expectDone( 'wp_sudo_deactivated' )
 			->once()
 			->with( 7 );
+
+		$plugin = new Plugin();
+		$plugin->deactivate_session_on_password_reset( $user, 'new-password-string' );
+	}
+
+	/**
+	 * Lost-password reset does NOT fire the audit hook when no session exists.
+	 *
+	 * Prevents phantom wp_sudo_deactivated events for users who never activated
+	 * sudo (the most common lost-password reset scenario).
+	 */
+	public function test_after_password_reset_skips_when_no_session(): void {
+		$user = new \WP_User( 7 );
+
+		// No session meta → get_user_meta returns empty string.
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		Actions\expectDone( 'wp_sudo_deactivated' )->never();
 
 		$plugin = new Plugin();
 		$plugin->deactivate_session_on_password_reset( $user, 'new-password-string' );
@@ -94,6 +116,9 @@ class PasswordChangeExpiryTest extends TestCase {
 		$old_user            = new \WP_User( 9 );
 		$old_user->user_pass = 'old-hash';
 
+		// Stub get_user_meta to simulate an active session (meta key exists).
+		Functions\when( 'get_user_meta' )->justReturn( time() + 600 );
+
 		// Stubs required by Sudo_Session::deactivate() internals.
 		Functions\when( 'delete_user_meta' )->justReturn( true );
 		Functions\when( 'headers_sent' )->justReturn( true ); // skip setcookie block.
@@ -101,6 +126,25 @@ class PasswordChangeExpiryTest extends TestCase {
 		Actions\expectDone( 'wp_sudo_deactivated' )
 			->once()
 			->with( 9 );
+
+		$plugin = new Plugin();
+		$plugin->deactivate_session_on_profile_update( 9, $old_user, array( 'user_pass' => 'new-hash' ) );
+	}
+
+	/**
+	 * A password change does NOT fire the audit hook when no session exists.
+	 *
+	 * Prevents phantom wp_sudo_deactivated events — e.g. REST API password
+	 * update via Application Password where no sudo session was ever started.
+	 */
+	public function test_profile_update_with_password_change_skips_when_no_session(): void {
+		$old_user            = new \WP_User( 9 );
+		$old_user->user_pass = 'old-hash';
+
+		// No session meta → get_user_meta returns empty string.
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		Actions\expectDone( 'wp_sudo_deactivated' )->never();
 
 		$plugin = new Plugin();
 		$plugin->deactivate_session_on_profile_update( 9, $old_user, array( 'user_pass' => 'new-hash' ) );
@@ -120,5 +164,22 @@ class PasswordChangeExpiryTest extends TestCase {
 
 		$plugin = new Plugin();
 		$plugin->deactivate_session_on_profile_update( 9, $old_user, array( 'user_pass' => 'same-hash' ) );
+	}
+
+	/**
+	 * A profile save without a user_pass key in $userdata is a no-op.
+	 *
+	 * This is the most common profile_update scenario — non-password edits
+	 * (display name, email, etc.) where wp_update_user() merges the existing
+	 * hash into $userdata but a direct wp_insert_user() call may omit it.
+	 */
+	public function test_profile_update_without_user_pass_key_keeps_session(): void {
+		$old_user            = new \WP_User( 9 );
+		$old_user->user_pass = 'existing-hash';
+
+		Actions\expectDone( 'wp_sudo_deactivated' )->never();
+
+		$plugin = new Plugin();
+		$plugin->deactivate_session_on_profile_update( 9, $old_user, array( 'display_name' => 'New Name' ) );
 	}
 }

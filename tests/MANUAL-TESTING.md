@@ -842,7 +842,7 @@ accordingly (strip spaces from the application password).
 1. Go to **Settings > Sudo**.
 2. **Expected:** No WPGraphQL policy dropdown is shown. The four non-GraphQL
    dropdowns (REST/App Passwords, WP-CLI, Cron, XML-RPC) remain visible.
-3. Open the **Session &amp; Policies** help tab.
+3. Open the **Session & Policies** help tab.
 4. **Expected:** The WPGraphQL paragraph reads: "WPGraphQL is also supported
    as an entry point — its policy setting appears on this page when WPGraphQL
    is installed."
