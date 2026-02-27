@@ -135,6 +135,4 @@ Use the `wp_sudo_gated_actions` filter. See [docs/developer-reference.md](docs/d
 
 ## Audit Hooks
 
-Nine action hooks are available for external logging. See [docs/developer-reference.md](docs/developer-reference.md).
-
-> **Note:** `wp_sudo_action_allowed` appears in Site Health debug info for historical reasons but is not fired by the current three-tier policy model.
+Eight action hooks are available for external logging. See [docs/developer-reference.md](docs/developer-reference.md).

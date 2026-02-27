@@ -10,10 +10,6 @@
  * This file covers wp_sudo_action_blocked for non-interactive surfaces
  * (cli, cron, xmlrpc).
  *
- * Note: wp_sudo_action_allowed is listed in Site Health debug output for
- * historical reasons but is intentionally NOT fired by the current
- * three-tier policy model. There is no test for it here because it does
- * not exist in the production code path.
  *
  * @covers \WP_Sudo\Sudo_Session
  * @covers \WP_Sudo\Plugin::enforce_editor_unfiltered_html

@@ -35,6 +35,7 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 - `docs/two-factor-integration.md` — 2FA plugin integration guide.
 - `docs/two-factor-ecosystem.md` — 2FA plugin ecosystem survey.
 - `docs/ui-ux-testing-prompts.md` — structured UI/UX testing prompts.
+- `docs/abilities-api-assessment.md` — WordPress Abilities API (6.9+) assessment.
 - `ROADMAP.md` — unified roadmap: integration tests, WP 7.0 prep, collaboration analysis, TDD strategy, core design features, feature backlog, accessibility appendix.
 
 ## Verification Requirements
@@ -101,17 +102,17 @@ behavior that the model cannot hold in working memory.
 
 **Entry point:** `wp-sudo.php` — defines constants, registers an SPL autoloader (maps `WP_Sudo\Class_Name` to `includes/class-class-name.php`), and wires lifecycle hooks. The `wp_sudo()` function returns the singleton Plugin instance.
 
-**Bootstrap sequence:** `plugins_loaded` → `Plugin::init()` → loads translations, runs upgrader, registers gate, sets up challenge page, initializes admin UI, registers `wp_login` hook to grant session on browser-based login.
+**Bootstrap sequence:** `plugins_loaded` → `Plugin::init()` → loads translations, runs upgrader, registers gate, sets up challenge page, initializes admin UI, registers `wp_login` hook to grant session on browser-based login, registers `after_password_reset` and `profile_update` hooks to expire session on password change.
 
 ### Core Classes (all in `includes/`, namespace `WP_Sudo`)
 
-- **Plugin** — Orchestrator. Creates and owns the component instances. Handles activation/deactivation hooks. Strips `unfiltered_html` from editors on activation and restores it on deactivation.
+- **Plugin** — Orchestrator. Creates and owns the component instances. Handles activation/deactivation hooks. Strips `unfiltered_html` from editors on activation and restores it on deactivation. Expires sudo session on password change (`after_password_reset`, `profile_update`).
 - **Gate** — Multi-surface interceptor. Matches incoming requests against the Action Registry and gates them via reauthentication (admin UI), error response (AJAX/REST), or policy (CLI/Cron/XML-RPC/App Passwords).
-- **Action_Registry** — Defines all gated rules (29 rules across 7 categories + 8 multisite rules). Extensible via `wp_sudo_gated_actions` filter.
+- **Action_Registry** — Defines all gated rules (21 single-site rules across 7 categories + 8 multisite rules = 29 total). Extensible via `wp_sudo_gated_actions` filter.
 - **Challenge** — Interstitial reauthentication page. Handles password verification, 2FA integration, request stash/replay.
 - **Sudo_Session** — Session management. Cryptographic token (user meta + httponly cookie), rate limiting (5 attempts → 5-min lockout), session binding. Two-tier expiry: `is_active()` for true session state; `is_within_grace()` for the 120 s grace window after expiry (token-verified). Cleanup deferred until grace window closes.
 - **Request_Stash** — Stashes and replays intercepted admin requests using transients.
-- **Admin** — Settings page at Settings → Sudo. Settings: session duration (1–15 min), entry point policies (Block/Allow for REST/CLI/Cron/XML-RPC). Option key: `wp_sudo_settings`.
+- **Admin** — Settings page at Settings → Sudo. Settings: session duration (1–15 min), entry point policies (Disabled/Limited/Unrestricted for REST App Passwords, CLI, Cron, XML-RPC, and WPGraphQL when active). Option key: `wp_sudo_settings`.
 - **Admin_Bar** — Live countdown timer in admin bar during active sessions.
 - **Site_Health** — WordPress Site Health integration (status tests and debug info).
 - **Upgrader** — Version-aware migration runner. Runs sequential upgrade routines when the stored version is older than the plugin version.
@@ -124,7 +125,7 @@ As a tamper-detection canary, `Plugin::enforce_editor_unfiltered_html()` runs at
 
 ### Audit Hooks
 
-The plugin fires 9 action hooks for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_blocked`, `wp_sudo_action_allowed`, `wp_sudo_action_replayed`, `wp_sudo_capability_tampered`.
+The plugin fires 8 action hooks for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_blocked`, `wp_sudo_action_replayed`, `wp_sudo_capability_tampered`.
 
 ## Testing
 

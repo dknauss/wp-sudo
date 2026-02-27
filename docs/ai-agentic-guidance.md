@@ -241,10 +241,4 @@ The `$surface` parameter identifies the entry point: `rest_app_password`, `cli`,
 
 Logging plugins such as [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) or [Stream](https://wordpress.org/plugins/stream/) can subscribe to this hook to create a searchable audit record of what AI tools and automated agents attempted and what was blocked.
 
-For Unrestricted surfaces, the `wp_sudo_action_allowed` hook fires instead:
-
-```php
-do_action( 'wp_sudo_action_allowed', int $user_id, string $rule_id, string $surface );
-```
-
-Together, these hooks provide a complete record of policy decisions for every gated operation attempted through non-interactive entry points -- whether the operation was permitted or denied.
+Note: Unrestricted surfaces pass through silently with no audit hook. If you need visibility into what Unrestricted policies are permitting, keep the surface at Limited and use custom rules or the `wp_sudo_gated_actions` filter to control which operations are blocked.

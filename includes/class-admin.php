@@ -347,7 +347,6 @@ class Admin {
 					. '<li><code>wp_sudo_lockout</code> — ' . __( 'Too many failures.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_gated</code> — ' . __( 'Intercepted, challenge shown.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_blocked</code> — ' . __( 'Denied by Limited policy.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_action_allowed</code> — ' . __( 'Permitted by policy (legacy; not fired by current three-tier model).', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_replayed</code> — ' . __( 'Stashed request replayed.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_capability_tampered</code> — ' . __( 'Removed capability re-detected (possible database tampering).', 'wp-sudo' ) . '</li>'
 					. '</ul>',
