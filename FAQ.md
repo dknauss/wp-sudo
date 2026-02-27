@@ -4,9 +4,11 @@
 
 Any authenticated WordPress session is an attack surface: a stolen session cookie lets an attacker act as you from another browser without knowing your password; an unattended machine with an active admin session leaves gated operations open to whoever has physical access. Conventional security plugins protect the point of entry — login pages, firewall rules, malware scanners. Sudo operates after entry, interposing re-verification at the moment of consequence rather than the moment of login. Administrators define exactly which operations require credential re-confirmation, making the shape and extent of session exposure a deliberate policy rather than an architectural accident.
 
-WP Sudo does not protect against an attacker who already knows your WordPress password — they can complete the sudo challenge just as you can. It also does not protect against direct database access or file system operations that bypass WordPress hooks. See the [Security Model](docs/security-model.md) for a full account of what WP Sudo does and does not defend against.
-
 There is no comparable WordPress plugin. This is not access control — it is action control.
+
+## What are Sudo's limitations?
+
+WP Sudo does not protect against an attacker who already knows your WordPress password and one-time password (OTP) if two-factor authentication (2FA) is active. (Using two-factor is highly recommended on any site.) Someone who possesses all your credentials can, of course, complete the sudo challenge just as you can. Sudo also does not protect against direct database access or file system operations that bypass WordPress hooks. See the [Security Model](docs/security-model.md) for a full account of what WP Sudo does and does not defend against.
 
 ## How does sudo gating work?
 
