@@ -1,5 +1,11 @@
 # Sudo for WordPress
 
+_Defense in depth needs a last layer._ 
+
+Sudo is the only WordPress plugin that provides control over actions.
+
+Approximately half of high-impact WordPress vulnerabilities are exploited within 24 hours — median time to first exploit is 5 hours. When the firewall misses it, the plugin hasn't patched it, and the attacker already has a session — Sudo is the gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every potentially destructive action requires reauthentication, regardless of how the attacker got in. 
+
 **WordPress security plugins guard the door. Sudo governs what can happen inside the house.**
 
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
