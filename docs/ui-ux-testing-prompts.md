@@ -2,9 +2,9 @@
 
 Structured checklists for evaluating the three UI surfaces of WP Sudo:
 
-1. **Challenge page** -- interstitial reauthentication (password step, optional 2FA step, lockout countdown, request replay, Escape key navigation)
-2. **Settings page** -- Settings > Sudo (session duration, 4 entry point policy dropdowns, MU-plugin status section, gated actions table, 8 help tabs)
-3. **Admin bar timer** -- live M:SS countdown during active sessions, turns red at 60 s, click to deactivate, keyboard shortcut Cmd/Ctrl+Shift+S
+1. **Challenge Page**: Interstitial reauthentication (password step, optional 2FA step, lockout countdown, request replay, Escape key navigation)
+2. **Settings Page**: Settings > Sudo (session duration, 4 entry point policy dropdowns, MU-plugin status section, gated actions table, 8 help tabs)
+3. **Admin Bar Timer**: Live M:SS countdown during active sessions, turns red at 60s, click to deactivate, keyboard shortcut Cmd/Ctrl+Shift+S
 
 Each section uses `- [ ]` checkboxes so the document works as a runnable checklist.
 
