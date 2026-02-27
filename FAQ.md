@@ -125,7 +125,7 @@ Yes. Use the `wp_sudo_gated_actions` filter to add custom rules. See [Developer 
 
 ## Can I change the 2FA verification window?
 
-Yes. The default window is 5 minutes. Use the `wp_sudo_two_factor_window` filter to adjust it (value in seconds). See [Developer Reference](developer-reference.md).
+Yes. The default window is 5 minutes. Use the `wp_sudo_two_factor_window` filter to adjust it (value in seconds). You cannot make it lower than 1 minute or higher than 15 minutes. A tiny window maximizes user inconvenience, and a large window minimizes the security benefits. 10-15 minutes is the industry norm, with 10m the usual default in *nix systems. See [Developer Reference](developer-reference.md).
 
 ## Does logging in automatically start a sudo session?
 
