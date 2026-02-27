@@ -29,6 +29,7 @@
 
 - ~~Expire sudo session on password change~~ — shipped v2.8.0: hooks `after_password_reset` and `profile_update`; meta-existence guard prevents phantom audit events
 - ~~WPGraphQL conditional display~~ — shipped v2.8.0: settings, help tab, and Site Health adapt when WPGraphQL is inactive
+- ~~Apache dev testing~~ — v2.8.0 verified on Apache (Local by Flywheel): single-site + multisite subdomain, REST API gating, Application Password auth with `HTTP_AUTHORIZATION` passthrough confirmed working
 
 ### ✓ Completed in v2.6.0
 
@@ -313,19 +314,19 @@ not context retrieval.
 
 ## 5. Environment Diversity Testing (Future Milestone)
 
-The current integration test suite and manual testing guide both run against a single
-environment stack: nginx + SQLite (Studio) or nginx + MySQL (Local) on macOS with a
-single PHP version. This leaves significant gaps in confidence across the environments
-real users run.
+The integration test suite and manual testing guide run against multiple local
+environment stacks: nginx + SQLite (Studio), nginx + MySQL (Local), and Apache + MySQL
+(Local) on macOS with a single PHP version. Apache coverage was added in v2.8.0 via
+Local by Flywheel sites. Gaps remain in CI and broader hosting diversity.
 
 ### Dimensions to cover
 
 | Dimension | Current coverage | Gap |
 |-----------|-----------------|-----|
-| **Web server** | nginx only (Local + Studio) | Apache (mod_php, FastCGI, FPM) — the majority of WordPress hosting |
+| **Web server** | nginx (Studio, Local multisite-subdirectory) + Apache (Local single-site, Local multisite-subdomain) | Apache in CI (mod_php, FastCGI, FPM variants) |
 | **PHP version** | 8.1–8.4 (CI matrix), 8.2 (Local dev) | 8.0 — minimum declared but not in CI |
 | **Database** | MySQL 8.0 (Local CI), SQLite (Studio) | MariaDB 10.x, MySQL 5.7 (legacy hosts) |
-| **WordPress version** | latest + trunk (CI), 7.0-alpha (dev sites) | 6.2–6.9 backward compat (minimum declared but not in CI) |
+| **WordPress version** | latest + trunk (CI), 6.9.1–7.0-beta2 (dev sites) | 6.2–6.8 backward compat (minimum declared but not in CI) |
 | **OS** | macOS (dev), Ubuntu 24.04 (CI) | Windows (if any WP-CLI or path handling is OS-sensitive) |
 | **Hosting stack** | Bare local dev | Shared hosting (cPanel), managed WP (Pressable, WP Engine, Cloudways), containerized (Docker, Kubernetes) |
 
