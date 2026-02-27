@@ -2,15 +2,26 @@
 
 ## How is Sudo different from other WordPress security plugins?
 
-Any authenticated WordPress session is an attack surface: a stolen session cookie lets an attacker act as you from another browser without knowing your password; an unattended machine with an active admin session leaves gated operations open to whoever has physical access. Conventional security plugins protect the point of entry — login pages, firewall rules, malware scanners. Sudo operates after entry, interposing re-verification at the moment of consequence rather than the moment of login. Administrators define exactly which operations require credential re-confirmation, making the shape and extent of session exposure a deliberate policy rather than an architectural accident.
+Any authenticated WordPress session is an attack surface. A stolen session cookie lets an attacker take over your session from another browser without knowing your password. An unattended machine with an active admin session leaves gated operations open to anyone with physical access. Open APIs allow authenticated and unauthenticated remote users and automated systems to probe them, connect, and potentially take damaging actions.
 
-WP Sudo does not protect against an attacker who already knows your WordPress password — they can complete the sudo challenge just as you can. It also does not protect against direct database access or file system operations that bypass WordPress hooks. See the [Security Model](docs/security-model.md) for a full account of what WP Sudo does and does not defend against.
+Conventional security plugins, at their best, attempt to compensate for the limitations of mass-market hosting by adding layers of protection to a few points of entry. CAPTCHAs, rate limits, two-factor authentication (2FA), and firewall rules deter malicious requests, DDoS, and brute-force login attacks across some (usually undefined) portion of the exposed application surfaces. All of this is done at the application layer too, which is both late and resource-intensive. 
+
+Sudo allows site owners to comprehensively mold the shape and size of their site's attack surface, and then to define, enforce, and monitor access policies for human and machine users when they attempt potentially damaging actions. Sudo operates efficiently at the last possible moment. It's your site's skin-tight under-armor, interposing re-authentication at the moment of consequence. Administrators define exactly which operations require credential re-confirmation, making the shape and extent of session exposure a deliberate policy rather than an architectural accident.
 
 There is no comparable WordPress plugin. This is not access control — it is action control.
 
+## What are Sudo's limitations?
+
+WP Sudo does not protect against an attacker who already knows your WordPress password and one-time password (OTP) if two-factor authentication (2FA) is active. (Using two-factor is highly recommended on any site.) Someone who possesses all your credentials can, of course, complete the sudo challenge just as you can. Sudo also does not protect against direct database access or file system operations that bypass WordPress hooks. See the [Security Model](docs/security-model.md) for a full account of what WP Sudo does and does not defend against.
+
+Also, there is no substitute for a first-class, security-hardened server and application environment. Learn what this means so you can deploy secure sites yourself or simply become a savvier hosting consumer:
+
+* [WordPress Security Hardening Guide](https://github.com/dknauss/wp-security-hardening-guide) (Accessible to relatively non-technical readers.)
+* [WordPress Security Benchmark](https://github.com/dknauss/wp-security-benchmark) (Patterned after CIS Benchmarks — a pragmatic technical reference for key security decisions and tradeoffs when you stand up a WordPress server.)
+
 ## How does sudo gating work?
 
-When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init` (before WordPress processes it). The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
+When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init`, before WordPress processes it. The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error, and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
 ## Does this replace WordPress roles and capabilities?
 
@@ -30,15 +41,17 @@ No. Sudo adds a reauthentication layer on top of the existing permission model. 
 | **WP Sudo settings** | Self-protected — settings changes require reauthentication |
 | **Multisite** | Network theme enable/disable, site delete/deactivate/archive/spam, super admin grant/revoke, network settings |
 
-The settings page also includes a read-only Gated Actions table showing all registered rules and their covered surfaces (Admin, AJAX, REST). Note: the surfaces shown reflect WordPress's actual API coverage — not all operations have REST endpoints. However, all gated actions are protected on non-interactive entry points (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings. Developers can add custom rules via the `wp_sudo_gated_actions` filter.
+Sudo's settings page includes a read-only Gated Actions table showing all registered rules and their covered surfaces: Admin, AJAX, WP-CLI, Cron, REST, XML-RPC, and GraphQL, if it's installed and active. 
+
+Note: the surfaces shown reflect WordPress's actual API coverage — not all operations have REST endpoints. However, all gated actions are protected on non-interactive entry points (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings. Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 ## What about REST API and Application Passwords?
 
-Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting with three modes: Disabled (returns `sudo_disabled`), Limited (default — returns `sudo_blocked`), and Unrestricted (passes through with no checks). Individual application passwords can override the global policy from the user profile page — for example, a deployment pipeline password can be Unrestricted while an AI assistant password stays Limited.
+Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting with three modes: **Disabled** (returns `sudo_disabled`), **Limited** (default — returns `sudo_blocked`), and **Unrestricted** (passes through with no checks). Individual application passwords can override the global policy from the user profile page — for example, a deployment pipeline password can be **Unrestricted** while an AI assistant password stays **Limited**.
 
 ## What about WP-CLI, Cron, and XML-RPC?
 
-Each has its own three-tier policy setting: Disabled, Limited (default), or Unrestricted. In Limited mode, gated actions are blocked and logged via audit hooks while non-gated commands work normally. When CLI is Limited or Unrestricted, `wp cron` subcommands still respect the Cron policy — if Cron is Disabled, those commands are blocked even when CLI allows other operations.
+Each has its own three-tier policy setting: **Disabled**, **Limited** (default), or **Unrestricted**. In Limited mode, gated actions are blocked and logged via audit hooks while non-gated commands work normally. When CLI is Limited or Unrestricted, `wp cron` subcommands still respect the Cron policy — if Cron is Disabled, those commands are blocked even when CLI allows other operations.
 
 ## What about WPGraphQL?
 
@@ -53,6 +66,7 @@ WPGraphQL mutations do not reliably fire those same hooks. WPGraphQL dispatches 
 Per-action gating would require either parsing GraphQL request bodies to extract operation names and maintaining a mutation→hook mapping, or a new WPGraphQL-specific rule type separate from the hook-based registry. Both carry significant ongoing maintenance cost for the plugins and custom mutations that WPGraphQL-based sites rely on.
 
 The surface-level approach — blocking any request body containing `mutation` in Limited mode — is reliable and appropriate for the primary use case: headless deployments where mutations come from automated API clients rather than interactive admin users. For mutations that should not require a sudo session (content mutations, authentication handshakes, etc.), the `wp_sudo_wpgraphql_bypass` filter provides precise per-mutation control without modifying the global policy.
+FYI: In GraphQL, a "mutation" is a type of operation used to modify server-side data, causing side effects on the back end. While queries are used for fetching data, mutations are specifically designed for creating, updating, or deleting data. (This is similar to `POST`, `PUT`, `PATCH`, or `DELETE` in `REST`.) 
 
 ## Does WP Sudo work with WPGraphQL JWT Authentication?
 
@@ -120,7 +134,7 @@ Yes. Use the `wp_sudo_gated_actions` filter to add custom rules. See [Developer 
 
 ## Can I change the 2FA verification window?
 
-Yes. The default window is 5 minutes. Use the `wp_sudo_two_factor_window` filter to adjust it (value in seconds). See [Developer Reference](developer-reference.md).
+Yes. The default window is 5 minutes. Use the `wp_sudo_two_factor_window` filter to adjust it (value in seconds). You cannot make it lower than 1 minute or higher than 15 minutes. A tiny window maximizes user inconvenience, and a large window minimizes the security benefits. 10-15 minutes is the industry norm, with 10m the usual default in *nix systems. See [Developer Reference](developer-reference.md).
 
 ## Does logging in automatically start a sudo session?
 

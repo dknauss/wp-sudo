@@ -54,7 +54,7 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter. See [Dev
 
 **Browser requests (admin UI):** The user sees an interstitial challenge page. After entering their password (and 2FA code if configured), the original request is replayed automatically. **AJAX and REST requests** receive a `sudo_required` error; an admin notice on the next page load links to the challenge page.
 
-**Non-interactive requests (WP-CLI, Cron, XML-RPC, Application Passwords, WPGraphQL):** Configurable per-surface policies with three modes: **Disabled**, **Limited** (default), and **Unrestricted**.
+**Non-interactive requests (WP-CLI, Cron, XML-RPC, Application Passwords, and WPGraphQL if installed):** Configurable per-surface policies with three modes: **Disabled**, **Limited** (default), and **Unrestricted**.
 
 ### Security Features
 
