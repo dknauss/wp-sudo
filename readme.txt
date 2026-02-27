@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0
 Requires PHP:      8.0
-Stable tag:        2.9.0
+Stable tag:        2.9.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -129,6 +129,10 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.9.1 =
+* **Docs: threat model kill chain** — verified risk reduction data from Patchstack, Sucuri, Verizon DBIR, Wordfence, and OWASP added to security model and FAQ.
+* **Docs: project size table** — readme.md gains a Project Size subsection; stale test counts corrected; missing v2.8.0/v2.9.0 changelog entries added.
 
 = 2.9.0 =
 * **`wp_sudo_action_allowed` audit hook** — fires when a gated action is permitted by an Unrestricted policy. Covers all five non-interactive surfaces: REST App Passwords, WP-CLI, Cron, XML-RPC, and WPGraphQL (mutations only). This is the ninth audit hook.

@@ -197,6 +197,11 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, PHPCS, Brain\Mon
 
 ## Changelog
 
+### 2.9.1
+
+- **Docs: threat model kill chain** — verified risk reduction data from Patchstack, Sucuri, Verizon DBIR, Wordfence, and OWASP added to security model and FAQ.
+- **Docs: project size table** — readme.md gains a Project Size subsection; stale test counts corrected; missing v2.8.0/v2.9.0 changelog entries added.
+
 ### 2.9.0
 
 - **`wp_sudo_action_allowed` audit hook** — fires when a gated action is permitted by an Unrestricted policy. Covers all five non-interactive surfaces: REST App Passwords, WP-CLI, Cron, XML-RPC, and WPGraphQL (mutations only). This is the ninth audit hook.

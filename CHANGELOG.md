@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.1
+
+- **Docs: threat model kill chain** — `docs/security-model.md` gains a new "Threat Model: The Kill Chain" section with verified statistics from Patchstack (2024 vulnerability breakdown), Sucuri (post-compromise forensics), Verizon DBIR (credential attacks), Wordfence (55B password attacks blocked), and OWASP Top 10:2025 (Broken Access Control #1). Risk reduction estimates table included. `FAQ.md` adds a condensed "Why this matters by the numbers" paragraph. All statistics verified 2026-02-27 against primary sources.
+- **Docs: project size table** — `readme.md` gains a "Project Size" subsection (6,688 production lines, 11,555 test lines, 1.7:1 ratio). `CLAUDE.md` gains verification commands and a pre-release checklist note to keep the table current. Stale test counts in `readme.md` corrected (375/905 → 397/944, 73 → 92 integration). Missing v2.8.0 and v2.9.0 changelog entries added to `readme.md`.
+- **397 unit tests, 944 assertions.**
+
 ## 2.9.0
 
 - **Feature: `wp_sudo_action_allowed` audit hook** — fires when a gated action is permitted by an Unrestricted policy. Covers all five non-interactive surfaces: REST App Passwords (`$user_id, $rule_id, 'rest_app_password'`), WP-CLI (`0, $rule_id, 'cli'`), Cron (`0, $rule_id, 'cron'`), XML-RPC (`0, $rule_id, 'xmlrpc'`), and WPGraphQL (`$user_id, 'wpgraphql', 'wpgraphql'` — mutations only). WPGraphQL queries do not fire the hook. Implemented by adding an `'audit'` mode to `register_function_hooks()` for CLI/Cron/XML-RPC, and inline `do_action()` calls for REST and WPGraphQL. This is the ninth audit hook.
