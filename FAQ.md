@@ -130,7 +130,7 @@ Application Password and XML-RPC logins are **not** affected — the `wp_login` 
 
 ## What happens when I change my password — does it affect my sudo session?
 
-Password changes on `profile.php`, `user-edit.php`, or via the REST API (`PUT`/`PATCH /wp/v2/users/{id}`) are themselves a **gated action** (since v2.6.0), so they already require an active sudo session to proceed. Automatically expiring the session on password change is planned for a future release.
+Password changes on `profile.php`, `user-edit.php`, or via the REST API (`PUT`/`PATCH /wp/v2/users/{id}`) are themselves a **gated action** (since v2.6.0), so they already require an active sudo session to proceed. Since v2.8.0, WP Sudo automatically expires the sudo session when a password change is saved.
 
 ## What is the grace period?
 

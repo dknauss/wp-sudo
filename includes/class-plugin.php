@@ -127,6 +127,13 @@ class Plugin {
 		// so the session cookie set by activate() is guaranteed to reach the browser.
 		add_action( 'wp_login', array( $this, 'grant_session_on_login' ), 10, 2 );
 
+		// Password change: expire any active sudo session when credentials change.
+		// after_password_reset fires for the lost-password reset flow.
+		// profile_update fires for all profile saves (profile.php, user-edit.php, REST API);
+		// we compare the password hash to detect an actual change.
+		add_action( 'after_password_reset', array( $this, 'deactivate_session_on_password_reset' ), 10, 2 );
+		add_action( 'profile_update', array( $this, 'deactivate_session_on_profile_update' ), 10, 3 );
+
 		// Admin settings page (admin-only).
 		if ( is_admin() ) {
 			$this->admin = new Admin();
@@ -285,6 +292,44 @@ class Plugin {
 	 */
 	public function grant_session_on_login( string $user_login, \WP_User $user ): void {
 		Sudo_Session::activate( $user->ID );
+	}
+
+	/**
+	 * Expire the sudo session when a user resets their password via the lost-password flow.
+	 *
+	 * The `after_password_reset` hook fires after the reset form is processed and the new
+	 * password has been stored. The sudo session is tied to the old credentials, so it must
+	 * be invalidated to enforce re-authentication with the new password.
+	 *
+	 * @since 2.8.0
+	 *
+	 * @param \WP_User $user     The user whose password was reset.
+	 * @param string   $new_pass New plaintext password (unused; present for hook signature).
+	 * @return void
+	 */
+	public function deactivate_session_on_password_reset( \WP_User $user, string $new_pass ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed, VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable
+		Sudo_Session::deactivate( $user->ID );
+	}
+
+	/**
+	 * Expire the sudo session when a profile save includes a password change.
+	 *
+	 * The `profile_update` hook fires for profile.php, user-edit.php, and REST API
+	 * PATCH/PUT on users. Only expires the session when the password hash actually
+	 * changed — routine profile saves (display name, email, etc.) must not disturb
+	 * an active session.
+	 *
+	 * @since 2.8.0
+	 *
+	 * @param int                 $user_id       The user whose profile was updated.
+	 * @param \WP_User            $old_user_data The user object before the update.
+	 * @param array<string,mixed> $userdata      Raw data array passed to wp_update_user().
+	 * @return void
+	 */
+	public function deactivate_session_on_profile_update( int $user_id, \WP_User $old_user_data, array $userdata ): void {
+		if ( isset( $userdata['user_pass'] ) && $old_user_data->user_pass !== $userdata['user_pass'] ) {
+			Sudo_Session::deactivate( $user_id );
+		}
 	}
 
 	/**

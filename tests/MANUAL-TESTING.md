@@ -835,6 +835,24 @@ For these tests, use an Application Password for authentication. In the `curl`
 commands below, replace `YOUR_SITE_URL` and `YOUR_USERNAME:YOUR_APP_PASS`
 accordingly (strip spaces from the application password).
 
+### 16.0 Without WPGraphQL Installed
+
+> For these tests, deactivate or remove the WPGraphQL plugin.
+
+1. Go to **Settings > Sudo**.
+2. **Expected:** No WPGraphQL policy dropdown is shown. The four non-GraphQL
+   dropdowns (REST/App Passwords, WP-CLI, Cron, XML-RPC) remain visible.
+3. Open the **Session &amp; Policies** help tab.
+4. **Expected:** The WPGraphQL paragraph reads: "WPGraphQL is also supported
+   as an entry point — its policy setting appears on this page when WPGraphQL
+   is installed."
+5. Go to **Tools > Site Health > Tests**.
+6. **Expected:** Even if the saved WPGraphQL policy is "Unrestricted" (from a
+   prior test run), no "WPGraphQL policy is unrestricted" warning appears.
+   The policy review test shows only the four active surfaces.
+
+> **Cleanup:** Reinstall/reactivate WPGraphQL to continue with §16.1–16.5.
+
 ### 16.1 Limited (Default) — Query passes through
 
 Ensure WPGraphQL policy is set to **Limited** (the default), then:
@@ -1004,3 +1022,44 @@ curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
    — the grace window has closed.
 
 > **Cleanup:** Restore session duration to its original value after testing.
+
+---
+
+## 18. Password Change Expires Sudo Session
+
+> Available since v2.8.0. Confirms that changing a user's password
+> invalidates any active sudo session for that user.
+
+### 18.1 Admin profile (profile.php)
+
+1. Start an active sudo session (perform any gated action).
+2. Confirm the admin bar shows the session countdown timer.
+3. Go to **Users > Profile** and change your password. Click **Update Profile**.
+4. **Expected:** The admin bar countdown disappears on the next page load —
+   the session has been invalidated.
+5. Trigger any gated action (e.g., navigate to Plugins).
+6. **Expected:** The challenge page appears (reauthentication required).
+
+> **Cleanup:** No cleanup needed. Log back in with your new password.
+
+### 18.2 User edit (user-edit.php) — editor's own session is not affected
+
+1. Log in as an administrator with an active sudo session.
+2. Go to **Users > All Users** and edit a different user's profile.
+3. Change that user's password. Click **Update User**.
+4. **Expected:** Your own sudo session is NOT invalidated.
+   The admin bar countdown continues normally.
+5. Verify: if that other user is logged in concurrently, their session
+   should be expired (their admin bar timer vanishes on next page load).
+
+### 18.3 Lost-password reset flow
+
+1. Trigger a password reset for any user via the lost-password link,
+   or via WP-CLI: `wp user reset-password <user_id>`.
+2. Complete the reset and save the new password.
+3. **Expected:** After the reset, the user's sudo session (if any) is
+   invalidated. Verify via WP-CLI:
+   ```bash
+   wp user meta get <user_id> _wp_sudo_expires
+   ```
+   **Expected:** Empty output — the meta key has been deleted.

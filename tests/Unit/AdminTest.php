@@ -897,4 +897,46 @@ class AdminTest extends TestCase {
 
 		unset( $_GET['page'] );
 	}
+
+	// -----------------------------------------------------------------
+	// add_help_tabs() — WPGraphQL conditional (v2.7.1)
+	// -----------------------------------------------------------------
+
+	/**
+	 * "Session & Policies" help tab shows the full WPGraphQL explanation
+	 * when WPGraphQL is active (function_exists('graphql') returns true).
+	 */
+	public function test_help_tab_shows_wpgraphql_detail_when_active(): void {
+		$screen = new \WP_Screen();
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		// function_exists mock goes LAST — Brain\Monkey uses function_exists internally
+		// when registering prior stubs; setting this first causes redeclaration fatals.
+		Functions\when( 'function_exists' )->alias( fn( string $n ): bool => 'graphql' === $n );
+
+		( new Admin() )->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-session-policies']['content'] ?? '';
+		$this->assertStringContainsString( 'WPGraphQL works differently', $content );
+		$this->assertStringNotContainsString( 'its policy setting appears on this page', $content );
+	}
+
+	/**
+	 * "Session & Policies" help tab shows the install-prompt note
+	 * when WPGraphQL is not active (function_exists('graphql') returns false).
+	 */
+	public function test_help_tab_shows_wpgraphql_install_note_when_inactive(): void {
+		$screen = new \WP_Screen();
+		Functions\when( 'get_current_screen' )->justReturn( $screen );
+		Functions\when( '__' )->returnArg();
+		// No function_exists mock — Brain\Monkey returns null (falsy) by default.
+
+		( new Admin() )->add_help_tabs();
+
+		$tabs    = $screen->get_help_tabs();
+		$content = $tabs['wp-sudo-session-policies']['content'] ?? '';
+		$this->assertStringContainsString( 'its policy setting appears on this page', $content );
+		$this->assertStringNotContainsString( 'WPGraphQL works differently', $content );
+	}
 }
