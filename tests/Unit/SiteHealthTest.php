@@ -156,6 +156,48 @@ class SiteHealthTest extends TestCase {
 		$this->assertSame( 'wp_sudo_policies', $result['test'] );
 	}
 
+	public function test_policy_review_includes_wpgraphql_when_active(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_LIMITED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_LIMITED,
+				Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_UNRESTRICTED,
+			)
+		);
+		// Set up function_exists mock last — setting it up before other
+		// Functions\when() calls causes Brain\Monkey to use the stub when
+		// checking whether functions are already declared.
+		Functions\when( 'function_exists' )->alias( fn( string $n ): bool => 'graphql' === $n );
+
+		$result = $this->health->test_policy_review();
+
+		// WPGraphQL is active and unrestricted — should be flagged.
+		$this->assertSame( 'recommended', $result['status'] );
+	}
+
+	public function test_policy_review_excludes_wpgraphql_when_inactive(): void {
+		// function_exists('graphql') returns false naturally in the unit test environment.
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_LIMITED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_LIMITED,
+				Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_UNRESTRICTED,
+			)
+		);
+
+		$result = $this->health->test_policy_review();
+
+		// WPGraphQL is not active — unrestricted setting must NOT trigger a warning.
+		$this->assertSame( 'good', $result['status'] );
+	}
+
 	// ── test_stale_sessions() ────────────────────────────────────────
 
 	public function test_stale_sessions_returns_good_when_none(): void {

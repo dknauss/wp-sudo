@@ -217,7 +217,9 @@ class Admin {
 					. '<li>' . __( '<strong>Limited</strong> (default) — Only gated (dangerous) actions are blocked and logged. Non-gated operations work normally.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>Unrestricted</strong> — Everything passes through as if WP Sudo is not installed. No checks, no logging.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
-					. '<p>' . __( 'WPGraphQL works differently from the other surfaces: when set to Limited, all GraphQL mutations require an active sudo session — the block is at the surface level rather than per-action.', 'wp-sudo' ) . '</p>',
+					. ( function_exists( 'graphql' )
+						? '<p>' . __( 'WPGraphQL works differently from the other surfaces: when set to Limited, all GraphQL mutations require an active sudo session — the block is at the surface level rather than per-action.', 'wp-sudo' ) . '</p>'
+						: '<p>' . __( 'WPGraphQL is also supported as an entry point — its policy setting appears on this page when WPGraphQL is installed.', 'wp-sudo' ) . '</p>' ),
 			)
 		);
 

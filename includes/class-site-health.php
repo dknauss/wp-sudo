@@ -7,6 +7,7 @@
  * 1. **MU-plugin status** — whether the optional mu-plugin is installed.
  * 2. **Session audit** — whether any users have stale sudo tokens.
  * 3. **Entry-point policy review** — whether non-interactive surfaces
+ *    (REST App Passwords, WP-CLI, Cron, XML-RPC, and WPGraphQL when active)
  *    use the recommended "limited" or "disabled" policy (warns on "unrestricted").
  *
  * @package WP_Sudo
@@ -104,13 +105,18 @@ class Site_Health {
 	/**
 	 * Test: Entry-point policy review.
 	 *
-	 * Verifies that non-interactive entry points (REST App Passwords,
-	 * WP-CLI, Cron, XML-RPC) use a secure policy. "Limited" (default)
-	 * and "Disabled" are both considered secure. "Unrestricted" is flagged
-	 * as a recommendation to tighten.
+	 * Verifies that non-interactive entry points (REST App Passwords, WP-CLI,
+	 * Cron, XML-RPC, and WPGraphQL when active) use a secure policy.
+	 * "Limited" (default) and "Disabled" are both considered secure.
+	 * "Unrestricted" is flagged as a recommendation to tighten.
+	 *
+	 * WPGraphQL is only included in the check when the plugin is active —
+	 * the stored policy value is irrelevant when WPGraphQL is not installed.
 	 *
 	 * @since 2.1.0
 	 * @since 2.2.0 Three-tier model: disabled, limited, unrestricted.
+	 * @since 2.5.0 Added WPGraphQL policy.
+	 * @since 2.8.0 WPGraphQL policy check is conditional on plugin presence.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -120,8 +126,10 @@ class Site_Health {
 			Gate::SETTING_CLI_POLICY           => __( 'WP-CLI', 'wp-sudo' ),
 			Gate::SETTING_CRON_POLICY          => __( 'Cron', 'wp-sudo' ),
 			Gate::SETTING_XMLRPC_POLICY        => __( 'XML-RPC', 'wp-sudo' ),
-			Gate::SETTING_WPGRAPHQL_POLICY     => __( 'WPGraphQL', 'wp-sudo' ),
 		);
+		if ( function_exists( 'graphql' ) ) {
+			$policy_keys[ Gate::SETTING_WPGRAPHQL_POLICY ] = __( 'WPGraphQL', 'wp-sudo' );
+		}
 
 		$unrestricted = array();
 
