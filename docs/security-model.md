@@ -29,6 +29,13 @@ Traditional security plugins focus on **step 1** (blocking initial access). Sudo
 - XSS: 47.7%, Broken Access Control: 14.2%, CSRF: 11.4%, Privilege Escalation: 1.6%, Broken Authentication: 1.0%
 - Directly mitigated classes (BAC + CSRF + PrivEsc + BrokenAuth) = ~28% of all WP vulnerabilities
 
+**2025 update** ([Patchstack 2026 whitepaper](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/), covering 11,334 vulnerabilities discovered in 2025 — a 42% increase):
+
+- Highly exploitable vulnerabilities increased 113% YoY
+- Traditional WAFs blocked only 12% of attacks targeting known exploited WordPress vulnerabilities (26% with an expanded rule set)
+- 46% of vulnerabilities had no developer fix at the time of public disclosure
+- Approximately half of high-impact vulnerabilities were exploited within 24 hours; the weighted median time to first exploit was 5 hours
+
 **Post-compromise forensics** ([Sucuri 2023 Hacked Website Report](https://sucuri.net/reports/2023-hacked-website-report/)):
 
 - 55.2% of compromised WordPress databases contained malicious admin users
@@ -53,8 +60,9 @@ Traditional security plugins focus on **step 1** (blocking initial access). Sudo
 | Vulnerability classes with reduced exploitability | ~28% directly, 55–65% including XSS chains | Patchstack 2024 type breakdown |
 | Post-compromise persistence blocked | 49–70% of compromises | Sucuri: backdoor plugins + admin user creation, all Sudo-gated |
 | Session hijacking damage containment | Near-complete for gated actions | Attacker has session cookie but not password |
+| Perimeter defense gap | WAF blocks 12–26% of WP-specific attacks | Patchstack 2025 WAF testing |
 
-*Statistics verified 2026-02-27 against primary sources.*
+*Statistics verified 2026-02-27 against primary sources (Patchstack 2025 and 2026 whitepapers, Sucuri, Verizon DBIR, Wordfence, OWASP).*
 
 ## What It Does Not Protect Against
 
