@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8.0
+
+- **Feature: expire sudo session on password change** — hooks `after_password_reset` (lost-password flow) and `profile_update` (admin profile, user-edit, REST API) to invalidate any active sudo session when a user's password changes. Handlers guard with a meta-existence check before calling `deactivate()` to avoid phantom `wp_sudo_deactivated` audit events for users without sessions. Closes the gap where a compromised session persisted after a password reset.
+- **Feature: WPGraphQL conditional display** — the WPGraphQL policy dropdown on Settings > Sudo, the WPGraphQL paragraph in the "Session & Policies" help tab, and the Site Health policy review all adapt based on whether WPGraphQL is installed. When inactive: the dropdown is hidden, the help tab shows an install note instead of the full explanation, and Site Health does not flag the WPGraphQL policy.
+- **Docs: WPGraphQL surface-level gating rationale** — `docs/developer-reference.md` Rule Structure section now explains why WPGraphQL is gated at the surface level rather than per-action, with a forward reference to the WPGraphQL Surface section.
+- **Docs: manual testing additions** — MANUAL-TESTING.md adds §16.0 (WPGraphQL conditional behavior when plugin inactive) and §18 (password change expires sudo session — three scenarios).
+- **391 unit tests, 929 assertions.**
+
 ## 2.7.0
 
 - **Feature: `wp_sudo_wpgraphql_bypass` filter** — fires in Limited mode before mutation detection. Return `true` to allow a request through without sudo session checks. Solves compatibility with [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication): the JWT `login` mutation is sent by unauthenticated users and was blocked by the default Limited policy, breaking the entire JWT authentication flow. A documented bridge mu-plugin exempts `login` and `refreshJwtAuthToken` mutations while keeping all other mutations gated. The filter does not fire in Disabled or Unrestricted mode.

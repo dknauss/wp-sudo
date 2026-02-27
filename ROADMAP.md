@@ -1,11 +1,11 @@
 # Roadmap: Past and Future Planning — Integration Tests, WP 7.0 Prep, Collaboration, TDD, and Core Design
 
-*Updated February 26, 2026*
+*Updated February 27, 2026*
 
 ## Table of Contents
 
 - **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
-- **[Context](#context)** — v2.6.0 state: 375 unit + 73 integration tests, CI matrix, WP 7.0 status
+- **[Context](#context)** — v2.8.0 state: 391 unit + 73 integration tests, CI matrix, WP 7.0 status
 - **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (73 tests), coverage analysis, remaining gaps
 - **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-ga-april-9-2026)** — Beta 1 tested ✓, one task remaining: "Tested up to" bump on GA day
 - **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
@@ -25,6 +25,11 @@
 ### Immediate (Blocking WP 7.0 GA — April 9, 2026)
 - **Update "Tested up to"** in readme files when WordPress 7.0 ships
 
+### ✓ Completed in v2.8.0
+
+- ~~Expire sudo session on password change~~ — shipped v2.8.0: hooks `after_password_reset` and `profile_update`; meta-existence guard prevents phantom audit events
+- ~~WPGraphQL conditional display~~ — shipped v2.8.0: settings, help tab, and Site Health adapt when WPGraphQL is inactive
+
 ### ✓ Completed in v2.6.0
 
 - ~~Login grants sudo session~~ — shipped v2.6.0: `wp_login` hook calls `Sudo_Session::activate()`; mirrors Unix sudo / GitHub sudo mode
@@ -40,10 +45,9 @@
 - ~~WPGraphQL headless authentication boundary~~ — documented v2.5.2
 - ~~Abilities API (WordPress 6.9+)~~ — documented v2.5.1: covered by existing REST API (App Passwords) policy
 
-### Medium-term (v2.6–v2.7)
+### Medium-term (v2.9+)
 
 **Core Design:**
-- Expire sudo session on password change
 - WP-CLI `wp sudo` subcommands (status, revoke)
 - Public `wp_sudo_check()` / `wp_sudo_require()` API for third-party plugins
 
@@ -54,7 +58,7 @@
 - Gutenberg block editor integration
 - Network policy hierarchy for multisite
 
-### Later (v2.7+) — Deferred, Need Design Work
+### Later (v2.9+) — Deferred, Need Design Work
 
 **Major Features (require architectural design first):**
 - Client-side modal challenge (UX like GitHub) — significant complexity
@@ -77,11 +81,11 @@
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.6.0):
-- **375 unit tests**, 905 assertions, across 13 test files (Brain\Monkey mocks)
+Current project state (as of v2.8.0):
+- **391 unit tests**, 929 assertions, across 15 test files (Brain\Monkey mocks)
 - **73 integration tests** across 11 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.1–8.4, WordPress latest + trunk, single-site + multisite
-- WordPress 7.0 Beta 1 tested (February 19, 2026); GA is April 9, 2026
+- WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
 ---
 
@@ -481,11 +485,10 @@ fully implemented in WP Sudo (through v2.5.2):
 | **Gate `user.change_password`** | Session theft → silently change password → lock out user is a real attack chain. The document calls this out. `profile.php` action `update` with `pass1`/`pass2` in POST fits the existing rule pattern. | Small |
 | **Grace period (two-tier expiry)** | Prevent form submissions failing when sudo expires during processing. Active = within (duration − 2 min), valid = within duration. Requires a second check in `is_active()` or a new `is_within_grace()` method. | Small |
 
-**Medium priority — target v2.6**
+**Medium priority — target v2.9**
 
 | Feature | Rationale | Effort |
 |---------|-----------|--------|
-| **Expire sudo on password change** | Hook `after_password_reset` and `profile_update` (when password changes). Currently sessions expire only on timeout. | Small |
 | **WP-CLI `wp sudo` subcommands** | `wp sudo status`, `wp sudo revoke [--user=<id>]`, `wp sudo revoke --all`. No tooling exists for operators to inspect or manage sudo state from the command line. | Medium |
 | **Public `wp_sudo_check()` / `wp_sudo_require()` API** | Let third-party plugins require sudo for their own actions without registering a full Gate rule. WP Crontrol's PHP cron events are the motivating example. Needs design for the challenge trigger path when called outside the Gate flow. | Medium |
 
