@@ -21,7 +21,7 @@ Also, there is no substitute for a first-class, security-hardened server and app
 
 ## How does sudo gating work?
 
-When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init` (before WordPress processes it). The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
+When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init`, before WordPress processes it. The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error, and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
 ## Does this replace WordPress roles and capabilities?
 
@@ -41,15 +41,17 @@ No. Sudo adds a reauthentication layer on top of the existing permission model. 
 | **WP Sudo settings** | Self-protected — settings changes require reauthentication |
 | **Multisite** | Network theme enable/disable, site delete/deactivate/archive/spam, super admin grant/revoke, network settings |
 
-The settings page also includes a read-only Gated Actions table showing all registered rules and their covered surfaces (Admin, AJAX, REST). Note: the surfaces shown reflect WordPress's actual API coverage — not all operations have REST endpoints. However, all gated actions are protected on non-interactive entry points (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings. Developers can add custom rules via the `wp_sudo_gated_actions` filter.
+Sudo's settings page includes a read-only Gated Actions table showing all registered rules and their covered surfaces: Admin, AJAX, WP-CLI, Cron, REST, XML-RPC, and GraphQL, if it's installed and active. 
+
+Note: the surfaces shown reflect WordPress's actual API coverage — not all operations have REST endpoints. However, all gated actions are protected on non-interactive entry points (WP-CLI, Cron, XML-RPC, Application Passwords) via the configurable policy settings. Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 ## What about REST API and Application Passwords?
 
-Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting with three modes: Disabled (returns `sudo_disabled`), Limited (default — returns `sudo_blocked`), and Unrestricted (passes through with no checks). Individual application passwords can override the global policy from the user profile page — for example, a deployment pipeline password can be Unrestricted while an AI assistant password stays Limited.
+Cookie-authenticated REST requests (from the block editor, admin AJAX) receive a `sudo_required` error. An admin notice on the next page load links to the challenge page where the user can authenticate and activate a sudo session, then retry the action. Application Password and bearer-token REST requests are governed by a separate policy setting with three modes: **Disabled** (returns `sudo_disabled`), **Limited** (default — returns `sudo_blocked`), and **Unrestricted** (passes through with no checks). Individual application passwords can override the global policy from the user profile page — for example, a deployment pipeline password can be **Unrestricted** while an AI assistant password stays **Limited**.
 
 ## What about WP-CLI, Cron, and XML-RPC?
 
-Each has its own three-tier policy setting: Disabled, Limited (default), or Unrestricted. In Limited mode, gated actions are blocked and logged via audit hooks while non-gated commands work normally. When CLI is Limited or Unrestricted, `wp cron` subcommands still respect the Cron policy — if Cron is Disabled, those commands are blocked even when CLI allows other operations.
+Each has its own three-tier policy setting: **Disabled**, **Limited** (default), or **Unrestricted**. In Limited mode, gated actions are blocked and logged via audit hooks while non-gated commands work normally. When CLI is Limited or Unrestricted, `wp cron` subcommands still respect the Cron policy — if Cron is Disabled, those commands are blocked even when CLI allows other operations.
 
 ## What about WPGraphQL?
 
