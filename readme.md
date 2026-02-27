@@ -141,14 +141,29 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 **Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
 
-- **Unit tests** (375 tests, 905 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
-- **Integration tests** (73 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
+- **Unit tests** (397 tests, 944 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
+- **Integration tests** (92 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
 
 **Static analysis and code style.** PHPStan level 6 (zero errors) and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early.
 
 **Extensibility.** The action registry is filterable via `wp_sudo_gated_actions`. The plugin fires 9 audit hooks covering session lifecycle, gated actions, policy decisions, and lockouts — designed for integration with activity log plugins. Third-party 2FA plugins integrate via four filter hooks. See [docs/developer-reference.md](docs/developer-reference.md) for the full hook reference.
 
 **Contributing.** See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the TDD workflow, and code style requirements.
+
+### Project Size
+
+| Component | Size |
+|---|---|
+| **Production PHP** (`includes/`, `wp-sudo.php`, `uninstall.php`, `mu-plugin/`, `bridges/`) | 224 KB · 6,688 lines |
+| **Assets** (screenshots, banner images) | 5.0 MB |
+| **Tests** (`tests/`) | 488 KB · 11,555 lines |
+| **Docs** (`docs/` + root-level md/txt) | 432 KB |
+| **Total PHP** (production + tests, excl. vendor) | 18,283 lines |
+| **Test-to-production ratio** | 1.7:1 |
+
+No production dependencies. Dev dependencies (PHPUnit, PHPStan, PHPCS, Brain\Monkey, Mockery) live in `vendor/` and are not shipped.
+
+*Last updated: 2026-02-27. See CLAUDE.md for the update command.*
 
 ## Screenshots
 
@@ -181,6 +196,19 @@ WP Sudo is built for correctness and contributor legibility, not just functional
    ![Active sudo session](assets/screenshot-7.png?v=2)
 
 ## Changelog
+
+### 2.9.0
+
+- **`wp_sudo_action_allowed` audit hook** — fires when a gated action is permitted by an Unrestricted policy. Covers all five non-interactive surfaces: REST App Passwords, WP-CLI, Cron, XML-RPC, and WPGraphQL (mutations only). This is the ninth audit hook.
+- **Docs: CLAUDE.md accuracy audit** — corrected six inaccuracies; logged one confabulation in `llm_lies_log.txt`.
+- **Docs: manual testing** — MANUAL-TESTING.md adds §19 (Unrestricted audit hook verification) with forward references from existing Unrestricted subsections.
+- **397 unit tests, 944 assertions. 92 integration tests in CI.**
+
+### 2.8.0
+
+- **Expire sudo session on password change** — hooks `after_password_reset` and `profile_update` to invalidate any active sudo session when a user's password changes. Closes the gap where a compromised session persisted after a password reset.
+- **WPGraphQL conditional display** — the WPGraphQL policy dropdown, help tab paragraph, and Site Health review all adapt based on whether WPGraphQL is installed.
+- **391 unit tests, 929 assertions. 92 integration tests in CI.**
 
 ### 2.7.0
 

@@ -72,6 +72,11 @@ curl -s "https://plugins.svn.wordpress.org/all-in-one-wp-security-and-firewall/t
 
 # Verify a GitHub-hosted plugin (example: Two Factor)
 curl -s "https://raw.githubusercontent.com/WordPress/two-factor/master/class-two-factor-core.php" | grep "function "
+
+# Project size (update readme.md table when line counts change significantly)
+find . -type f -name "*.php" ! -path "*/vendor/*" ! -path "*/.git/*" -print0 | xargs -0 wc -l | tail -1          # total PHP
+find ./includes ./wp-sudo.php ./uninstall.php ./mu-plugin ./bridges -type f -name "*.php" -print0 | xargs -0 wc -l | tail -1  # production
+find ./tests -type f -name "*.php" -print0 | xargs -0 wc -l | tail -1                                             # tests
 ```
 
 ### Pre-release audit
@@ -79,6 +84,9 @@ curl -s "https://raw.githubusercontent.com/WordPress/two-factor/master/class-two
 Before tagging a release, re-verify all external claims added or modified since the
 last tag. Append any new findings to `llm_lies_log.txt`. If new fabrications are
 found, fix them before tagging.
+
+Update the project size table in `readme.md` if production or test line counts
+changed since the last release. Use the project size commands above.
 
 ## Test-Driven Development
 
