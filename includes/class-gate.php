@@ -1116,7 +1116,7 @@ class Gate {
 			'stash_key' => $stash_key,
 		);
 		if ( $return_url ) {
-			$query_args['return_url'] = rawurlencode( $return_url );
+			$query_args['return_url'] = $return_url;
 		}
 
 		$challenge_url = add_query_arg( $query_args, $base_url );
@@ -1263,7 +1263,7 @@ class Gate {
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
-			$query_args['return_url'] = rawurlencode( $current_url );
+			$query_args['return_url'] = $current_url;
 		}
 
 		$challenge_url = add_query_arg(
@@ -1330,7 +1330,7 @@ class Gate {
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
-			$query_args['return_url'] = rawurlencode( $current_url );
+			$query_args['return_url'] = $current_url;
 		}
 
 		$challenge_url = add_query_arg(

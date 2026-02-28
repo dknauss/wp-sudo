@@ -253,25 +253,34 @@ class Site_Health {
 	 * @return int[] User IDs with stale sessions.
 	 */
 	private function find_stale_sessions(): array {
-		$users = get_users(
-			array(
-				'meta_key'     => Sudo_Session::META_KEY, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-				'meta_value'   => '0', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-				'meta_compare' => '>',
-				'fields'       => 'ID',
-				'number'       => 100,
-			)
-		);
+		$batch_size = 100;
+		$offset     = 0;
+		$stale      = array();
+		$now        = time();
 
-		$now   = time();
-		$stale = array();
+		do {
+			$users = get_users(
+				array(
+					'meta_key'     => Sudo_Session::META_KEY, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+					'meta_value'   => '0', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+					'meta_compare' => '>',
+					'fields'       => 'ID',
+					'number'       => $batch_size,
+					'offset'       => $offset,
+				)
+			);
 
-		foreach ( $users as $uid ) {
-			$expires = (int) get_user_meta( (int) $uid, Sudo_Session::META_KEY, true );
-			if ( $expires > 0 && $expires < $now ) {
-				$stale[] = (int) $uid;
+			$found = count( $users );
+
+			foreach ( $users as $uid ) {
+				$expires = (int) get_user_meta( (int) $uid, Sudo_Session::META_KEY, true );
+				if ( $expires > 0 && $expires < $now ) {
+					$stale[] = (int) $uid;
+				}
 			}
-		}
+
+			$offset += $batch_size;
+		} while ( $found === $batch_size );
 
 		return $stale;
 	}

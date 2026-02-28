@@ -28,7 +28,7 @@
 		var select = document.createElement( 'select' );
 		select.className = 'wp-sudo-app-password-policy';
 		select.setAttribute( 'data-uuid', uuid );
-		select.setAttribute( 'aria-label', 'Sudo policy for this application password' );
+		select.setAttribute( 'aria-label', config.i18n.policyAriaLabel );
 
 		var options = config.options || {};
 		var currentPolicy = ( config.policies && config.policies[ uuid ] ) || '';
@@ -139,7 +139,7 @@
 		if ( thead ) {
 			var th = document.createElement( 'th' );
 			th.scope = 'col';
-			th.textContent = 'Sudo Policy';
+			th.textContent = config.i18n.policyColumnHeader;
 			th.className = 'column-wp-sudo-policy';
 			// Insert before the last column (Revoke).
 			var lastTh = thead.querySelector( 'th:last-child' );
@@ -192,7 +192,7 @@
 
 		var td = document.createElement( 'td' );
 		td.className = 'column-wp-sudo-policy';
-		td.setAttribute( 'data-colname', 'Sudo Policy' );
+		td.setAttribute( 'data-colname', config.i18n.policyColumnName );
 		td.appendChild( buildSelect( uuid ) );
 
 		// Insert before the last cell (Revoke button).

@@ -939,4 +939,47 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'its policy setting appears on this page', $content );
 		$this->assertStringNotContainsString( 'WPGraphQL works differently', $content );
 	}
+
+	// =================================================================
+	// App-password JS i18n keys
+	// =================================================================
+
+	public function test_app_password_assets_localizes_i18n_strings(): void {
+		Functions\when( 'current_user_can' )->justReturn( true );
+		Functions\when( 'is_multisite' )->justReturn( false );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'admin_url' )->justReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+		Functions\when( 'wp_create_nonce' )->justReturn( 'test-nonce' );
+		Functions\when( 'wp_enqueue_script' )->justReturn();
+		Functions\when( 'get_option' )->justReturn( array() );
+
+		$_GET['user_id'] = 1;
+		Functions\when( 'absint' )->justReturn( 1 );
+
+		$captured = null;
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-app-passwords',
+				'wpSudoAppPasswords',
+				\Mockery::on(
+					function ( $data ) use ( &$captured ) {
+						$captured = $data;
+						return true;
+					}
+				)
+			);
+
+		$admin = new Admin();
+		$admin->maybe_enqueue_app_password_assets( 'profile.php' );
+
+		$this->assertIsArray( $captured['i18n'] );
+		$expected_keys = array( 'sudoRequired', 'policyAriaLabel', 'policyColumnHeader', 'policyColumnName' );
+		foreach ( $expected_keys as $key ) {
+			$this->assertArrayHasKey( $key, $captured['i18n'], "Missing i18n key: $key" );
+			$this->assertNotEmpty( $captured['i18n'][ $key ], "Empty string for i18n key: $key" );
+		}
+
+		unset( $_GET['user_id'] );
+	}
 }

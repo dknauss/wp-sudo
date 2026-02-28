@@ -224,6 +224,47 @@ class PluginTest extends TestCase {
 		unset( $_GET['page'] );
 	}
 
+	public function test_enqueue_shortcut_return_url_is_not_double_encoded(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'admin_url' )->alias( fn( $path = '' ) => 'https://example.com/wp-admin/' . $path );
+		Functions\when( 'home_url' )->alias( fn( $path = '' ) => 'https://example.com' . $path );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'wp_enqueue_script' )->justReturn();
+
+		$_GET['page']            = 'some-other-page';
+		$_SERVER['REQUEST_URI']  = '/wp-admin/admin.php?page=plugins&plugin_status=active';
+		$_SERVER['HTTP_HOST']    = 'example.com';
+		$_SERVER['REQUEST_SCHEME'] = 'https';
+
+		$captured_args = null;
+		Functions\expect( 'add_query_arg' )
+			->once()
+			->with(
+				\Mockery::on( function ( $args ) use ( &$captured_args ) {
+					$captured_args = $args;
+					return true;
+				} ),
+				\Mockery::type( 'string' )
+			)
+			->andReturn( 'https://example.com/wp-admin/admin.php?page=wp-sudo-challenge' );
+
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with( 'wp-sudo-shortcut', 'wpSudoShortcut', \Mockery::type( 'array' ) );
+
+		$plugin = new Plugin();
+		$plugin->enqueue_shortcut();
+
+		$this->assertArrayHasKey( 'return_url', $captured_args );
+		// The return_url must NOT be URL-encoded before add_query_arg (which encodes it itself).
+		$this->assertStringNotContainsString( '%3A', $captured_args['return_url'], 'return_url should not be pre-encoded before add_query_arg.' );
+		$this->assertStringNotContainsString( '%2F', $captured_args['return_url'], 'return_url should not be pre-encoded before add_query_arg.' );
+
+		unset( $_GET['page'], $_SERVER['REQUEST_URI'], $_SERVER['HTTP_HOST'], $_SERVER['REQUEST_SCHEME'] );
+	}
+
 	// -----------------------------------------------------------------
 	// enqueue_gate_ui()
 	// -----------------------------------------------------------------

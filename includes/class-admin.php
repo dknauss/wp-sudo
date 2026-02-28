@@ -1146,7 +1146,10 @@ class Admin {
 					'unrestricted' => __( 'Unrestricted', 'wp-sudo' ),
 				),
 				'i18n'     => array(
-					'sudoRequired' => __( 'A sudo session is required. Activate one then try again.', 'wp-sudo' ),
+					'sudoRequired'       => __( 'A sudo session is required. Activate one then try again.', 'wp-sudo' ),
+					'policyAriaLabel'    => __( 'Sudo policy for this application password', 'wp-sudo' ),
+					'policyColumnHeader' => __( 'Sudo Policy', 'wp-sudo' ),
+					'policyColumnName'   => __( 'Sudo Policy', 'wp-sudo' ),
 				),
 			)
 		);

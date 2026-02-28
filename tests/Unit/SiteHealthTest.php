@@ -242,4 +242,29 @@ class SiteHealthTest extends TestCase {
 
 		$this->assertSame( 'good', $result['status'] );
 	}
+
+	public function test_stale_sessions_paginates_beyond_100_users(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( '_n' )->returnArg();
+
+		$expired_time = time() - 60;
+
+		// First batch: 100 user IDs (triggers next page). Second batch: 5 user IDs (stops loop).
+		$first_batch  = range( 1, 100 );
+		$second_batch = range( 101, 105 );
+
+		Functions\expect( 'get_users' )
+			->twice()
+			->andReturnValues( array( $first_batch, $second_batch ) );
+
+		Functions\when( 'get_user_meta' )->justReturn( $expired_time );
+
+		// 105 stale users × 2 meta keys each = 210 deletions.
+		Functions\expect( 'delete_user_meta' )
+			->times( 210 );
+
+		$result = $this->health->test_stale_sessions();
+
+		$this->assertSame( 'good', $result['status'] );
+	}
 }
