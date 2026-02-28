@@ -13,7 +13,9 @@ Sudo is the only WordPress plugin that provides control over actions.
 [![Try in Playground](https://img.shields.io/badge/Try%20it-Playground-3858e9?logo=wordpress&logoColor=white)](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/dknauss/wp-sudo/main/blueprint.json)
 
 > _**This exploratory plugin is NOT production-ready**. Please [**help test it**](https://github.com/dknauss/wp-sudo/blob/main/tests/MANUAL-TESTING.md) and share your feedback._
-  
+
+<br/><br/>
+
 ![Unbreakable Barrier Gate](assets/fuwa-no-seki-narrow.png)
 
 > So full of cracks,  
@@ -22,6 +24,8 @@ lets both rain and moonlight in —
 quietly exposed, yet enduring.  
   
 — [Abatsu-ni](https://en.wikipedia.org/wiki/Abutsu-ni), *Diary of the Waning Moon*  
+
+<br/><br/>
 
 # In 2026, 57% of attacks on WordPress sites target one thing: Access Control.
 
