@@ -229,7 +229,7 @@
 					}
 
 					var data = response.data || {};
-					showError( twofaErrorBox, data.message || strings.verificationFailed );
+					showError( twofaErrorBox, data.message || strings.authenticationFailed );
 				} )
 				.catch( function ( err ) {
 					loadingOverlay.hidden = true;

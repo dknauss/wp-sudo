@@ -2,6 +2,10 @@
 
 WP Sudo is a **hook-based interception layer**. It operates within WordPress's plugin API — `admin_init`, `pre_option_*`, `activate_plugin`, REST `permission_callback`, etc. — and is subject to the same boundaries as any WordPress plugin.
 
+### Terminology Note
+
+WP Sudo uses the term **reauthentication** to describe its core pattern, following [NIST SP 800-63B §7.2](https://pages.nist.gov/800-63-4/sp800-63b.html#sessionreauthn): *"Periodic reauthentication of subscriber sessions SHALL be performed to confirm the subscriber's continued presence and intent to be authenticated."* Reauthentication describes the security pattern of requiring a user to prove their identity again during an existing session. The underlying mechanisms — password hash comparison (`wp_check_password`), TOTP code validation, etc. — are verification at the cryptographic level, but the overall pattern is reauthentication, not verification. When 2FA is enabled for WP Sudo, it is also enabled for the initial WordPress login, so the challenge operates at the same assurance level — this is pure reauthentication, not step-up authentication (which would imply a higher assurance level than the initial login).
+
 ## What It Protects Against
 
 - **Compromised admin sessions** — a stolen session cookie cannot perform gated actions without reauthenticating. The sudo session is cryptographically bound to the browser.

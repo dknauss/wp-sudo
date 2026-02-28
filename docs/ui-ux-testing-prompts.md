@@ -14,9 +14,9 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 
 ### H1 — Visibility of System Status
 
-- [ ] **Challenge page:** Loading spinner and "Verifying..." screen-reader text appear immediately on form submission and disappear when the server responds.
+- [ ] **Challenge page:** Loading spinner and "Authenticating…" screen-reader text appear immediately on form submission and disappear when the server responds.
 - [ ] **Challenge page:** Lockout countdown updates visually every second and displays the remaining time prominently in the error notice.
-- [ ] **Challenge page:** 2FA timer shows remaining seconds for the verification window and turns into a warning state at 60 s.
+- [ ] **Challenge page:** 2FA timer shows remaining seconds for the authentication window and turns into a warning state at 60 s.
 - [ ] **Challenge page:** "Replaying your action..." overlay and `wp.a11y.speak()` announcement appear between authentication success and the replayed request.
 - [ ] **Settings page:** "Settings saved." success notice appears after saving (single-site via `options.php`, multisite via `edit.php` redirect with `?updated=true`).
 - [ ] **Settings page:** MU-plugin install/uninstall shows spinner during AJAX, then updates the status text and displays a result message.
@@ -37,7 +37,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 
 - [ ] **Challenge page:** Cancel button returns to the originating page (validates `return_url` parameter, falls back to Dashboard).
 - [ ] **Challenge page:** Escape key announces "Leaving challenge page." and navigates to the cancel URL after a 600 ms delay for screen reader announcement.
-- [ ] **Challenge page:** "Start over" button appears when the 2FA verification window expires, allowing the user to reload and restart the flow.
+- [ ] **Challenge page:** "Start over" button appears when the 2FA authentication window expires, allowing the user to reload and restart the flow.
 - [ ] **Challenge page:** Password field clears after a failed attempt so the user can retype without manually selecting all.
 - [ ] **Settings page:** All settings have visible defaults; reverting to defaults is possible by setting values back to documented defaults.
 - [ ] **Admin bar timer:** Clicking the timer deactivates the session immediately (nonce-protected), keeping the user on the current page.
@@ -90,7 +90,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Challenge page:** "Incorrect password" error is specific (not generic "authentication failed").
 - [ ] **Challenge page:** Lockout error includes a live countdown ("Too many failed attempts. Try again in M:SS.") so the user knows exactly when they can retry.
 - [ ] **Challenge page:** "Your challenge session has expired" message appears when the stash is consumed or timed out, with a clear path to retry.
-- [ ] **Challenge page:** "Your verification session has expired. Please start over." appears if the 2FA pending state is missing, with the "Start over" button.
+- [ ] **Challenge page:** "Your authentication session has expired. Please start over." appears if the 2FA pending state is missing, with the "Start over" button.
 - [ ] **Challenge page:** Non-JSON server responses log to the browser console and show "The server returned an unexpected response" with a console hint.
 - [ ] **Challenge page:** Network errors show "A network error occurred. Please try again."
 - [ ] **Settings page:** MU-plugin install/uninstall error messages specify the cause (e.g., "Check file permissions.").

@@ -536,7 +536,7 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 
 - ~~Actual default: 5 minutes (`class-sudo-session.php:370`). Admin help text: 10 minutes (`class-admin.php:323`).~~
 - ~~**Action:** Align help text to actual default.~~
-- Fixed: help text now reads "5 minutes". Note: this is the **2FA verification window** (how long to enter a 2FA code), not the sudo session duration (15 min default). Two distinct timers.
+- Fixed: help text now reads "5 minutes". Note: this is the **2FA authentication window** (how long to enter a 2FA code), not the sudo session duration (15 min default). Two distinct timers.
 
 **2FA window bounds not enforced in code**
 

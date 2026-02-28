@@ -358,7 +358,7 @@ class Sudo_Session {
 		// Check for 2FA requirement.
 		if ( self::needs_two_factor( $user_id ) ) {
 			/**
-			 * Filter the two-factor verification window in seconds.
+			 * Filter the two-factor authentication window in seconds.
 			 *
 			 * Controls how long a user has to enter their 2FA code after
 			 * successfully providing their password. Defaults to 5 minutes.
@@ -492,7 +492,7 @@ class Sudo_Session {
 	/**
 	 * Clear the 2FA pending transient and expire the challenge cookie.
 	 *
-	 * Called after successful 2FA verification to prevent replay.
+	 * Called after successful 2FA authentication to prevent replay.
 	 *
 	 * @since 2.0.0
 	 *

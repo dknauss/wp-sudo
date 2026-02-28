@@ -22,7 +22,7 @@ For the general architecture overview and hook reference, see [two-factor-integr
 WP Sudo has a two-step reauthentication challenge:
 
 1. **Password step** — the user enters their WordPress password.
-2. **2FA step** — if a 2FA plugin signals the user has 2FA configured, a second form collects and validates a verification code.
+2. **2FA step** — if a 2FA plugin signals the user has 2FA configured, a second form collects and validates an authentication code.
 
 WP Sudo does **not** implement any 2FA method itself. It delegates entirely:
 - **Detection** — "Does this user need 2FA?" is answered by plugins via a filter.
@@ -70,7 +70,7 @@ add_action( 'wp_sudo_render_two_factor_fields', function ( \WP_User $user ): voi
     // Output HTML form fields. They will be inside WP Sudo's <form>.
     ?>
     <p>
-        <label for="my-2fa-code"><?php esc_html_e( 'Verification code:', 'my-plugin' ); ?></label>
+        <label for="my-2fa-code"><?php esc_html_e( 'Authentication code:', 'my-plugin' ); ?></label>
         <input type="text" id="my-2fa-code" name="my_2fa_code"
                autocomplete="one-time-code" inputmode="numeric"
                pattern="[0-9]*" required />
@@ -82,7 +82,7 @@ add_action( 'wp_sudo_render_two_factor_fields', function ( \WP_User $user ): voi
 **Called when:** The challenge page HTML is being rendered. Your fields appear inside `#wp-sudo-challenge-2fa-form`.
 
 **Rules:**
-- **No submit button.** WP Sudo provides "Verify & Continue."
+- **No submit button.** WP Sudo provides "Confirm & Continue."
 - **No `action` or `_wpnonce` hidden fields.** WP Sudo's JavaScript strips them and adds its own.
 - **No wrapping `<form>` tag.** Your fields are already inside one.
 - **Use a unique `name` attribute** so your validation callback can read it from `$_POST`.
@@ -344,8 +344,8 @@ If a user has multiple 2FA methods configured (e.g., TOTP primary + backup codes
    - Password step first.
    - After correct password: 2FA step with your form fields.
    - After correct code: the original action completes.
-6. Test with a wrong code — should show "Invalid verification code."
-7. Test with an expired session (wait for the countdown) — should show "Your verification session has expired."
+6. Test with a wrong code — should show "Invalid authentication code."
+7. Test with an expired session (wait for the countdown) — should show "Your authentication session has expired."
 
 ### Automated testing
 

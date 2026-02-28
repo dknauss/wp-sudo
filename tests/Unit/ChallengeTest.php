@@ -194,7 +194,7 @@ class ChallengeTest extends TestCase {
 			'unexpectedResponse',
 			'genericError',
 			'networkError',
-			'verificationFailed',
+			'authenticationFailed',
 			'lockoutCountdown',
 			'timeRemaining',
 			'timeRemainingWarn',

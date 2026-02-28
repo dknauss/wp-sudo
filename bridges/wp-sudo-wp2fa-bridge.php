@@ -51,7 +51,7 @@ add_filter(
  *
  * Rules enforced by WP Sudo:
  *   - No <form> wrapper (already inside one).
- *   - No submit button (WP Sudo provides "Verify & Continue").
+ *   - No submit button (WP Sudo provides "Confirm & Continue").
  *   - No 'action' or '_wpnonce' hidden fields (WP Sudo strips and replaces them).
  */
 add_action(

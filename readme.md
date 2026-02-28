@@ -78,7 +78,7 @@ For the full threat model, boundaries, and environmental considerations, see [Se
 
 ### Recommended Plugins
 
-- **[Two Factor](https://wordpress.org/plugins/two-factor/)** — Strongly recommended. Makes the sudo challenge a two-step process: password + verification code (TOTP, email, backup codes). Add **[WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)** for passkey and security key support.
+- **[Two Factor](https://wordpress.org/plugins/two-factor/)** — Strongly recommended. Makes the sudo challenge a two-step process: password + authentication code (TOTP, email, backup codes). Add **[WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)** for passkey and security key support.
 - **[WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/)** or **[Stream](https://wordpress.org/plugins/stream/)** — Recommended for audit visibility. Sudo fires 9 action hooks covering session lifecycle, gated actions, policy decisions, and lockouts.
 
 ### User Experience
@@ -102,7 +102,7 @@ Settings and sessions are network-wide. The action registry includes 8 additiona
 2. Activate the plugin through the **Plugins** screen in WordPress.
 3. Go to **Settings > Sudo** to configure session duration and entry point policies.
 4. (Optional) Install the mu-plugin from the settings page for early hook registration.
-5. (Recommended) Install the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin for two-step verification.
+5. (Recommended) Install the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin for two-factor authentication.
 
 ## Frequently Asked Questions
 
@@ -158,7 +158,7 @@ Each has its own three-tier policy: Disabled, Limited (default), or Unrestricted
 
 ### Does it support two-factor authentication?
 
-Yes. With the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin, the sudo challenge becomes a two-step process: password + verification code. Third-party 2FA plugins can integrate via [filter hooks](docs/developer-reference.md).
+Yes. With the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin, the sudo challenge becomes a two-step process: password + authentication code. Third-party 2FA plugins can integrate via [filter hooks](docs/developer-reference.md).
 
 ### Does it work on multisite?
 
@@ -212,9 +212,9 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, PHPCS, Brain\Mon
 
    ![Challenge page](assets/screenshot-1.png?v=2)
 
-2. **Two-factor verification** — after password confirmation, users with 2FA enabled enter their authentication code.
+2. **Two-factor authentication** — after password confirmation, users with 2FA enabled enter their authentication code.
 
-   ![Two-factor verification](assets/screenshot-2.png?v=3)
+   ![Two-factor authentication](assets/screenshot-2.png?v=3)
 
 3. **Settings page** — configure session duration and entry point policies.
 

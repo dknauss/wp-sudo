@@ -17,7 +17,7 @@ WordPress security plugins guard the door. Sudo governs what can happen inside t
 
 == Description ==
 
-WordPress has rich access control — roles, capabilities, policies on who can do what. It has no native control over when those capabilities can be exercised within a session. Sudo fills that gap. By gating consequential actions behind re-verification, it lets site owners directly define the blast radius of any session compromise — regardless of how that compromise occurred, and regardless of the user's role. The attack surface becomes a policy decision.
+WordPress has rich access control — roles, capabilities, policies on who can do what. It has no native control over when those capabilities can be exercised within a session. Sudo fills that gap. By gating consequential actions behind reauthentication, it lets site owners directly define the blast radius of any session compromise — regardless of how that compromise occurred, and regardless of the user's role. The attack surface becomes a policy decision.
 
 This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
@@ -60,7 +60,7 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter.
 
 = Recommended plugins =
 
-* **[Two Factor](https://wordpress.org/plugins/two-factor/)** — Strongly recommended. Makes the sudo challenge a two-step process: password + verification code (TOTP, email, backup codes). Add **[WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)** for passkey and security key support.
+* **[Two Factor](https://wordpress.org/plugins/two-factor/)** — Strongly recommended. Makes the sudo challenge a two-step process: password + authentication code (TOTP, email, backup codes). Add **[WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)** for passkey and security key support.
 * **[WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/)** or **[Stream](https://wordpress.org/plugins/stream/)** — Recommended for audit visibility. Sudo fires 9 action hooks covering session lifecycle, gated actions, policy decisions, and lockouts.
 
 = User experience =
@@ -84,7 +84,7 @@ Settings and sessions are network-wide. The action registry includes 8 additiona
 2. Activate the plugin through the **Plugins** screen in WordPress.
 3. Go to **Settings → Sudo** to configure session duration and entry point policies.
 4. (Optional) Install the mu-plugin from the settings page for early hook registration.
-5. (Recommended) Install the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin for two-step verification.
+5. (Recommended) Install the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin for two-factor authentication.
 
 == Frequently Asked Questions ==
 
@@ -106,7 +106,7 @@ Each has its own three-tier policy: Disabled, Limited (default), or Unrestricted
 
 = Does it support two-factor authentication? =
 
-Yes. With the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin, the sudo challenge becomes a two-step process: password + verification code. Third-party 2FA plugins can integrate via filter hooks.
+Yes. With the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin, the sudo challenge becomes a two-step process: password + authentication code. Third-party 2FA plugins can integrate via filter hooks.
 
 = Does it work on multisite? =
 
@@ -140,7 +140,7 @@ Password changes on profile.php, user-edit.php, or via the REST API are a gated 
 
 A 2-minute grace window (since v2.6.0) allows in-flight form submissions to complete even if the sudo session expired while the user was filling in the form. Session binding is enforced throughout — a stolen cookie on a different browser does not gain grace-period access.
 
-= Can I change the 2FA verification window? =
+= Can I change the 2FA authentication window? =
 
 Yes. The default window is 5 minutes — how long a user has to enter their 2FA code after successfully providing their password. Use the wp_sudo_two_factor_window filter to adjust it (value in seconds). See the developer reference on GitHub for details.
 
@@ -159,7 +159,7 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 == Screenshots ==
 
 1. Challenge page — reauthentication interstitial with password field.
-2. Two-factor verification — after password confirmation, users with 2FA enabled enter their authentication code.
+2. Two-factor authentication — after password confirmation, users with 2FA enabled enter their authentication code.
 3. Settings page — configure session duration and entry point policies.
 4. Gate notice (plugins) — when no sudo session is active, a persistent notice links to the challenge page.
 5. Gate notice (themes) — the same gating notice appears on the themes page.

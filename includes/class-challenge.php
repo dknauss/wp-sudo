@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Challenge {
 
 	/**
-	 * Nonce action for challenge verification.
+	 * Nonce action for challenge authentication.
 	 *
 	 * @var string
 	 */
@@ -147,23 +147,23 @@ class Challenge {
 				'cancelUrl'   => $cancel_url,
 				'sessionOnly' => empty( $stash_key ),
 				'strings'     => array(
-					'unexpectedResponse' => __( 'The server returned an unexpected response. Check the browser console for details.', 'wp-sudo' ),
-					'genericError'       => __( 'An error occurred.', 'wp-sudo' ),
-					'networkError'       => __( 'A network error occurred. Please try again.', 'wp-sudo' ),
-					'verificationFailed' => __( 'Verification failed.', 'wp-sudo' ),
+					'unexpectedResponse'   => __( 'The server returned an unexpected response. Check the browser console for details.', 'wp-sudo' ),
+					'genericError'         => __( 'An error occurred.', 'wp-sudo' ),
+					'networkError'         => __( 'A network error occurred. Please try again.', 'wp-sudo' ),
+					'authenticationFailed' => __( 'Authentication failed.', 'wp-sudo' ),
 					/* translators: %s: countdown timer like "4:30" */
-					'lockoutCountdown'   => __( 'Too many failed attempts. Try again in %s.', 'wp-sudo' ),
+					'lockoutCountdown'     => __( 'Too many failed attempts. Try again in %s.', 'wp-sudo' ),
 					/* translators: %s: countdown timer like "9:30" */
-					'timeRemaining'      => __( 'Time remaining: %s', 'wp-sudo' ),
+					'timeRemaining'        => __( 'Time remaining: %s', 'wp-sudo' ),
 					/* translators: %s: countdown timer like "0:45" */
-					'timeRemainingWarn'  => __( '⚠ Time remaining: %s', 'wp-sudo' ),
-					'sessionExpired'     => __( 'Your verification session has expired.', 'wp-sudo' ),
-					'sessionMayExpired'  => __( 'Your session may have expired.', 'wp-sudo' ),
-					'startOver'          => __( 'Start over', 'wp-sudo' ),
-					'twoFactorRequired'  => __( 'Password verified. Two-factor authentication required.', 'wp-sudo' ),
-					'replayingAction'    => __( 'Replaying your action…', 'wp-sudo' ),
-					'leavingChallenge'   => __( 'Leaving challenge page.', 'wp-sudo' ),
-					'lockoutExpired'     => __( 'Lockout expired. You may try again.', 'wp-sudo' ),
+					'timeRemainingWarn'    => __( '⚠ Time remaining: %s', 'wp-sudo' ),
+					'sessionExpired'       => __( 'Your authentication session has expired.', 'wp-sudo' ),
+					'sessionMayExpired'    => __( 'Your session may have expired.', 'wp-sudo' ),
+					'startOver'            => __( 'Start over', 'wp-sudo' ),
+					'twoFactorRequired'    => __( 'Password confirmed. Two-factor authentication required.', 'wp-sudo' ),
+					'replayingAction'      => __( 'Replaying your action…', 'wp-sudo' ),
+					'leavingChallenge'     => __( 'Leaving challenge page.', 'wp-sudo' ),
+					'lockoutExpired'       => __( 'Lockout expired. You may try again.', 'wp-sudo' ),
 				),
 			)
 		);
@@ -276,7 +276,7 @@ class Challenge {
 				<!-- 2FA step (hidden by default) -->
 				<div id="wp-sudo-challenge-2fa-step" hidden>
 					<h2 id="wp-sudo-challenge-2fa-title">
-						<?php esc_html_e( 'Two-Factor Verification', 'wp-sudo' ); ?>
+						<?php esc_html_e( 'Two-Factor Authentication', 'wp-sudo' ); ?>
 					</h2>
 
 					<div class="notice notice-error inline" id="wp-sudo-challenge-2fa-error" hidden role="alert" aria-atomic="true">
@@ -306,7 +306,7 @@ class Challenge {
 							<button type="submit"
 								class="button button-primary"
 								id="wp-sudo-challenge-2fa-submit">
-								<?php esc_html_e( 'Verify & Continue', 'wp-sudo' ); ?>
+								<?php esc_html_e( 'Confirm & Continue', 'wp-sudo' ); ?>
 							</button>
 							<a href="<?php echo esc_url( $cancel_url ); ?>" class="button">
 								<?php esc_html_e( 'Cancel', 'wp-sudo' ); ?>
@@ -319,7 +319,7 @@ class Challenge {
 				<!-- Loading overlay -->
 				<div class="wp-sudo-challenge-loading" id="wp-sudo-challenge-loading" hidden role="status">
 					<span class="spinner is-active"></span>
-					<span class="wp-sudo-sr-only"><?php esc_html_e( 'Verifying…', 'wp-sudo' ); ?></span>
+					<span class="wp-sudo-sr-only"><?php esc_html_e( 'Authenticating…', 'wp-sudo' ); ?></span>
 					<span class="wp-sudo-loading-text"></span>
 				</div>
 			</div>
@@ -328,7 +328,7 @@ class Challenge {
 	}
 
 	/**
-	 * Handle AJAX password verification for the challenge page.
+	 * Handle AJAX password authentication for the challenge page.
 	 *
 	 * @return void
 	 */
@@ -406,7 +406,7 @@ class Challenge {
 	}
 
 	/**
-	 * Handle AJAX 2FA verification for the challenge page.
+	 * Handle AJAX 2FA authentication for the challenge page.
 	 *
 	 * @return void
 	 */
@@ -425,7 +425,7 @@ class Challenge {
 
 		if ( ! $pending ) {
 			wp_send_json_error(
-				array( 'message' => __( 'Your verification session has expired. Please start over.', 'wp-sudo' ) ),
+				array( 'message' => __( 'Your authentication session has expired. Please start over.', 'wp-sudo' ) ),
 				403
 			);
 		}
@@ -458,7 +458,7 @@ class Challenge {
 
 		if ( ! $valid ) {
 			wp_send_json_error(
-				array( 'message' => __( 'Invalid verification code. Please try again.', 'wp-sudo' ) ),
+				array( 'message' => __( 'Invalid authentication code. Please try again.', 'wp-sudo' ) ),
 				401
 			);
 		}

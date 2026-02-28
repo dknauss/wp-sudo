@@ -19,7 +19,7 @@ WP Sudo has built-in support for the [Two Factor](https://wordpress.org/plugins/
 WP Sudo's challenge page is a two-step reauthentication flow:
 
 1. **Password step** -- the user enters their WordPress password.
-2. **2FA step** -- if the user has two-factor authentication configured, a second form appears for their verification code (TOTP, email code, backup code, WebAuthn, etc.).
+2. **2FA step** -- if the user has two-factor authentication configured, a second form appears for their authentication code (TOTP, email code, backup code, WebAuthn, etc.).
 
 The sudo session is **only activated after both steps succeed**. A correct password alone does not grant a session when 2FA is enabled.
 
@@ -62,7 +62,7 @@ The 2FA step is entirely optional. If no 2FA plugin is active or the user has no
                       │         │                     ▼
                       │         │  ┌──────────────────────────────────────┐
                       │         │  │  Challenge Page (Step 2)             │
-                      │         │  │  2FA Verification                    │
+                      │         │  │  2FA Authentication                   │
                       │         │  │                                      │
                       │         │  │  ┌──────────────────────────────┐    │
                       │         │  │  │ User enters 2FA code         │    │
@@ -92,7 +92,7 @@ The 2FA step is entirely optional. If no 2FA plugin is active or the user has no
 
 ## The Two-Step Challenge Flow
 
-### Step 1: Password Verification
+### Step 1: Password Authentication
 
 When the user submits their password, the JavaScript sends an AJAX request to `wp_sudo_challenge_auth`. The server calls `Sudo_Session::attempt_activation()`, which:
 
@@ -112,7 +112,7 @@ If 2FA **is** required, the server:
 
 The JavaScript hides the password form and reveals the 2FA form, starting a visible countdown timer.
 
-### Step 2: 2FA Verification
+### Step 2: 2FA Authentication
 
 When the user submits the 2FA form, the JavaScript:
 
@@ -193,7 +193,7 @@ do_action( 'wp_sudo_render_two_factor_fields', WP_User $user )
 
 ### 3. `wp_sudo_validate_two_factor` (filter)
 
-**When:** During AJAX 2FA verification, after the built-in Two Factor validation runs.
+**When:** During AJAX 2FA authentication, after the built-in Two Factor validation runs.
 
 **Signature:**
 ```php
@@ -254,7 +254,7 @@ add_action( 'wp_sudo_render_two_factor_fields', function ( WP_User $user ): void
     ?>
     <p>
         <label for="my2fa-code">
-            <?php esc_html_e( 'Enter your verification code:', 'my2fa' ); ?>
+            <?php esc_html_e( 'Enter your authentication code:', 'my2fa' ); ?>
         </label>
         <input type="text"
                id="my2fa-code"
@@ -290,7 +290,7 @@ add_filter( 'wp_sudo_validate_two_factor', function ( bool $valid, WP_User $user
 | Detect | `wp_sudo_requires_two_factor` | Return `true` when the user has your 2FA method configured |
 | Render | `wp_sudo_render_two_factor_fields` | Output HTML form fields (no submit button, no `action`/`_wpnonce` fields) |
 | Validate | `wp_sudo_validate_two_factor` | Read your fields from `$_POST` and verify the code |
-| (Optional) | `wp_sudo_two_factor_window` | Adjust the verification window if your method needs more time |
+| (Optional) | `wp_sudo_two_factor_window` | Adjust the authentication window if your method needs more time |
 
 ### Things to Avoid
 
