@@ -36,6 +36,13 @@ Traditional security plugins focus on **step 1** (blocking initial access). Sudo
 - 46% of vulnerabilities had no developer fix at the time of public disclosure
 - Approximately half of high-impact vulnerabilities were exploited within 24 hours; the weighted median time to first exploit was 5 hours
 
+**Exploitation targeting** ([Patchstack 2026 whitepaper](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/) — RapidMitigate blocked attack data, 2025):
+
+- Broken Access Control: 57% of all exploitation attempts
+- Privilege Escalation: 20%, Broken Authentication: 3%
+- Sudo-mitigated classes account for 80% of actual WordPress exploitation attempts — far exceeding the ~28% share of discovered vulnerabilities
+- XSS (47.7% of discovered vulnerabilities) accounts for only 1% of exploitation attempts — attackers overwhelmingly target access control flaws
+
 **Post-compromise forensics** ([Sucuri 2023 Hacked Website Report](https://sucuri.net/reports/2023-hacked-website-report/)):
 
 - 55.2% of compromised WordPress databases contained malicious admin users
@@ -57,7 +64,7 @@ Traditional security plugins focus on **step 1** (blocking initial access). Sudo
 
 | Scenario | Estimate | Basis |
 |---|---|---|
-| Vulnerability classes with reduced exploitability | ~28% directly, 55–65% including XSS chains | Patchstack 2024 type breakdown |
+| Vulnerability classes with reduced exploitability | ~28% of discovered vulns; 80% of actual exploitation attempts | Patchstack 2024 discovery breakdown + 2025 RapidMitigate exploitation data |
 | Post-compromise persistence blocked | 49–70% of compromises | Sucuri: backdoor plugins + admin user creation, all Sudo-gated |
 | Session hijacking damage containment | Near-complete for gated actions | Attacker has session cookie but not password |
 | Perimeter defense gap | WAF blocks 12–26% of WP-specific attacks | Patchstack 2025 WAF testing |
