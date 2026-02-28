@@ -4,8 +4,6 @@ _Defense in depth needs a last layer._
 
 Sudo is the only WordPress plugin that provides control over actions.
 
-Approximately half of high-impact WordPress vulnerabilities are exploited within 24 hours — median time to first exploit is 5 hours. When the firewall misses it, the plugin hasn't patched it, and the attacker already has a session — Sudo is the gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every potentially destructive action requires reauthentication, regardless of how the attacker got in. 
-
 **WordPress security plugins guard the door. Sudo governs what can happen inside the house.**
 
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
@@ -31,14 +29,19 @@ quietly exposed, yet enduring.
 
 <br/><br/>
 
+# In 2026, 57% of attacks on WordPress sites target one thing: Access Control.
 
-## Description
+In 2024, Broken Access Control was [the third-largest source of discovered WordPress vulnerabilities](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2024/#headline-899-17052). In 2025, it took the #1 position on the [OWASP Top 10](https://owasp.org/Top10/2025/). In 2026, Broken Access Control accounted for 57% of all actual exploitation attempts on WordPress sites. These trends indicate attackers are focusing their efforts on the vectors that are difficult to defend against with firewalls but have high rewards: the ability to create admin accounts, install plugins, and change settings. Add Privilege Escalation (20%) and Broken Authentication (3%) — that's 80% of real-world WordPress attacks targeting the operations Sudo gates. 
+
+Approximately half of high-impact WordPress vulnerabilities are exploited within 24 hours — median time to first exploit is 5 hours. When the firewall misses it, the plugin hasn't patched it, and the attacker already has a session — Sudo is the barrier gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every potentially destructive action requires reauthentication, regardless of how the attacker got in. 
+
+## Barrier Gate Architecture
 
 WordPress has rich access control — roles, capabilities, policies on *who* can do what. It has no native control over *when* those capabilities can be exercised within a session. Sudo fills that gap. By gating consequential actions behind re-verification, it lets site owners directly define the blast radius of any session compromise — regardless of how that compromise occurred, and regardless of the user's role. **The attack surface becomes a policy decision.**
 
 This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
-Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is represented by [門](https://en.wiktionary.org/wiki/%E9%96%80), a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold.
+Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is represented by [門](https://en.wiktionary.org/wiki/%E9%96%80), a 3,000-year-old pictograph representing a gate — at once an entrance, barrier, and threshold. The Japanese barrier gate — seki (関) or sekisho (関所) — was a checkpoint established much earlier but most famously during the Edo period (1603–1868) to control traffic along major highways, such as the Tōkaidō
 
 ### What Gets Gated?
 
