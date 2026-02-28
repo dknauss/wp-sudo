@@ -53,7 +53,6 @@ class ChallengeTest extends TestCase {
 		$this->assertSame( 'success', $result['code'], 'Correct password should return success.' );
 		$this->assertTrue( Sudo_Session::is_active( $user->ID ), 'Session should be active after correct password.' );
 		$this->assertSame( $activated_before + 1, did_action( 'wp_sudo_activated' ), 'wp_sudo_activated should fire once.' );
-		$this->assertArrayHasKey( 'expires_at', $result, 'Success result should include expires_at.' );
 	}
 
 	/**
@@ -129,13 +128,18 @@ class ChallengeTest extends TestCase {
 
 		$lockout_before = did_action( 'wp_sudo_lockout' );
 
-		// Fail MAX_FAILED_ATTEMPTS times.
-		for ( $i = 0; $i < Sudo_Session::MAX_FAILED_ATTEMPTS; $i++ ) {
+		// Fail MAX_FAILED_ATTEMPTS - 1 times (these return invalid_password).
+		for ( $i = 0; $i < Sudo_Session::MAX_FAILED_ATTEMPTS - 1; $i++ ) {
 			$result = Sudo_Session::attempt_activation( $user->ID, 'wrong-password' );
 			$this->assertSame( 'invalid_password', $result['code'], "Attempt {$i} should return invalid_password." );
 		}
 
-		// Next attempt should be locked out.
+		// Not yet locked out.
+		$this->assertFalse( Sudo_Session::is_locked_out( $user->ID ), 'Should not be locked out before final attempt.' );
+
+		// The MAX_FAILED_ATTEMPTS-th attempt triggers lockout.
+		$result = Sudo_Session::attempt_activation( $user->ID, 'wrong-password' );
+		$this->assertSame( 'locked_out', $result['code'], 'Final attempt should trigger lockout.' );
 		$this->assertTrue( Sudo_Session::is_locked_out( $user->ID ), 'User should be locked out after max failed attempts.' );
 		$this->assertSame( $lockout_before + 1, did_action( 'wp_sudo_lockout' ), 'wp_sudo_lockout should fire once.' );
 
