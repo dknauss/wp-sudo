@@ -526,15 +526,17 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 
 ### Low Priority
 
-**Version constant drift between runtime and test/static bootstrap**
+**~~Version constant drift between runtime and test/static bootstrap~~** ✅ Fixed
 
-- Runtime: `2.9.1` (`wp-sudo.php:6`, `:25`). Bootstraps: `2.8.0` (`phpstan-bootstrap.php:13`, `tests/bootstrap.php:18`).
-- **Action:** Synchronize in release process. Consider extracting version to a single source read by all bootstraps.
+- ~~Runtime: `2.9.1` (`wp-sudo.php:6`, `:25`). Bootstraps: `2.8.0` (`phpstan-bootstrap.php:13`, `tests/bootstrap.php:18`).~~
+- ~~**Action:** Synchronize in release process. Consider extracting version to a single source read by all bootstraps.~~
+- Fixed: both bootstraps updated to `2.9.1`. Add to release checklist.
 
-**2FA default window documentation mismatch**
+**~~2FA default window documentation mismatch~~** ✅ Fixed
 
-- Actual default: 5 minutes (`class-sudo-session.php:370`). Admin help text: 10 minutes (`class-admin.php:323`).
-- **Action:** Align help text to actual default.
+- ~~Actual default: 5 minutes (`class-sudo-session.php:370`). Admin help text: 10 minutes (`class-admin.php:323`).~~
+- ~~**Action:** Align help text to actual default.~~
+- Fixed: help text now reads "5 minutes". Note: this is the **2FA verification window** (how long to enter a 2FA code), not the sudo session duration (15 min default). Two distinct timers.
 
 **2FA window bounds not enforced in code**
 
@@ -564,6 +566,8 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 |---------|--------|
 | Uninstall path has no tests | ✅ Fixed v2.9.1 — `tests/Integration/UninstallTest.php` (2 tests) |
 | Multisite uninstall network-active branch can under-clean | ✅ Tested — `UninstallTest::test_multisite_uninstall_cleans_user_meta()` covers the cleanup path |
+| Version constant drift (bootstraps at 2.8.0 vs runtime 2.9.1) | ✅ Fixed — `phpstan-bootstrap.php` and `tests/bootstrap.php` updated to `2.9.1` |
+| 2FA default window help text says 10 min, code is 5 min | ✅ Fixed — `class-admin.php:323` now reads "5 minutes" |
 
 ---
 

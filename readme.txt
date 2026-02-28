@@ -21,6 +21,12 @@ WordPress has rich access control — roles, capabilities, policies on who can d
 
 This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
+= Why Sudo? =
+
+In 2026, Broken Access Control accounted for 57% of all exploitation attempts against WordPress sites — add Privilege Escalation (20%) and Broken Authentication (3%) and that's 80% of real-world WordPress attacks targeting the exact operations Sudo gates (Patchstack 2026 RapidMitigate data). Nearly half of high-impact vulnerabilities are exploited within 24 hours; the median time to first exploit is 5 hours. Traditional WAFs block only 12–26% of these attacks.
+
+When the firewall misses it, the plugin hasn't patched it, and the attacker already has an active session — Sudo is the final layer. Every destructive action requires reauthentication, regardless of how the attacker got in. A stolen session cookie is not enough. An unattended browser is not enough.
+
 = What gets gated? =
 
 * **Plugins** — activate, deactivate, delete, install, update
@@ -106,13 +112,45 @@ Yes. With the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin, th
 
 Yes. Settings and sessions are network-wide. The action registry includes network-specific rules. See the Multisite section above.
 
+= What problem does Sudo solve? =
+
+Sudo defeats or severely limits the damage attackers can do if they hijack an authenticated session or successfully exploit a vulnerability. Session theft via stolen cookies, unattended devices, broken access control exploits, and credential stuffing all produce a valid session. Sudo means a valid session alone is not enough — every destructive action still requires identity confirmation at the moment of execution.
+
+= How is Sudo different from WordPress security plugins? =
+
+No existing security plugin gates actions that authenticated users can take. Conventional plugins focus on perimeter defense — rate-limiting, firewalling, malware scanning. Sudo operates at the final point of consequence: between an authenticated session and the destructive action it might take. A stolen cookie, a compromised account, an exploited plugin vulnerability — Sudo is the layer that still requires password confirmation before damage can be done.
+
+= What are Sudo's limitations? =
+
+Sudo does not protect against an attacker who already knows your WordPress password and 2FA one-time password — someone who possesses all credentials can complete the sudo challenge just as the real user can. It also does not protect against direct database access or file system operations that bypass WordPress hooks. For a full account of what Sudo does and does not defend against, see the Security Model documentation on GitHub.
+
+= Is there brute-force protection? =
+
+Yes. After 5 failed password attempts on the reauthentication form, the user is locked out for 5 minutes. Lockout events fire the wp_sudo_lockout action hook for audit logging.
+
+= Does logging in automatically start a sudo session? =
+
+Yes (since v2.6.0). A successful browser-based login activates a sudo session automatically — the user just proved their identity, so requiring a second challenge immediately is unnecessary friction. Application Password and XML-RPC logins are not affected.
+
+= What happens when I change my password? =
+
+Password changes on profile.php, user-edit.php, or via the REST API are a gated action (since v2.6.0) — they require an active sudo session to proceed. Since v2.8.0, saving a password change also automatically expires any active sudo session.
+
+= What is the grace period? =
+
+A 2-minute grace window (since v2.6.0) allows in-flight form submissions to complete even if the sudo session expired while the user was filling in the form. Session binding is enforced throughout — a stolen cookie on a different browser does not gain grace-period access.
+
+= Can I change the 2FA verification window? =
+
+Yes. The default window is 5 minutes — how long a user has to enter their 2FA code after successfully providing their password. Use the wp_sudo_two_factor_window filter to adjust it (value in seconds). See the developer reference on GitHub for details.
+
 == For Developers ==
 
 WP Sudo is built for correctness and contributor legibility, not just functionality.
 
 Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords, WPGraphQL), matches the incoming request against a registry of 29+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
 
-Testing: the suite is split into two tiers. Unit tests (375 tests, 905 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (73 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, and all 9 audit hooks.
+Testing: the suite is split into two tiers. Unit tests (397 tests, 944 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (80 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, uninstall cleanup, and all 9 audit hooks.
 
 CI: GitHub Actions runs PHPStan level 6 and PHPCS on every push and PR, the full test matrix across PHP 8.1-8.4 and WordPress latest + trunk, and a nightly scheduled run against WordPress trunk.
 
