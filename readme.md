@@ -105,6 +105,37 @@ Settings and sessions are network-wide. The action registry includes 8 additiona
 
 ## Frequently Asked Questions
 
+### Is this a security plugin or something else?
+
+It's a unique approach to fundamental security architecture that doesn't exist in the WordPress plugin marketplace today.
+
+Sudo provides a unique, skin-tight, first-and-last layer of defense that complements other security layers. 
+
+### What does Sudo protect?
+
+To understand what Sudo protects and defends against, it's important to understand the threat model.
+
+[Patchstack's State of WordPress Security in 2026](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/) reports that plugin vulnerabilities are still surging year after year, and they remain the source of nearly all vulnerabilities in the ecosystem.
+
+* Nearly half (46%) of all WordPress plugin vulnerabilities that emerged (11,334) remain unpatched.
+* Broken Access Control was far and away the most exploited vulnerability, accounting for 57% of the total.
+* "Broken Access Control exploits are very difficult to defend against using traditional WAFs because the exploits look like normal authenticated traffic with no obvious injection patterns."
+* Traditional WAFs are only blocking 12 to 26% of attacks.
+* Patchstack has an excellent 93% success rate, but it is not 100%.
+* Nearly half of high-impact vulnerabilities were exploited within 24 hours. 
+* The average time to exploitation has fallen to just 5 hours.
+* Post-breach, the attacker's playbook is predictable:
+  * 55% of hacked WordPress sites have malicious admin accounts.
+  * Up to 70% have backdoor plugins.
+
+Another rising threat that firewalls can't detect or deter is stolen cookies. These are the persistent session cookies that are created when you log into Slack, Gmail, WordPress, and all your other sites and apps. Attackers acquire cookies from devices compromised by phishing with infostealers, keyloggers, and other malware. 
+
+Your perimeter has failed. Your own user account has been compromised. Now what?
+
+What if there was one last layer of defense?
+
+That's Sudo.
+
 ### How does sudo gating work?
 
 When a user attempts a gated action, Sudo intercepts the request at `admin_init`. The original request is stashed, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error and an admin notice links to the challenge page.
