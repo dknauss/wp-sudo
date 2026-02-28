@@ -441,6 +441,153 @@ class SudoSessionTest extends TestCase {
 		$this->assertSame( 15 * MINUTE_IN_SECONDS, $stored_ttl );
 	}
 
+	/**
+	 * Test that the 2FA window is clamped to a minimum of 1 minute.
+	 */
+	public function test_two_factor_window_clamps_below_minimum(): void {
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		$user = new \WP_User( 1, array( 'editor' ) );
+		Functions\when( 'get_userdata' )->justReturn( $user );
+		Functions\when( 'wp_check_password' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-challenge-nonce' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+
+		$stored_ttl = null;
+		Functions\expect( 'set_transient' )
+			->once()
+			->with(
+				\Mockery::on( function ( $key ) {
+					return str_starts_with( $key, 'wp_sudo_2fa_pending_' );
+				} ),
+				\Mockery::type( 'array' ),
+				\Mockery::on( function ( $ttl ) use ( &$stored_ttl ) {
+					$stored_ttl = $ttl;
+					return true;
+				} )
+			)
+			->andReturn( true );
+
+		// Return 10 seconds — well below the 1-minute minimum.
+		Functions\expect( 'apply_filters' )
+			->twice()
+			->andReturnUsing( function ( $filter_name ) {
+				if ( 'wp_sudo_requires_two_factor' === $filter_name ) {
+					return true;
+				}
+				if ( 'wp_sudo_two_factor_window' === $filter_name ) {
+					return 10;
+				}
+				return null;
+			} );
+
+		$result = Sudo_Session::attempt_activation( 1, 'correct-password' );
+
+		$this->assertSame( '2fa_pending', $result['code'] );
+		$this->assertSame( MINUTE_IN_SECONDS, $stored_ttl, 'Window should be clamped to 60 seconds minimum.' );
+	}
+
+	/**
+	 * Test that the 2FA window is clamped to a maximum of 15 minutes.
+	 */
+	public function test_two_factor_window_clamps_above_maximum(): void {
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		$user = new \WP_User( 1, array( 'editor' ) );
+		Functions\when( 'get_userdata' )->justReturn( $user );
+		Functions\when( 'wp_check_password' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-challenge-nonce' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+
+		$stored_ttl = null;
+		Functions\expect( 'set_transient' )
+			->once()
+			->with(
+				\Mockery::on( function ( $key ) {
+					return str_starts_with( $key, 'wp_sudo_2fa_pending_' );
+				} ),
+				\Mockery::type( 'array' ),
+				\Mockery::on( function ( $ttl ) use ( &$stored_ttl ) {
+					$stored_ttl = $ttl;
+					return true;
+				} )
+			)
+			->andReturn( true );
+
+		// Return 3600 seconds (1 hour) — above the 15-minute maximum.
+		Functions\expect( 'apply_filters' )
+			->twice()
+			->andReturnUsing( function ( $filter_name ) {
+				if ( 'wp_sudo_requires_two_factor' === $filter_name ) {
+					return true;
+				}
+				if ( 'wp_sudo_two_factor_window' === $filter_name ) {
+					return 3600;
+				}
+				return null;
+			} );
+
+		$result = Sudo_Session::attempt_activation( 1, 'correct-password' );
+
+		$this->assertSame( '2fa_pending', $result['code'] );
+		$this->assertSame( 15 * MINUTE_IN_SECONDS, $stored_ttl, 'Window should be clamped to 900 seconds maximum.' );
+	}
+
+	/**
+	 * Test that a valid 2FA window value within bounds is accepted as-is.
+	 */
+	public function test_two_factor_window_accepts_valid_value(): void {
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		$user = new \WP_User( 1, array( 'editor' ) );
+		Functions\when( 'get_userdata' )->justReturn( $user );
+		Functions\when( 'wp_check_password' )->justReturn( true );
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+		Functions\when( 'wp_generate_password' )->justReturn( 'test-challenge-nonce' );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'headers_sent' )->justReturn( false );
+		Functions\when( 'setcookie' )->justReturn( true );
+
+		$stored_ttl = null;
+		Functions\expect( 'set_transient' )
+			->once()
+			->with(
+				\Mockery::on( function ( $key ) {
+					return str_starts_with( $key, 'wp_sudo_2fa_pending_' );
+				} ),
+				\Mockery::type( 'array' ),
+				\Mockery::on( function ( $ttl ) use ( &$stored_ttl ) {
+					$stored_ttl = $ttl;
+					return true;
+				} )
+			)
+			->andReturn( true );
+
+		// Return 600 seconds (10 minutes) — valid, within bounds.
+		Functions\expect( 'apply_filters' )
+			->twice()
+			->andReturnUsing( function ( $filter_name ) {
+				if ( 'wp_sudo_requires_two_factor' === $filter_name ) {
+					return true;
+				}
+				if ( 'wp_sudo_two_factor_window' === $filter_name ) {
+					return 600;
+				}
+				return null;
+			} );
+
+		$result = Sudo_Session::attempt_activation( 1, 'correct-password' );
+
+		$this->assertSame( '2fa_pending', $result['code'] );
+		$this->assertSame( 600, $stored_ttl, 'Valid window value should be accepted as-is.' );
+	}
+
 	// =================================================================
 	// needs_two_factor()
 	// =================================================================

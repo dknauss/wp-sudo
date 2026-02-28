@@ -368,6 +368,7 @@ class Sudo_Session {
 			 * @param int $window Time in seconds. Default 300 (5 minutes).
 			 */
 			$two_factor_window = (int) apply_filters( 'wp_sudo_two_factor_window', 5 * MINUTE_IN_SECONDS );
+			$two_factor_window = max( MINUTE_IN_SECONDS, min( 15 * MINUTE_IN_SECONDS, $two_factor_window ) );
 			$expires_at        = time() + $two_factor_window;
 
 			// Generate a challenge nonce to bind 2FA to this browser.
