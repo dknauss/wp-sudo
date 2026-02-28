@@ -27,14 +27,14 @@ The 2FA step is entirely optional. If no 2FA plugin is active or the user has no
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Gate intercepts action                    │
-│              (plugin activation, user deletion, etc.)        │
+│                    Gate intercepts action                   │
+│              (plugin activation, user deletion, etc.)       │
 └────────────────────────────┬────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  Challenge Page (Step 1)                     │
-│                    Password Prompt                           │
+│                  Challenge Page (Step 1)                    │
+│                    Password Prompt                          │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  User enters WordPress password                     │    │
@@ -49,7 +49,7 @@ The 2FA step is entirely optional. If no 2FA plugin is active or the user has no
                  NO   │       │  YES
                  ▼    │       ▼
              (error)  │  ┌──────────────────┐
-                      │  │ needs_two_factor? │
+                      │  │ needs_two_factor?│
                       │  └──────┬─────┬─────┘
                       │    NO   │     │ YES
                       │    ▼    │     ▼
