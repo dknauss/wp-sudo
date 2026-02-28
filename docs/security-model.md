@@ -161,7 +161,7 @@ Since v2.6.0, sudo sessions have a 120-second grace window (`Sudo_Session::GRACE
 - **Token binding is enforced** — `is_within_grace()` calls `verify_token()` before returning `true`. The session cookie must still be present and match the stored hash. A browser without the original sudo cookie cannot gain grace access.
 - **Grace applies to interactive surfaces only** — the admin UI, REST API, and WPGraphQL gating points check grace. The admin bar timer does not — it reflects the true session state so the user sees accurately when their session has expired.
 - **Meta cleanup is deferred** — `is_active()` does not delete the session meta while the grace window is open. This allows `is_within_grace()` to read the expiry timestamp and token. Cleanup runs when `time() > $expires + GRACE_SECONDS`.
-- **No new permissions** — the grace window only prevents a re-challenge for work that was already in progress when the session expired. It does not allow new gated actions to be initiated.
+- **Wind-down, not extension** — gated actions initiated during the grace period pass if the session token is still valid. The gate does not distinguish between "in-progress" and "new" actions — the window is deliberately short (120 s) to limit exposure. `is_active()` returns false during grace, the admin bar shows the session as expired, and no new session meta is written.
 
 ## 2FA Browser Binding
 

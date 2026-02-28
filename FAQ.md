@@ -161,7 +161,7 @@ The mu-plugin is optional. It ensures Sudo's gate hooks are registered before an
 
 ## What happens if I deactivate the plugin?
 
-Any active sudo sessions expire naturally. All gated actions return to their normal, ungated behavior. No data is lost. The mu-plugin shim (if installed) safely detects the missing main plugin and does nothing.
+Any active sudo sessions expire naturally. All gated actions return to their normal, ungated behavior. No data is lost. The MU-plugin shim (if installed) checks the `active_plugins` option on each request and remains inert when the main plugin is deactivated — no gate hooks are registered and no plugin code is loaded. On uninstall, the shim file is automatically deleted from `wp-content/mu-plugins/`.
 
 ## Can I extend the list of gated actions?
 
@@ -183,8 +183,8 @@ Password changes on `profile.php`, `user-edit.php`, or via the REST API (`PUT`/`
 
 ## What is the grace period?
 
-A 2-minute grace window (since v2.6.0) allows form submissions to complete even if the sudo session expired while the user was filling in the form. Without this, a user who spent three minutes on a form would have their work rejected and need to reauthenticate — and any unsaved input would be lost.
+A 2-minute wind-down window (since v2.6.0) allows gated actions to pass for 120 seconds after session expiry, provided the session token is still valid. This prevents form submissions and multi-step workflows from being interrupted by session expiry — without it, a user who spent three minutes on a form would have their work rejected and need to reauthenticate, losing any unsaved input.
 
-**How it works:** when the gate checks the session, it first calls `Sudo_Session::is_active()`. If the session has expired, it also calls `is_within_grace()`. If the expiry happened within the last 120 seconds *and* the session token still matches (session binding is enforced throughout), the request passes.
+**How it works:** when the gate checks the session, it first calls `Sudo_Session::is_active()`. If the session has expired, it also calls `is_within_grace()`. If the expiry happened within the last 120 seconds *and* the session token still matches (session binding is enforced throughout), the request passes. The gate does not distinguish between actions that were "in progress" before expiry and new ones — any gated action within the window is permitted if the token is valid.
 
-**What it does not relax:** session binding. A stolen cookie on a different browser does not gain grace-period access. The session token must still match — `is_within_grace()` calls `verify_token()` before returning true. The admin bar timer always reflects the true session state, not the grace state.
+**What it does not relax:** session binding. A stolen cookie on a different browser does not gain grace-period access. The session token must still match — `is_within_grace()` calls `verify_token()` before returning true. The admin bar timer always reflects the true session state (`is_active()`), not the grace state — the user sees accurately when their session has expired.
