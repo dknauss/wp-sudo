@@ -123,12 +123,16 @@ To understand what Sudo protects and defends against, it's important to understa
 * Post-breach, the attacker's playbook is predictable:
   * 55% of hacked WordPress sites have malicious admin accounts.
   * Up to 70% have backdoor plugins.
-
+ 
 Another rising threat that firewalls can't detect or deter is stolen cookies. These are the persistent session cookies that are created when you log into Slack, Gmail, WordPress, and all your other sites and apps. Attackers acquire cookies from devices compromised by phishing with infostealers, keyloggers, and other malware. 
+
+Once an attacker has control of an active user session, they need WordPress to do what they assume it will always do: obey without challenge.
+
+Sudo breaks that assumption — a key link in the attackers' kill chain.
 
 Your perimeter has failed. Your own user account has been compromised. Now what?
 
-What if there was one last layer of defense?
+What if there was one last layer of defense to issue a challenge?
 
 That's Sudo.
 
