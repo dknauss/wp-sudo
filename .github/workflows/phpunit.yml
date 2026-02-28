@@ -44,6 +44,43 @@ jobs:
       - name: Run unit tests
         run: composer test:unit
 
+  unit-tests-coverage:
+    name: "Unit Tests (Coverage)"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: pcov
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run unit tests with coverage
+        run: composer test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
   integration-tests:
     name: "Integration Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }}, MS ${{ matrix.multisite }})"
     runs-on: ubuntu-24.04
@@ -141,7 +178,7 @@ jobs:
   notify-on-failure:
     name: "Notify on failure"
     runs-on: ubuntu-24.04
-    needs: [unit-tests, integration-tests, code-quality]
+    needs: [unit-tests, unit-tests-coverage, integration-tests, code-quality]
     if: failure() && github.event_name == 'schedule'
     permissions:
       issues: write

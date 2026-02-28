@@ -12,7 +12,7 @@
 - **[4. Context Collapse & TDD](#4-context-collapse-and-tdd)** — LLM confabulation defense, test-driven development
 - **[Recommended Next Steps](#recommended-next-steps-priority-order)** — Immediate, short-term, medium-term priorities
 - **[5. Environment Diversity Testing](#5-environment-diversity-testing-future-milestone)** — Apache, PHP 8.0, MariaDB, backward compat
-- **[6. Coverage Tooling](#6-coverage-tooling-deferred)** — Deferred until matrix stabilizes
+- **[6. Coverage Tooling](#6-coverage-tooling-baseline-established)** — PCOV baseline established, full matrix deferred
 - **[7. Mutation Testing](#7-mutation-testing-deferred-to-post-environment-diversity)** — Deferred until integration suite is fast enough
 - **[8. Core Sudo Design](#8-core-sudo-design)** — Already achieved (13), to implement (6), to consider (4), discarded (5)
 - **[9. Feature Backlog](#9-feature-backlog)** — WSAL sensor, IP+user rate limiting, dashboard widget, Gutenberg, network policy
@@ -72,7 +72,7 @@
 - **Phase B:** Apache + MariaDB CI job
 - **Phase C:** Manual testing checklist for managed hosts
 - **Phase D:** Docker Compose with switchable stacks
-- Coverage tooling (after environment diversity milestone)
+- Coverage tooling expansion (baseline established; full matrix after environment diversity milestone)
 - Mutation testing (after environment diversity milestone)
 
 ---
@@ -397,25 +397,28 @@ as the first deliverable since it requires no new infrastructure.
 
 ---
 
-## 6. Coverage Tooling (Deferred)
+## 6. Coverage Tooling (Baseline Established)
 
-**Decision: do not add coverage measurement yet.**
+**Status:** A single PCOV coverage CI job runs against the unit test suite (PHP 8.3).
+This establishes a baseline without adding overhead to the full integration matrix.
 
-Reasons:
-- Xdebug/PCOV adds meaningful overhead to the integration matrix (8 jobs across
-  PHP 8.1/8.3 × WP latest/trunk × single/multisite). The marginal CI cost is not
-  justified until the matrix is stable.
-- Coverage numbers from the unit suite would be misleading. Unit tests mock all
-  WordPress functions via Brain\Monkey, so line coverage looks high while entire
-  real code paths (bcrypt, transients, cookies) are untested. The integration suite
-  provides better signal than a percentage badge.
-- A coverage badge communicates to contributors that the suite is meaningful — that
-  message is only accurate once the integration suite is comprehensive and the
-  environment matrix is broad.
+**What's in place:**
+- `composer test:coverage` — runs unit tests with PCOV, generates `coverage.xml` + text summary
+- CI job `unit-tests-coverage` — runs on every push/PR, uploads `coverage.xml` as artifact
+- No failure threshold yet — the first run establishes the baseline
 
-**When to revisit:** After the environment diversity milestone (Phase A CI matrix
-expansion). At that point coverage adds signal: you can see which combinations of
-PHP/WP versions hit paths the others miss.
+**What's deferred:**
+- Coverage across the full integration matrix (8 jobs across PHP 8.1/8.3 ×
+  WP latest/trunk × single/multisite). The marginal CI cost is not justified
+  until the matrix is stable.
+- Coverage badge. Unit tests mock WordPress functions via Brain\Monkey, so line
+  coverage looks high while entire real code paths (bcrypt, transients, cookies)
+  are untested. A badge communicates accuracy only once the integration suite
+  is comprehensive and the environment matrix is broad.
+
+**When to expand:** After the environment diversity milestone (Phase A CI matrix
+expansion). At that point per-matrix-entry coverage adds signal: you can see
+which combinations of PHP/WP versions hit paths the others miss.
 
 ---
 

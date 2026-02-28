@@ -42,6 +42,7 @@
         "test": "phpunit",
         "test:unit": "phpunit --configuration phpunit.xml.dist",
         "test:integration": "phpunit --configuration phpunit-integration.xml.dist",
+        "test:coverage": "phpunit --configuration phpunit.xml.dist --coverage-clover coverage.xml --coverage-text",
         "analyse": "phpstan analyse",
         "sbom": "composer CycloneDX:make-sbom --output-file=bom.json --output-format=JSON --spec-version=1.6 --output-reproducible"
     }
