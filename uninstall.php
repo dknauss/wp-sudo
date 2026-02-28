@@ -40,6 +40,22 @@ function wp_sudo_cleanup_site(): void {
 }
 
 /**
+ * Remove the MU-plugin shim from wp-content/mu-plugins/.
+ *
+ * The shim is a stable loader that delegates to the plugin directory.
+ * On uninstall, it must be removed so it does not remain as an orphan.
+ *
+ * @return void
+ */
+function wp_sudo_cleanup_mu_shim(): void {
+	$shim_path = WP_CONTENT_DIR . '/mu-plugins/wp-sudo-gate.php';
+
+	if ( file_exists( $shim_path ) ) {
+		wp_delete_file( $shim_path );
+	}
+}
+
+/**
  * Remove all sudo-related user meta from the network.
  *
  * @return void
@@ -95,6 +111,7 @@ if ( is_multisite() ) {
 	// so removing it would break sudo on any remaining sites.
 	if ( ! $other_site_active ) {
 		wp_sudo_cleanup_user_meta();
+		wp_sudo_cleanup_mu_shim();
 
 		// Clean up network-wide options (stored in wp_sitemeta).
 		delete_site_option( 'wp_sudo_settings' );
@@ -105,4 +122,5 @@ if ( is_multisite() ) {
 	// Single-site: clean up everything.
 	wp_sudo_cleanup_site();
 	wp_sudo_cleanup_user_meta();
+	wp_sudo_cleanup_mu_shim();
 }
