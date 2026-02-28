@@ -1,8 +1,37 @@
 # Frequently Asked Questions
 
-## How is Sudo different from other WordPress security plugins?
+## What problem does Sudo solve?
 
-Any authenticated WordPress session is an attack surface. A stolen session cookie lets an attacker take over your session from another browser without knowing your password. An unattended machine with an active admin session leaves gated operations open to anyone with physical access. Open APIs allow authenticated and unauthenticated remote users and automated systems to probe them, connect, and potentially take damaging actions.
+Sudo will defeat or severely limit the damage attackers can do if they hijack an authenticated session or penetrate firewalls and successfully exploit a vulnerability to gain access and privileges. It also defends against scenarios where a device is stolen or left unattended, allowing an attacker to take control of an active user session.
+
+Broken access control is the #1 web application vulnerability. OWASP ranks Broken Access Control #1 in its Top 10 — present in 100% of tested applications. In the WordPress ecosystem, it accounted for 14.2% of all catalogued vulnerabilities in 2024, the second-largest category after XSS. ([Patchstack 2024](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2025/)) In 2025, [that figure surged to the top at 57%](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/#-broken-access-control-was-the-most-exploited-vulnerability). This surge is most likely the result of threat actors concentrating their efforts on the type of attack that firewalls are least likely to identify or predict, even with machine learning. As Patchstack notes:
+
+> These vulnerabilities are very difficult to defend against using traditional WAFs because the exploits look like normal authenticated traffic with no obvious injection patterns.
+>
+> Add CSRF, Privilege Escalation, and Broken Authentication — all access control failures — and you're looking at 28% of every vulnerability ever filed against a WordPress plugin or theme. (Patchstack, [State of WordPress Security in 2026](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/#-broken-access-control-was-the-most-exploited-vulnerability)]
+
+Verizon's Data Breach Investigations Report finds that 77–88% of basic web application attacks begin with stolen credentials. Sucuri's forensics show that 55% of hacked WordPress databases contain malicious admin accounts created after the breach. The attacker doesn't need to find a new exploit — they need an active session, and they need WordPress to do what attackers assume it will always do: obey without challenge.
+
+Sudo breaks that assumption — a key link in the attackers' kill chain. With Sudo active, every destructive action — user creation, plugin installation, role change, settings modification — requires password confirmation at the moment of execution. A stolen session cookie is not enough. An unattended browser is not enough. If a broken access control is the attack vector, Sudo is the guarded gate that will not allow it to pass.
+
+## Will Sudo protect my site from attacks on plugin vulnerabilities?
+
+Sudo will neutralize attacks or severely limit their blast radius (the scope of the harm they can do) if the attacks rely on taking privileged actions or aim to achieve that capability as their goal. 
+
+Sudo is *not* intended as a replacement for diligent plugin selection, timely updates, and effective firewalling; instead, it complements and backstops those layers of defense. 
+
+When the firewall misses it, the plugin hasn't patched it, and the attacker already has a session — Sudo is the gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every destructive action requires reauthentication, regardless of how the attacker got in.
+
+## How is Sudo different from WordPress security plugins?
+
+No security plugin gates actions that authenticated users can take. Most WordPress security plugins entirely neglect internal user-level security and do not make it a matter of governable policy. 
+
+Why this matters: Any authenticated user session is an attack surface. Attackers can acquire an authenticated user session in many ways:
+
+* A broken access control vulnerability that can be exploited to create a rogue user account.
+* A stolen session cookie lets an attacker take over your session from another browser without knowing your password.
+* An unattended machine with an active admin session leaves gated operations open to anyone with physical access.
+* Open APIs allow authenticated and unauthenticated remote users and automated systems to probe them, connect, and potentially take damaging actions.
 
 Conventional security plugins attempt to compensate for the limitations of mass-market hosting and plugins. Often, a security plugin will add layers of protection at the application level — rate-limiting and firewalling aimed at deterring malicious requests across some (typically under-defined) portion of the exposed application surface. This can be resource-intensive work that is better handled at the server, network, or infrastructure layer. Rapid mitigation through virtual patching based on the latest threat intelligence about vulnerable code is extremely valuable. If that layer is missing or fails, Sudo is the final layer of protection. Post-breach malware scanning — the signature and purely performative feature of the worst security plugins — is not a security layer. It is detection after the fact — not defense. Years of mounting evidence show how malware targets and defeats these scanners after a breach. 
 
@@ -11,6 +40,10 @@ Sudo doesn't operate at the perimeter but at the final point of consequence. It 
 This is your site's innermost armor — the skin-tight layer that interposes reauthentication at the moment of consequence, after every other defense has had its turn. There is no comparable WordPress plugin. This is not access control — it is action control.
 
 **Why this matters by the numbers.** Of the 7,966 WordPress vulnerabilities catalogued in 2024 ([Patchstack](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2025/)), ~28% fall into classes Sudo directly mitigates (Broken Access Control, CSRF, Privilege Escalation, Broken Authentication). When XSS exploitation chains are included — XSS is 47.7% of all WP vulnerabilities and is primarily dangerous because it enables session hijacking → admin actions — the figure rises to 55–65%. Post-compromise, [Sucuri found](https://sucuri.net/reports/2023-hacked-website-report/) that 55% of hacked WordPress databases contained malicious admin users and 49–70% had backdoor plugins — both actions that Sudo gates. In 2025 the total rose 42% to 11,334 ([Patchstack](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/)), with highly exploitable vulnerabilities up 113% and traditional WAFs blocking only 12–26% of WordPress-specific attacks. See the [Security Model](docs/security-model.md#threat-model-the-kill-chain) for the full threat model and risk reduction estimates.
+
+## Does Sudo complement or compete with WordPress security plugins?
+
+Sudo is complementary to any other security layers you put in place. It doesn't compete with your WAF, for instance — it's the defense that matters when the WAF doesn't. Plugins that help you authenticate and manage users or software updates, or identify vulnerabilities in code and user accounts, are completely complementary. Two-factor authentication is critically important, and Sudo is specifically designed to work with the WordPress community standard solution for 2FA.
 
 ## What are Sudo's limitations?
 
