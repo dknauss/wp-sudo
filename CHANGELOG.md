@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.2
+
+- **Fix: 2FA help text corrected** — `includes/class-admin.php` displayed "The default 2FA window is 10 minutes" but the code default (set in v2.4.0) is `5 * MINUTE_IN_SECONDS`. Help text now reads "5 minutes". The sudo session countdown (admin bar) is a separate, unrelated timer that remains at 15 minutes.
+- **Fix: version constant drift in dev bootstrap files** — `phpstan-bootstrap.php` and `tests/bootstrap.php` both defined `WP_SUDO_VERSION = '2.8.0'` while the runtime plugin was at v2.9.1. Both bumped to `'2.9.2'`.
+- **Docs: readme.txt expanded** — Patchstack 2026 attack statistics (57% BAC, 80% sudo-mitigated, 5 h median exploit time) added to the Description section. Eight new FAQ entries added: what problem Sudo solves, how it differs from security plugins, limitations, brute-force protection, login session grant, password change behaviour, grace period, and the 2FA verification window. Integration and unit test counts corrected.
+- **397 unit tests, 944 assertions.**
+
 ## 2.9.1
 
 - **Docs: threat model kill chain** — `docs/security-model.md` gains a new "Threat Model: The Kill Chain" section with verified statistics from Patchstack (2024 vulnerability breakdown), Sucuri (post-compromise forensics), Verizon DBIR (credential attacks), Wordfence (55B password attacks blocked), and OWASP Top 10:2025 (Broken Access Control #1). Risk reduction estimates table included. `FAQ.md` adds a condensed "Why this matters by the numbers" paragraph. All statistics verified 2026-02-27 against primary sources.

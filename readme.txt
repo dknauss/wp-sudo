@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0
 Requires PHP:      8.0
-Stable tag:        2.9.1
+Stable tag:        2.9.2
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -167,6 +167,11 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.9.2 =
+* **Fix: 2FA help text corrected** — Settings help tab said "default 2FA window is 10 minutes"; code default is 5 minutes. Fixed. (The sudo session countdown is a separate timer and remains at 15 minutes.)
+* **Fix: version constant drift** — `phpstan-bootstrap.php` and `tests/bootstrap.php` had stale version constants; now synced to 2.9.2.
+* **Docs: readme.txt expanded** — Patchstack 2026 attack statistics added to Description; 8 new FAQ entries covering problem scope, differences from security plugins, limitations, brute-force protection, login session grant, password change behaviour, grace period, and 2FA window.
 
 = 2.9.1 =
 * **Docs: threat model kill chain** — verified risk reduction data from Patchstack, Sucuri, Verizon DBIR, Wordfence, and OWASP added to security model and FAQ.

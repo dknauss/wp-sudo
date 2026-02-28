@@ -89,6 +89,14 @@ found, fix them before tagging.
 Update the project size table in `readme.md` if production or test line counts
 changed since the last release. Use the project size commands above.
 
+**Version sync checklist** — every release, bump `WP_SUDO_VERSION` in ALL four places:
+1. `wp-sudo.php` — plugin header `Version:` line
+2. `wp-sudo.php` — `define( 'WP_SUDO_VERSION', ... )` constant
+3. `phpstan-bootstrap.php` — `define( 'WP_SUDO_VERSION', ... )` constant
+4. `tests/bootstrap.php` — `define( 'WP_SUDO_VERSION', ... )` constant
+
+And update `Stable tag` in `readme.txt`.
+
 ## Test-Driven Development
 
 All new code must follow TDD:
