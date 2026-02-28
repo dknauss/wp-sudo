@@ -1,12 +1,12 @@
 # Roadmap: Past and Future Planning — Integration Tests, WP 7.0 Prep, Collaboration, TDD, and Core Design
 
-*Updated February 27, 2026*
+*Updated February 28, 2026*
 
 ## Table of Contents
 
 - **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
 - **[Context](#context)** — v2.8.0 state: 391 unit + 73 integration tests, CI matrix, WP 7.0 status
-- **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (73 tests), coverage analysis, remaining gaps
+- **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (80 tests), coverage analysis, remaining gaps
 - **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-ga-april-9-2026)** — Beta 1 tested ✓, one task remaining: "Tested up to" bump on GA day
 - **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
 - **[4. Context Collapse & TDD](#4-context-collapse-and-tdd)** — LLM confabulation defense, test-driven development
@@ -14,8 +14,10 @@
 - **[5. Environment Diversity Testing](#5-environment-diversity-testing-future-milestone)** — Apache, PHP 8.0, MariaDB, backward compat
 - **[6. Coverage Tooling](#6-coverage-tooling-baseline-established)** — PCOV baseline established, full matrix deferred
 - **[7. Mutation Testing](#7-mutation-testing-deferred-to-post-environment-diversity)** — Deferred until integration suite is fast enough
-- **[8. Core Sudo Design](#8-core-sudo-design)** — Already achieved (13), to implement (6), to consider (4), discarded (5)
-- **[9. Feature Backlog](#9-feature-backlog)** — WSAL sensor, IP+user rate limiting, dashboard widget, Gutenberg, network policy
+- **[8. Exit Path Testing](#8-exit-path-testing)** — `@runInSeparateProcess` for security-critical exit/die paths
+- **[9. Code Review Findings](#9-code-review-findings-gpt-53-codex-verified-addendum)** — Triaged findings from line-verified code review
+- **[10. Core Sudo Design](#10-core-sudo-design)** — Already achieved (13), to implement (6), to consider (4), discarded (5)
+- **[11. Feature Backlog](#11-feature-backlog)** — WSAL sensor, IP+user rate limiting, dashboard widget, Gutenberg, network policy
 - **[Appendix A: Accessibility](#appendix-a-accessibility-roadmap)** — 15 resolved WCAG items (v2.2.0–v2.3.1)
 
 ---
@@ -72,6 +74,7 @@
 - **Phase B:** Apache + MariaDB CI job
 - **Phase C:** Manual testing checklist for managed hosts
 - **Phase D:** Docker Compose with switchable stacks
+- Exit path testing — `@runInSeparateProcess` for 5–8 security-critical exit/die paths (see [section 8](#8-exit-path-testing))
 - Coverage tooling expansion (baseline established; full matrix after environment diversity milestone)
 - Mutation testing (after environment diversity milestone)
 
@@ -82,10 +85,10 @@
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.8.0):
-- **391 unit tests**, 929 assertions, across 15 test files (Brain\Monkey mocks)
-- **73 integration tests** across 11 test files (real WordPress + MySQL via `WP_UnitTestCase`)
-- CI pipeline: PHP 8.1–8.4, WordPress latest + trunk, single-site + multisite
+Current project state (as of v2.9.1):
+- **397 unit tests**, 944 assertions, across 15 test files (Brain\Monkey mocks)
+- **80 integration tests** across 13 test files (real WordPress + MySQL via `WP_UnitTestCase`)
+- CI pipeline: PHP 8.1–8.4, WordPress latest + trunk, single-site + multisite + PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
 ---
@@ -454,7 +457,117 @@ regression in the session token comparison or rate limiting logic?"
 
 ---
 
-## 8. Core Sudo Design
+## 8. Exit Path Testing
+
+**Status:** Not started. Blocked by nothing — can be done independently.
+
+The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in the Gate) are the biggest remaining testing blind spot. PHPUnit's `@runInSeparateProcess` annotation allows testing code that calls `exit()` by running the test in a child process.
+
+**Scope:** Don't cover all 76 — most follow the same pattern. Target the 5–8 most security-critical exit paths:
+- REST API gating: blocked mutation returns `403` with correct error shape
+- AJAX gating: blocked action returns `wp_send_json_error()` with correct code
+- WPGraphQL gating: blocked mutation returns GraphQL error response
+- Gate interception: redirect to challenge page with correct query params
+- Challenge submission: successful auth returns correct JSON + session cookie
+
+**Guidelines:**
+- Use `@runInSeparateProcess` and `@preserveGlobalState disabled` annotations
+- Integration tests only — `@runInSeparateProcess` is not useful for unit tests
+- Focus assertions on the HTTP response shape (status code, JSON structure, headers), not on internal state
+- Accept the execution cost (~1s per subprocess test) — these run in the integration matrix, not on every keystroke
+
+**When:** After the environment diversity milestone (section 5). The subprocess tests are sensitive to environment differences (output buffering, header handling), so they benefit from running across multiple stacks.
+
+---
+
+## 9. Code Review Findings (GPT 5.3 Codex Verified Addendum)
+
+**Source:** Line-verified code review in `.planning/research.md` (addendum, lines 567–914). All findings reference actual line numbers in the codebase, verified against `composer test:unit`, `composer lint`, and PHPStan. This supersedes the Zen Trinity review in the same file, which contains fabricated code snippets and statistics.
+
+### High Priority
+
+**Grace window scope broader than documented intent**
+
+- Gate permits any matched gated action when the user is within the 120s grace window (`class-gate.php:617-619`, `828-830`, `960-961`).
+- `is_within_grace()` only checks time window + token validity, not whether the request was in-flight when the session expired (`class-sudo-session.php:192-211`).
+- `docs/security-model.md:153` implies grace should only cover in-flight requests, not grant new gated access.
+- **Impact:** Effective policy is "full gated access for 120 seconds after expiry with valid token" — stronger than documented intent, may weaken audit expectations.
+- **Action:** Decide on intended semantics. Options: (a) tighten grace to in-flight-only with a stash marker, (b) accept current behavior and update docs to match. Either way, add tests asserting the chosen contract.
+
+**MU-plugin makes deactivation non-authoritative**
+
+- MU shim loads the plugin whenever files exist, regardless of `active_plugins` option (`mu-plugin/wp-sudo-gate.php:20-24`, `mu-plugin/wp-sudo-loader.php:22-30`).
+- Plugin deactivation callback does not remove the MU shim (`class-plugin.php:430-438`).
+- FAQ states deactivation returns ungated behavior (`FAQ.md:129-132`), but that's only true if the shim is absent.
+- **Impact:** If MU shim is installed, deactivating from Plugins screen doesn't reliably disable runtime behavior.
+- **Action:** Decide and document intended behavior. If "deactivate means off," remove MU shim on deactivation or add an early bail when plugin is inactive.
+
+### Medium Priority
+
+**`return_url` double-encoding**
+
+- Source side pre-encodes `return_url` before `add_query_arg` (`class-plugin.php:205-209`, `class-gate.php:1118-1120`, `1264-1267`, `1331-1334`).
+- Destination side reads value directly without decoding (`class-challenge.php:133-136`, `191-194`).
+- **Impact:** Cancel/shortcut return behavior can fall back to dashboard instead of the originating page.
+- **Action:** Pass raw URL to `add_query_arg` (let WordPress encode once), or decode before validation on the read path. Add round-trip tests for complex URLs.
+
+**Site Health stale-session scan capped at 100 users**
+
+- `find_stale_sessions()` queries `get_users(... 'number' => 100)` (`class-site-health.php:256-263`).
+- **Impact:** Large sites can report "no stale sessions" while stale records exist beyond user 100.
+- **Action:** Paginate through all matching users or maintain a cleanup cursor.
+
+**REST cookie-auth detection only checks `X-WP-Nonce` header**
+
+- Cookie-auth classifier in Gate checks only for `X-WP-Nonce` header (`class-gate.php:833-835`).
+- No fallback check for `_wpnonce` request param.
+- **Impact:** Some legitimate cookie-auth clients may be misclassified as headless and routed to app-password policy.
+- **Action:** Add conservative fallback detection for `_wpnonce` request params. Add tests for mixed cookie-auth request shapes.
+
+### Low Priority
+
+**Version constant drift between runtime and test/static bootstrap**
+
+- Runtime: `2.9.1` (`wp-sudo.php:6`, `:25`). Bootstraps: `2.8.0` (`phpstan-bootstrap.php:13`, `tests/bootstrap.php:18`).
+- **Action:** Synchronize in release process. Consider extracting version to a single source read by all bootstraps.
+
+**2FA default window documentation mismatch**
+
+- Actual default: 5 minutes (`class-sudo-session.php:370`). Admin help text: 10 minutes (`class-admin.php:323`).
+- **Action:** Align help text to actual default.
+
+**2FA window bounds not enforced in code**
+
+- FAQ claims 1–15 minute bounds (`FAQ.md:139`). Code trusts filter return without clamping (`class-sudo-session.php:370-371`).
+- **Action:** Clamp filter result to documented min/max, or remove hard-bound language from docs.
+
+**Request stash stores raw POST payloads**
+
+- Stash stores verbatim request arrays (`class-request-stash.php:65-67`, `205-212`).
+- **Impact:** If transient storage is exposed (DB or object-cache compromise), sensitive form data has additional exposure surface.
+- **Action:** Consider redacting known-secret keys on stash write with denylist. Document tradeoff in security docs.
+
+**Progressive delay uses blocking `sleep()`**
+
+- `sleep($delay)` during failed auth attempts (`class-sudo-session.php:718`).
+- **Impact:** Under heavy abuse, blocked PHP-FPM workers reduce throughput.
+- **Action:** Consider non-blocking rate limiting (timestamp-only checks) if this becomes operationally relevant.
+
+**App-password admin JS has hardcoded English strings**
+
+- Hardcoded UI strings in `admin/js/wp-sudo-app-passwords.js` (lines 31, 142, 195).
+- **Action:** Move to `wp_localize_script()` for localization.
+
+### Findings Already Addressed
+
+| Finding | Status |
+|---------|--------|
+| Uninstall path has no tests | ✅ Fixed v2.9.1 — `tests/Integration/UninstallTest.php` (2 tests) |
+| Multisite uninstall network-active branch can under-clean | ✅ Tested — `UninstallTest::test_multisite_uninstall_cleans_user_meta()` covers the cleanup path |
+
+---
+
+## 10. Core Sudo Design
 
 *February 26, 2026*
 
@@ -545,7 +658,7 @@ dispatch for SSO providers in the challenge flow. Would need a provider interfac
 
 ---
 
-## 9. Feature Backlog
+## 11. Feature Backlog
 
 Items carried forward from the pre-v2.4 roadmap. Features completed in v2.0.0–v2.3.1
 (Site Health integration, progressive rate limiting, CSP-compatible assets, lockout
