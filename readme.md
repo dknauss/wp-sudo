@@ -2,9 +2,9 @@
 
 _Defense in depth needs a last layer._ 
 
-Sudo is the only WordPress plugin that provides control over actions.
+Sudo is the only solution that provides control over actions just before they're performed.
 
-**WordPress security plugins guard the door. Sudo governs what can happen inside the house.**
+**Firewalls guard the house. Security plugins guard the door. Sudo governs what can happen inside the house.**
 
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![WordPress: 6.2–7.0](https://img.shields.io/badge/WordPress-6.2–7.0-0073aa.svg)](https://wordpress.org/)
