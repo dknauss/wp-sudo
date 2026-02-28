@@ -115,8 +115,7 @@ To understand what Sudo protects and defends against, it's important to understa
 [Patchstack's State of WordPress Security in 2026](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/) reports that plugin vulnerabilities are still surging year after year, and they remain the source of nearly all vulnerabilities in the ecosystem.
 
 * Nearly half (46%) of all WordPress plugin vulnerabilities that emerged (11,334) remain unpatched.
-* Broken Access Control was far and away the most exploited vulnerability, accounting for 57% of the total.
-* "Broken Access Control exploits are very difficult to defend against using traditional WAFs because the exploits look like normal authenticated traffic with no obvious injection patterns."
+* Broken Access Control was far and away the most exploited vulnerability, accounting for 57% of the total attacks on WordPress sites.
 * Traditional WAFs are only blocking 12 to 26% of attacks.
 * Patchstack has an excellent 93% success rate, but it is not 100%.
 * Nearly half of high-impact vulnerabilities were exploited within 24 hours. 
