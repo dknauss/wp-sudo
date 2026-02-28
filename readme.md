@@ -33,7 +33,7 @@ In 2024, Broken Access Control was the third-largest source of discovered WordPr
 
 Approximately half of high-impact WordPress vulnerabilities are exploited within 24 hours — median time to first exploit is 5 hours. When the firewall misses it, the plugin hasn't patched it, and the attacker already has a session — Sudo is the barrier gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every potentially destructive action requires reauthentication, regardless of how the attacker got in. 
 
-## Barrier Gate Architecture
+## Barrier Gate Architecture 門
 
 WordPress has rich access control — roles, capabilities, policies on _who_ can do _what_. It has no native control over _when_ those capabilities and actions can be exercised within a session. Sudo fills that gap. By gating consequential actions behind a mandatory reauthentication whenever those actions are taken, Sudo inserts a final check against potential intrusion and abuse. If a privileged account has been compromised, as is often the case, by an attacker who does not know its password or control its associated email, Sudo's challenge will prevent them from executing privileged actions. Coupled with two-factor-authentication (2FA), Sudo will limit the blast radius or potential harm of any session compromise — regardless of how that compromise occurred, and regardless of the user's role. **The attack surface becomes a policy decision.**
 
