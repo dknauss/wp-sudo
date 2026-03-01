@@ -85,9 +85,9 @@
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.9.1):
-- **397 unit tests**, 944 assertions, across 15 test files (Brain\Monkey mocks)
-- **80 integration tests** across 13 test files (real WordPress + MySQL via `WP_UnitTestCase`)
+Current project state (as of v2.9.2):
+- **403 unit tests**, 974 assertions, across 13 test files (Brain\Monkey mocks)
+- **108 integration tests** across 15 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.1–8.4, WordPress latest + trunk, single-site + multisite + PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
@@ -459,24 +459,23 @@ regression in the session token comparison or rate limiting logic?"
 
 ## 8. Exit Path Testing
 
-**Status:** Not started. Blocked by nothing — can be done independently.
+**Status:** Partially addressed. 9 integration tests in `ExitPathTest.php` cover the 5 most critical exit paths plus 3 grace window scenarios, using REST dispatch and WPDieException + output capture instead of `@runInSeparateProcess`. The subprocess approach remains deferred.
 
-The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in the Gate) are the biggest remaining testing blind spot. PHPUnit's `@runInSeparateProcess` annotation allows testing code that calls `exit()` by running the test in a child process.
+The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in the Gate) were the biggest remaining testing blind spot. The 9 tests added in v2.9.2 cover the security-critical shapes:
 
-**Scope:** Don't cover all 76 — most follow the same pattern. Target the 5–8 most security-critical exit paths:
-- REST API gating: blocked mutation returns `403` with correct error shape
-- AJAX gating: blocked action returns `wp_send_json_error()` with correct code
-- WPGraphQL gating: blocked mutation returns GraphQL error response
-- Gate interception: redirect to challenge page with correct query params
-- Challenge submission: successful auth returns correct JSON + session cookie
+| Test | Pattern | Verifies |
+|------|---------|----------|
+| REST blocked mutation | `rest_get_server()->dispatch()` | 403, `sudo_required` error shape |
+| AJAX blocked action | WPDieException + `ob_get_clean()` | JSON error body, `sudo_required` code |
+| WPGraphQL blocked mutation | `check_wpgraphql()` + reconstructed JSON | 403, `sudo_blocked` error shape |
+| Admin gating redirect | `wp_redirect` filter capture | 302 to challenge page with `stash_key` |
+| Challenge wrong password | WPDieException + `ob_get_clean()` | JSON error, non-empty message |
+| Challenge correct password | WPDieException + `ob_get_clean()` | JSON success, `authenticated` code, session active |
+| Grace window admin pass | `wp_redirect` filter (null) | No redirect during 120s grace |
+| Grace window admin block | `wp_redirect` filter capture | Redirect after grace closes |
+| Grace window REST pass | `rest_get_server()->dispatch()` | No `sudo_required` during grace |
 
-**Guidelines:**
-- Use `@runInSeparateProcess` and `@preserveGlobalState disabled` annotations
-- Integration tests only — `@runInSeparateProcess` is not useful for unit tests
-- Focus assertions on the HTTP response shape (status code, JSON structure, headers), not on internal state
-- Accept the execution cost (~1s per subprocess test) — these run in the integration matrix, not on every keystroke
-
-**When:** After the environment diversity milestone (section 5). The subprocess tests are sensitive to environment differences (output buffering, header handling), so they benefit from running across multiple stacks.
+**Remaining:** The `@runInSeparateProcess` approach (real `exit()` + output capture + header assertions) is still deferred. The WPDieException pattern covers response body shape but cannot verify actual HTTP headers or `Set-Cookie` output. This matters most for the challenge success path (cookie-setting). Browser-level testing (Playwright) would cover this more naturally than subprocess PHPUnit.
 
 ---
 
@@ -486,36 +485,40 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 
 ### High Priority
 
-**Grace window scope broader than documented intent**
+**~~Grace window scope broader than documented intent~~** ✅ Fixed
 
-- Gate permits any matched gated action when the user is within the 120s grace window (`class-gate.php:617-619`, `828-830`, `960-961`).
-- `is_within_grace()` only checks time window + token validity, not whether the request was in-flight when the session expired (`class-sudo-session.php:192-211`).
-- `docs/security-model.md:153` implies grace should only cover in-flight requests, not grant new gated access.
-- **Impact:** Effective policy is "full gated access for 120 seconds after expiry with valid token" — stronger than documented intent, may weaken audit expectations.
-- **Action:** Decide on intended semantics. Options: (a) tighten grace to in-flight-only with a stash marker, (b) accept current behavior and update docs to match. Either way, add tests asserting the chosen contract.
+- ~~Gate permits any matched gated action when the user is within the 120s grace window (`class-gate.php:617-619`, `828-830`, `960-961`).~~
+- ~~`is_within_grace()` only checks time window + token validity, not whether the request was in-flight when the session expired (`class-sudo-session.php:192-211`).~~
+- ~~`docs/security-model.md:153` implies grace should only cover in-flight requests, not grant new gated access.~~
+- ~~**Impact:** Effective policy is "full gated access for 120 seconds after expiry with valid token" — stronger than documented intent, may weaken audit expectations.~~
+- ~~**Action:** Decide on intended semantics. Options: (a) tighten grace to in-flight-only with a stash marker, (b) accept current behavior and update docs to match. Either way, add tests asserting the chosen contract.~~
+- Fixed: accepted current behavior (Option B). Updated `security-model.md` and `FAQ.md` to document grace as a 120s wind-down window, not in-flight-only. 3 integration tests added (`ExitPathTest.php` GRACE-01 through GRACE-03).
 
-**MU-plugin makes deactivation non-authoritative**
+**~~MU-plugin makes deactivation non-authoritative~~** ✅ Fixed
 
-- MU shim loads the plugin whenever files exist, regardless of `active_plugins` option (`mu-plugin/wp-sudo-gate.php:20-24`, `mu-plugin/wp-sudo-loader.php:22-30`).
-- Plugin deactivation callback does not remove the MU shim (`class-plugin.php:430-438`).
-- FAQ states deactivation returns ungated behavior (`FAQ.md:129-132`), but that's only true if the shim is absent.
-- **Impact:** If MU shim is installed, deactivating from Plugins screen doesn't reliably disable runtime behavior.
-- **Action:** Decide and document intended behavior. If "deactivate means off," remove MU shim on deactivation or add an early bail when plugin is inactive.
+- ~~MU shim loads the plugin whenever files exist, regardless of `active_plugins` option (`mu-plugin/wp-sudo-gate.php:20-24`, `mu-plugin/wp-sudo-loader.php:22-30`).~~
+- ~~Plugin deactivation callback does not remove the MU shim (`class-plugin.php:430-438`).~~
+- ~~FAQ states deactivation returns ungated behavior (`FAQ.md:129-132`), but that's only true if the shim is absent.~~
+- ~~**Impact:** If MU shim is installed, deactivating from Plugins screen doesn't reliably disable runtime behavior.~~
+- ~~**Action:** Decide and document intended behavior. If "deactivate means off," remove MU shim on deactivation or add an early bail when plugin is inactive.~~
+- Fixed: loader checks `active_plugins` / `active_sitewide_plugins` before loading. `uninstall.php` deletes shim. FAQ updated.
 
 ### Medium Priority
 
-**`return_url` double-encoding**
+**~~`return_url` double-encoding~~** ✅ Fixed
 
-- Source side pre-encodes `return_url` before `add_query_arg` (`class-plugin.php:205-209`, `class-gate.php:1118-1120`, `1264-1267`, `1331-1334`).
-- Destination side reads value directly without decoding (`class-challenge.php:133-136`, `191-194`).
-- **Impact:** Cancel/shortcut return behavior can fall back to dashboard instead of the originating page.
-- **Action:** Pass raw URL to `add_query_arg` (let WordPress encode once), or decode before validation on the read path. Add round-trip tests for complex URLs.
+- ~~Source side pre-encodes `return_url` before `add_query_arg` (`class-plugin.php:205-209`, `class-gate.php:1118-1120`, `1264-1267`, `1331-1334`).~~
+- ~~Destination side reads value directly without decoding (`class-challenge.php:133-136`, `191-194`).~~
+- ~~**Impact:** Cancel/shortcut return behavior can fall back to dashboard instead of the originating page.~~
+- ~~**Action:** Pass raw URL to `add_query_arg` (let WordPress encode once), or decode before validation on the read path. Add round-trip tests for complex URLs.~~
+- Fixed: removed `rawurlencode()` from all 4 source locations. Unit test in `PluginTest.php`.
 
-**Site Health stale-session scan capped at 100 users**
+**~~Site Health stale-session scan capped at 100 users~~** ✅ Fixed
 
-- `find_stale_sessions()` queries `get_users(... 'number' => 100)` (`class-site-health.php:256-263`).
-- **Impact:** Large sites can report "no stale sessions" while stale records exist beyond user 100.
-- **Action:** Paginate through all matching users or maintain a cleanup cursor.
+- ~~`find_stale_sessions()` queries `get_users(... 'number' => 100)` (`class-site-health.php:256-263`).~~
+- ~~**Impact:** Large sites can report "no stale sessions" while stale records exist beyond user 100.~~
+- ~~**Action:** Paginate through all matching users or maintain a cleanup cursor.~~
+- Fixed: paginated `do/while` loop in `find_stale_sessions()`. Unit test in `SiteHealthTest.php`.
 
 **REST cookie-auth detection only checks `X-WP-Nonce` header**
 
@@ -538,10 +541,11 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 - ~~**Action:** Align help text to actual default.~~
 - Fixed: help text now reads "5 minutes". Note: this is the **2FA authentication window** (how long to enter a 2FA code), not the sudo session duration (15 min default). Two distinct timers.
 
-**2FA window bounds not enforced in code**
+**~~2FA window bounds not enforced in code~~** ✅ Fixed
 
-- FAQ claims 1–15 minute bounds (`FAQ.md:139`). Code trusts filter return without clamping (`class-sudo-session.php:370-371`).
-- **Action:** Clamp filter result to documented min/max, or remove hard-bound language from docs.
+- ~~FAQ claims 1–15 minute bounds (`FAQ.md:139`). Code trusts filter return without clamping (`class-sudo-session.php:370-371`).~~
+- ~~**Action:** Clamp filter result to documented min/max, or remove hard-bound language from docs.~~
+- Fixed: clamped to 60–900 seconds (1–15 minutes) after `apply_filters`. 3 unit tests in `SudoSessionTest.php`. `developer-reference.md` updated.
 
 **Request stash stores raw POST payloads**
 
@@ -555,10 +559,11 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 - **Impact:** Under heavy abuse, blocked PHP-FPM workers reduce throughput.
 - **Action:** Consider non-blocking rate limiting (timestamp-only checks) if this becomes operationally relevant.
 
-**App-password admin JS has hardcoded English strings**
+**~~App-password admin JS has hardcoded English strings~~** ✅ Fixed
 
-- Hardcoded UI strings in `admin/js/wp-sudo-app-passwords.js` (lines 31, 142, 195).
-- **Action:** Move to `wp_localize_script()` for localization.
+- ~~Hardcoded UI strings in `admin/js/wp-sudo-app-passwords.js` (lines 31, 142, 195).~~
+- ~~**Action:** Move to `wp_localize_script()` for localization.~~
+- Fixed: 3 strings localized via `wp_localize_script()` i18n object. Unit test in `AdminTest.php`.
 
 ### Findings Already Addressed
 
@@ -568,6 +573,13 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 | Multisite uninstall network-active branch can under-clean | ✅ Tested — `UninstallTest::test_multisite_uninstall_cleans_user_meta()` covers the cleanup path |
 | Version constant drift (bootstraps at 2.8.0 vs runtime 2.9.1) | ✅ Fixed — `phpstan-bootstrap.php` and `tests/bootstrap.php` updated to `2.9.1` |
 | 2FA default window help text says 10 min, code is 5 min | ✅ Fixed — `class-admin.php:323` now reads "5 minutes" |
+| Grace window scope broader than documented | ✅ Fixed v2.9.2 — docs corrected (`security-model.md`, `FAQ.md`), 3 integration tests |
+| MU-plugin makes deactivation non-authoritative | ✅ Fixed v2.9.2 — loader checks `active_plugins`, `uninstall.php` deletes shim, FAQ updated |
+| `return_url` double-encoding | ✅ Fixed v2.9.2 — `rawurlencode()` removed from 4 locations, unit test added |
+| Site Health stale-session scan capped at 100 users | ✅ Fixed v2.9.2 — paginated `do/while` loop, unit test added |
+| 2FA window bounds not enforced in code | ✅ Fixed v2.9.2 — clamped to 60–900 s, 3 unit tests added |
+| App-password JS hardcoded English strings | ✅ Fixed v2.9.2 — localized via `wp_localize_script()`, unit test added |
+| Exit path testing not started | ✅ Partially addressed v2.9.2 — 9 integration tests in `ExitPathTest.php` |
 
 ---
 
