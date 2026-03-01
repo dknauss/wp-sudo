@@ -830,8 +830,13 @@ class Gate {
 		}
 
 		// Distinguish cookie-auth (browser) from app-password/bearer (headless).
-		// Cookie-auth REST requests pass nonce in X-WP-Nonce header.
-		$nonce          = $request->get_header( 'X-WP-Nonce' );
+		// WordPress core accepts the REST nonce via X-WP-Nonce header or _wpnonce
+		// request parameter (see rest_cookie_check_errors() in wp-includes/rest-api.php).
+		$nonce = $request->get_header( 'X-WP-Nonce' );
+		if ( ! $nonce ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only classification, not action authorization.
+			$nonce = isset( $_REQUEST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ) : null;
+		}
 		$is_cookie_auth = $nonce && wp_verify_nonce( $nonce, 'wp_rest' );
 
 		if ( ! $is_cookie_auth ) {

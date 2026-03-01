@@ -70,7 +70,7 @@
 - SSO/SAML/OIDC provider framework
 
 **Testing Improvements:**
-- **Phase A:** Expand CI matrix (PHP 8.0, WordPress 6.2–6.9 backward compat)
+- **Phase A:** ~~Expand CI matrix~~ ✅ Done v2.9.2 — PHP 8.0–8.4, WP 6.7 + latest + trunk
 - **Phase B:** Apache + MariaDB CI job
 - **Phase C:** Manual testing checklist for managed hosts
 - **Phase D:** Docker Compose with switchable stacks
@@ -86,9 +86,9 @@ This is a living document covering accumulated input and thinking about the stra
 challenges and priorities for WP Sudo. 
 
 Current project state (as of v2.9.2):
-- **403 unit tests**, 974 assertions, across 13 test files (Brain\Monkey mocks)
-- **108 integration tests** across 15 test files (real WordPress + MySQL via `WP_UnitTestCase`)
-- CI pipeline: PHP 8.1–8.4, WordPress latest + trunk, single-site + multisite + PCOV coverage job
+- **405 unit tests**, 979 assertions, across 13 test files (Brain\Monkey mocks)
+- **116 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
+- CI pipeline: PHP 8.0–8.4, WordPress 6.7 + latest + trunk, single-site + multisite + PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
 ---
@@ -144,8 +144,8 @@ These gaps have been closed by the integration suite:
 
 | Opportunity | Current state | Value |
 |-------------|--------------|-------|
-| **Admin settings CRUD integration tests** | `Admin` class (1,244 lines) has 55 unit tests but no integration tests. Settings registration, sanitization, and option persistence use standard WordPress APIs. | Medium — would catch real-world settings persistence bugs |
-| **REST cookie-auth `_wpnonce` fallback** | Gate checks `X-WP-Nonce` header only; no fallback for `_wpnonce` request param. Some cookie-auth clients may be misclassified as headless. | Medium — requires production code change + tests |
+| ~~**Admin settings CRUD integration tests**~~ | ~~`Admin` class (1,244 lines) has 55 unit tests but no integration tests.~~ ✅ Done v2.9.2 — 8 integration tests in `tests/Integration/AdminTest.php` covering defaults, persistence, sanitization clamping, per-app-password overrides, and multisite `site_option` storage. | ~~Medium~~ |
+| ~~**REST cookie-auth `_wpnonce` fallback**~~ | ~~Gate checks `X-WP-Nonce` header only.~~ ✅ Fixed v2.9.2 — fallback checks `$_REQUEST['_wpnonce']` (mirrors WP core `rest_cookie_check_errors()`). 2 unit tests in `GateTest.php`. | ~~Medium~~ |
 | **Admin integration test for MU-plugin install/remove** | MU-plugin install button and status detection tested manually only. | Low — UI-dependent, hard to test without browser |
 | **Plugin lifecycle integration tests** | Activation, deactivation, and uninstall are tested (2 uninstall tests), but activation/deactivation hooks lack dedicated integration coverage. | Low — mostly covered by existing tests indirectly |
 | **`@runInSeparateProcess` exit paths** | 9 tests use WPDieException + output capture. Cannot verify real HTTP headers or `Set-Cookie` output. | Low — Playwright would be more natural for this |
@@ -353,9 +353,9 @@ Local by Flywheel sites. Gaps remain in CI and broader hosting diversity.
 | Dimension | Current coverage | Gap |
 |-----------|-----------------|-----|
 | **Web server** | nginx (Studio, Local multisite-subdirectory) + Apache (Local single-site, Local multisite-subdomain) | Apache in CI (mod_php, FastCGI, FPM variants) |
-| **PHP version** | 8.1–8.4 (CI matrix), 8.2 (Local dev) | 8.0 — minimum declared but not in CI |
+| **PHP version** | 8.0–8.4 (CI matrix), 8.2 (Local dev) | ✅ Covered — PHP 8.0 added to CI v2.9.2 |
 | **Database** | MySQL 8.0 (Local CI), SQLite (Studio) | MariaDB 10.x, MySQL 5.7 (legacy hosts) |
-| **WordPress version** | latest + trunk (CI), 6.9.1–7.0-beta2 (dev sites) | 6.2–6.8 backward compat (minimum declared but not in CI) |
+| **WordPress version** | 6.7 + latest + trunk (CI), 6.9.1–7.0-beta2 (dev sites) | 6.2–6.6 still untested; 6.7+ now covered in CI |
 | **OS** | macOS (dev), Ubuntu 24.04 (CI) | Windows (if any WP-CLI or path handling is OS-sensitive) |
 | **Hosting stack** | Bare local dev | Shared hosting (cPanel), managed WP (Pressable, WP Engine, Cloudways), containerized (Docker, Kubernetes) |
 
@@ -371,28 +371,15 @@ Local by Flywheel sites. Gaps remain in CI and broader hosting diversity.
   `json_validate()` (8.3+), readonly properties (8.2+).
 - **Database engine:** MariaDB and MySQL have subtle JSON and collation differences.
   The upgrader migration chain and option serialization could behave differently.
-- **Backward compat:** The plugin declares WordPress 6.2+ minimum. There are no
-  automated tests verifying it actually works on 6.2, 6.5, or 6.7. The CI matrix
-  tests `latest` and `trunk` only.
+- **Backward compat:** The plugin declares WordPress 6.2+ minimum. CI now tests
+  6.7, latest, and trunk. WP 6.2–6.6 remain untested — 6.7 is a reasonable floor
+  covering most active hosts.
 
 ### Recommended approach
 
-**Phase A: Expand CI matrix (low effort, high value)**
+**Phase A: Expand CI matrix** ✅ Done v2.9.2
 
-Add WordPress version and PHP version dimensions to the GitHub Actions matrix:
-
-```yaml
-strategy:
-  matrix:
-    php: [8.0, 8.1, 8.3, 8.4]
-    wp: [latest, trunk, '6.7', '6.5', '6.2']
-    exclude:
-      # Skip combinations that don't exist
-      - { php: 8.4, wp: '6.2' }
-```
-
-This covers PHP + WP backward compat with zero infrastructure changes. The existing
-`install-wp-tests.sh` already supports arbitrary WP versions.
+CI matrix now covers PHP 8.0–8.4 (unit tests) and PHP 8.0/8.1/8.3 × WP 6.7/latest/trunk × single-site/multisite (18 integration runs). Further backward compat expansion (WP 6.2–6.6) can be added incrementally if 6.7 runs cleanly.
 
 **Phase B: Apache + MariaDB CI job (medium effort)**
 
@@ -419,10 +406,9 @@ This lets any contributor reproduce the full matrix locally.
 
 ### Priority
 
-This is a **post-v2.4 milestone** concern. The current v2.4 milestone focuses on
-integration test coverage and WP 7.0 readiness. Environment diversity testing
-should be scoped as a v2.5 or v2.6 milestone, with Phase A (CI matrix expansion)
-as the first deliverable since it requires no new infrastructure.
+Phase A (CI matrix expansion) is complete as of v2.9.2. Remaining phases (B–D)
+are lower priority and should be scoped as a future milestone when Apache/MariaDB
+testing or managed-host validation becomes a concern.
 
 ---
 
@@ -462,7 +448,7 @@ regression in the session token comparison or rate limiting logic?"
 
 **Why not now:**
 - Infection re-runs the full test suite for every mutant. With the current suite
-  (349 unit + 55 integration tests), a full Infection run would take 10–30 minutes
+  (405 unit + 116 integration tests), a full Infection run would take 10–30 minutes
   locally. That's acceptable for a pre-release check, not for CI on every push.
 - The more valuable immediate gap is environment diversity: knowing the tests pass
   on Apache/MariaDB and WP 6.2–6.9 is higher confidence signal than mutation score
@@ -546,12 +532,13 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 - ~~**Action:** Paginate through all matching users or maintain a cleanup cursor.~~
 - Fixed: paginated `do/while` loop in `find_stale_sessions()`. Unit test in `SiteHealthTest.php`.
 
-**REST cookie-auth detection only checks `X-WP-Nonce` header**
+**~~REST cookie-auth detection only checks `X-WP-Nonce` header~~** ✅ Fixed
 
-- Cookie-auth classifier in Gate checks only for `X-WP-Nonce` header (`class-gate.php:833-835`).
-- No fallback check for `_wpnonce` request param.
-- **Impact:** Some legitimate cookie-auth clients may be misclassified as headless and routed to app-password policy.
-- **Action:** Add conservative fallback detection for `_wpnonce` request params. Add tests for mixed cookie-auth request shapes.
+- ~~Cookie-auth classifier in Gate checks only for `X-WP-Nonce` header (`class-gate.php:833-835`).~~
+- ~~No fallback check for `_wpnonce` request param.~~
+- ~~**Impact:** Some legitimate cookie-auth clients may be misclassified as headless and routed to app-password policy.~~
+- ~~**Action:** Add conservative fallback detection for `_wpnonce` request params. Add tests for mixed cookie-auth request shapes.~~
+- Fixed: fallback checks `$_REQUEST['_wpnonce']`, matching WP core's `rest_cookie_check_errors()`. Verified against WP trunk source. 2 unit tests in `GateTest.php`.
 
 ### Low Priority
 
@@ -572,6 +559,12 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 - ~~FAQ claims 1–15 minute bounds (`FAQ.md:139`). Code trusts filter return without clamping (`class-sudo-session.php:370-371`).~~
 - ~~**Action:** Clamp filter result to documented min/max, or remove hard-bound language from docs.~~
 - Fixed: clamped to 60–900 seconds (1–15 minutes) after `apply_filters`. 3 unit tests in `SudoSessionTest.php`. `developer-reference.md` updated.
+
+**Admin bar countdown stalls at `0:01` before reload (cosmetic)**
+
+- When the session expires, the JS countdown decrements `r` to `0`, calls `window.location.reload()`, and returns — but the label was last set to `Sudo: 0:01` in the previous tick and is never updated to `0:00`. The reload latency (1–3s network round-trip) means the timer visually freezes at `0:01` before disappearing.
+- **Impact:** Cosmetic only — session has already expired when reload fires. No security or functional impact.
+- **Action:** Update the label to `Sudo: 0:00` and announce expiry *before* calling `reload()`, so the last visible value is accurate. Low-effort, low-priority polish item.
 
 **Request stash stores raw POST payloads**
 
@@ -606,6 +599,9 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 | 2FA window bounds not enforced in code | ✅ Fixed v2.9.2 — clamped to 60–900 s, 3 unit tests added |
 | App-password JS hardcoded English strings | ✅ Fixed v2.9.2 — localized via `wp_localize_script()`, unit test added |
 | Exit path testing not started | ✅ Partially addressed v2.9.2 — 9 integration tests in `ExitPathTest.php` |
+| REST cookie-auth `_wpnonce` fallback | ✅ Fixed v2.9.2 — Gate checks `$_REQUEST['_wpnonce']` fallback (mirrors WP core), 2 unit tests |
+| Admin settings CRUD integration tests | ✅ Done v2.9.2 — 8 integration tests in `AdminTest.php` |
+| CI matrix missing PHP 8.0 and older WP versions | ✅ Done v2.9.2 — PHP 8.0–8.4, WP 6.7 + latest + trunk |
 
 ---
 

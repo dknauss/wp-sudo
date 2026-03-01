@@ -1075,6 +1075,74 @@ class GateTest extends TestCase {
 	}
 
 	/**
+	 * Test intercept_rest detects cookie-auth via _wpnonce request param.
+	 *
+	 * WordPress core's rest_cookie_check_errors() accepts the REST nonce via
+	 * $_REQUEST['_wpnonce'] as well as the X-WP-Nonce header. The Gate must
+	 * check both to avoid misclassifying cookie-auth requests as headless.
+	 */
+	public function test_intercept_rest_detects_cookie_auth_via_wpnonce_param(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'is_wp_error' )->justReturn( false );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'set_transient' )->justReturn( true );
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		// Cookie-auth via request param, not header.
+		Functions\when( 'wp_verify_nonce' )->justReturn( true );
+
+		$_REQUEST['_wpnonce'] = 'valid-nonce';
+
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/plugins/hello-dolly' );
+		// No X-WP-Nonce header — nonce is in $_REQUEST only.
+		$handler = array();
+
+		Actions\expectDone( 'wp_sudo_action_gated' )
+			->once()
+			->with( 1, 'plugin.activate', 'rest' );
+
+		$result = $this->gate->intercept_rest( null, $handler, $request );
+
+		// Cookie-auth path: returns sudo_required (not app-password policy).
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'sudo_required', $result->get_error_code() );
+
+		unset( $_REQUEST['_wpnonce'] );
+	}
+
+	/**
+	 * Test intercept_rest classifies as headless when no nonce is present.
+	 *
+	 * Neither X-WP-Nonce header nor _wpnonce request param — the request
+	 * is app-password/bearer auth and routes to the app-password policy.
+	 */
+	public function test_intercept_rest_no_nonce_classified_as_headless(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'is_wp_error' )->justReturn( false );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+
+		// Policy = disabled → should return sudo_disabled error.
+		Functions\when( 'get_option' )->justReturn( array( 'rest_app_password_policy' => 'disabled' ) );
+		Functions\when( 'get_site_option' )->justReturn( array() );
+		Functions\when( 'rest_get_authenticated_app_password' )->justReturn( null );
+
+		$request = new \WP_REST_Request( 'DELETE', '/wp/v2/plugins/hello-dolly' );
+		// No X-WP-Nonce header, no $_REQUEST['_wpnonce'].
+		$handler = array();
+
+		$result = $this->gate->intercept_rest( null, $handler, $request );
+
+		// Headless path with disabled policy: sudo_disabled.
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
+	}
+
+	/**
 	 * Test intercept_rest passes through for non-gated routes.
 	 */
 	public function test_intercept_rest_passes_non_gated(): void {
