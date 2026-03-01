@@ -527,21 +527,60 @@ gate enforces the Cron policy for `wp cron` subcommands.
 
 ## 8. Cron Policies
 
-### 8.1 Limited (Default)
+> **Surface distinction:** The cron policy only applies to HTTP requests
+> to `wp-cron.php` (where `DOING_CRON` is defined). Running `wp cron
+> event run` via WP-CLI is detected as `surface=cli` and governed by
+> the **CLI policy** instead. See §7.5 for the CLI-enforces-Cron-policy
+> crossover test.
+
+### 8.1 Limited (Default) — HTTP `wp-cron.php`
 
 Non-gated scheduled events run normally. Gated operations triggered by
-cron are silently blocked.
+cron are silently blocked (the callback calls `exit` instead of
+`wp_die()` to avoid noisy error output in cron context).
 
-### 8.2 Disabled
+```bash
+curl -sk "YOUR_SITE_URL/wp-cron.php" -w "HTTP: %{http_code}, body: %{size_download} bytes\n"
+```
+
+**Expected:** HTTP 200, body > 0 bytes (WordPress runs due events and
+returns normally).
+
+### 8.2 Disabled — HTTP `wp-cron.php`
 
 All cron execution is killed at `init`. Covers both WP-Cron (page-load
 trigger) and server-level cron hitting `wp-cron.php`.
 
-### 8.3 Unrestricted
+1. Set Cron policy to **Disabled** in Settings > Sudo.
+2. Run:
+
+```bash
+curl -sk "YOUR_SITE_URL/wp-cron.php" -w "HTTP: %{http_code}, body: %{size_download} bytes\n"
+```
+
+3. **Expected:** HTTP 200, **body: 0 bytes**. The 200 status is sent by
+   WordPress before `init` fires; the gate calls `exit` at `init`
+   priority 1, which terminates execution before any cron events run or
+   any response body is written.
+
+> **Cleanup:** Restore Cron policy to **Limited** after testing.
+
+### 8.3 Unrestricted — HTTP `wp-cron.php`
 
 > See also §19.4 for audit hook verification.
 
-All scheduled events run as if WP Sudo is not installed.
+1. Set Cron policy to **Unrestricted** in Settings > Sudo.
+2. Run:
+
+```bash
+curl -sk "YOUR_SITE_URL/wp-cron.php" -w "HTTP: %{http_code}, body: %{size_download} bytes\n"
+```
+
+3. **Expected:** HTTP 200, body > 0 bytes. All scheduled events run as
+   if WP Sudo is not installed. If a gated action fires during cron, the
+   `wp_sudo_action_allowed` audit hook fires (see §19.4).
+
+> **Cleanup:** Restore Cron policy to **Limited** after testing.
 
 ---
 
