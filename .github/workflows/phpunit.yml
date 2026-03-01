@@ -7,6 +7,7 @@ on:
     branches: [main]
   schedule:
     - cron: '0 3 * * *'  # Nightly at 3 AM UTC — catches WordPress trunk regressions.
+  workflow_dispatch:  # Allow manual triggering to re-run the full CI suite on demand.
 
 jobs:
   unit-tests:
@@ -179,7 +180,7 @@ jobs:
     name: "Notify on failure"
     runs-on: ubuntu-24.04
     needs: [unit-tests, unit-tests-coverage, integration-tests, code-quality]
-    if: failure() && github.event_name == 'schedule'
+    if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     permissions:
       issues: write
     steps:
