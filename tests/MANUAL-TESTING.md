@@ -1239,3 +1239,47 @@ curl -sk -X POST "YOUR_SITE_URL/graphql" \
 
 > **Cleanup:** Restore WPGraphQL policy to **Limited**. Remove the
 > mu-plugin listener when testing is complete.
+
+---
+
+## 20. WebAuthn Bridge (Two Factor WebAuthn Provider)
+
+> Requires: WP Sudo 2.0+, Two Factor plugin, Two Factor Provider for
+> WebAuthn plugin. Install the bridge as a mu-plugin:
+> `cp bridges/wp-sudo-webauthn-bridge.php wp-content/mu-plugins/`
+
+### 20.1 Register Security Key — Blocked Without Sudo
+
+1. Ensure no sudo session is active.
+2. Go to **Users > Profile**, scroll to the WebAuthn security keys section.
+3. Click **Register New Key**.
+4. **Expected:** The registration ceremony does not start. An AJAX error
+   response is returned. The blocked-action notice appears on next page
+   load: "This action (Register security key (WebAuthn)) requires
+   reauthentication."
+
+### 20.2 Register Security Key — Allowed With Sudo
+
+1. Activate a sudo session.
+2. Click **Register New Key**.
+3. **Expected:** The browser's WebAuthn ceremony starts (key tap / biometric
+   prompt). The key is registered successfully.
+
+### 20.3 Delete Security Key — Blocked Without Sudo
+
+1. Ensure no sudo session is active. At least one key must be registered.
+2. Click the **Delete** button (or equivalent) on a registered key.
+3. **Expected:** AJAX error. Key is not deleted. Blocked-action notice
+   appears on next page load.
+
+### 20.4 Delete Security Key — Allowed With Sudo
+
+1. Activate a sudo session.
+2. Click **Delete** on a registered key.
+3. **Expected:** Key is deleted successfully.
+
+### 20.5 Rename Security Key — Not Gated
+
+1. Without sudo, rename a registered key.
+2. **Expected:** Rename succeeds. This action is not security-sensitive
+   and is intentionally not gated by the bridge.

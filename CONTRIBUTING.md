@@ -97,6 +97,7 @@ logged in as `admin` / `password`.
 | WP-CLI / Cron entry point policies | No CLI in browser |
 | REST / XML-RPC entry point policies | Network disabled in Playground |
 | Two Factor email / magic-link providers | PHP outbound network is off |
+| WebAuthn bridge (security key gating) | Browser WebAuthn API unavailable in Playground sandbox |
 | Multisite behaviour | Single-site only |
 | State after refreshing Playground | Full reset on page reload |
 
@@ -129,9 +130,32 @@ The one-click installer on the Settings page copies the shim via `file_put_conte
 
 Use conventional commit format. Run tests and static analysis before committing.
 
+## Manual Testing
+
+The `tests/MANUAL-TESTING.md` checklist covers 20 test areas across all surfaces (admin UI, AJAX, REST, CLI, Cron, XML-RPC, WPGraphQL, multisite). Run through it before tagging a release. The file includes expected results, curl commands, and cleanup steps.
+
 ## Extending Gated Actions
 
 Use the `wp_sudo_gated_actions` filter. See [docs/developer-reference.md](docs/developer-reference.md) for the rule structure and examples.
+
+### Bridge Plugins
+
+The `bridges/` directory contains drop-in mu-plugins that gate third-party plugin actions:
+
+| Bridge | Target Plugin | What It Gates |
+|--------|--------------|---------------|
+| `wp-sudo-wp2fa-bridge.php` | WP 2FA (Melapress) | Connects WP 2FA's TOTP/email/backup code methods to the sudo challenge page |
+| `wp-sudo-webauthn-bridge.php` | Two Factor Provider for WebAuthn | Gates security key registration and deletion via AJAX |
+
+To create a new bridge:
+
+1. Copy an existing bridge as a template
+2. Add a class-existence guard so rules are only injected when the target plugin is active
+3. Add AJAX and/or REST rules via `wp_sudo_gated_actions`
+4. Add unit tests in `tests/Unit/` and manual test steps in `tests/MANUAL-TESTING.md`
+5. Document in `docs/developer-reference.md` and `docs/two-factor-integration.md` (if 2FA-related)
+
+See [docs/developer-reference.md](docs/developer-reference.md#gating-third-party-plugin-actions) for the full worked example.
 
 ## Audit Hooks
 

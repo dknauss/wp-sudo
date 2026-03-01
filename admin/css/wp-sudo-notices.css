@@ -13,3 +13,16 @@
 .settings_page_wp-sudo .notice {
 	background-color: #fff !important;
 }
+
+/*
+ * REST error notice in the Application Passwords section (profile.php).
+ *
+ * When WP Sudo's Gate blocks a cookie-auth REST request (sudo_required),
+ * WP core's application-passwords.js renders the error as a
+ * .notice.notice-error div inside #application-passwords-section.
+ * WP 7.0 removed the background from .notice-error, leaving this
+ * notice invisible. This restores a light red background.
+ */
+#application-passwords-section .notice.notice-error {
+	background-color: #fbeaea !important;
+}

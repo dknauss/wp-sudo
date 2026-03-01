@@ -32,6 +32,73 @@ add_filter( 'wp_sudo_gated_actions', function ( array $rules ): array {
 } );
 ```
 
+### Gating Third-Party Plugin Actions
+
+To gate AJAX or REST endpoints from a third-party plugin, create a bridge
+file and drop it into `wp-content/mu-plugins/`. Use a class-existence guard
+so the rules are only added when the target plugin is active.
+
+**Example: WebAuthn security key registration** (full bridge at
+`bridges/wp-sudo-webauthn-bridge.php`):
+
+```php
+<?php
+// mu-plugins/wp-sudo-webauthn-bridge.php
+defined( 'ABSPATH' ) || exit;
+
+add_filter( 'wp_sudo_gated_actions', static function ( array $rules ): array {
+    // Only add rules when the WebAuthn Provider plugin is active.
+    if ( ! class_exists( 'WildWolf\WordPress\TwoFactorWebAuthn\Plugin' ) ) {
+        return $rules;
+    }
+
+    // Gate security key registration (two-step AJAX ceremony).
+    $rules[] = array(
+        'id'       => 'auth.webauthn_register',
+        'label'    => __( 'Register security key (WebAuthn)', 'wp-sudo' ),
+        'category' => 'users',
+        'admin'    => null,
+        'ajax'     => array(
+            'actions' => array( 'webauthn_preregister', 'webauthn_register' ),
+        ),
+        'rest'     => null,
+    );
+
+    // Gate security key deletion.
+    $rules[] = array(
+        'id'       => 'auth.webauthn_delete',
+        'label'    => __( 'Delete security key (WebAuthn)', 'wp-sudo' ),
+        'category' => 'users',
+        'admin'    => null,
+        'ajax'     => array(
+            'actions' => array( 'webauthn_delete_key' ),
+        ),
+        'rest'     => null,
+    );
+
+    return $rules;
+} );
+```
+
+Key patterns:
+
+- **Class-existence guard** — `class_exists()` check ensures rules are
+  only added when the target plugin is active. Use the plugin's main class.
+- **AJAX-only rules** — set `'admin' => null` and `'rest' => null` when
+  the action is only accessible via AJAX. The gate's `matches_ajax()`
+  checks `$_REQUEST['action']` against the `actions` array.
+- **Gate registration and deletion, not rename** — gate security-sensitive
+  operations (adding/removing authentication factors), not cosmetic ones.
+- **Category `'users'`** — groups the rules with other user-management
+  actions in the Gated Actions table on the settings page.
+
+To find the AJAX action names for a plugin, search its source for
+`wp_ajax_` hooks:
+
+```bash
+grep "wp_ajax_" /path/to/plugin/*.php
+```
+
 ## Audit Hook Signatures
 
 Sudo fires 9 action hooks for external logging integration with [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/), [Stream](https://wordpress.org/plugins/stream/), and similar plugins.

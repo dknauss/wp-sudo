@@ -566,6 +566,16 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 - **Impact:** Cosmetic only — session has already expired when reload fires. No security or functional impact.
 - **Action:** Update the label to `Sudo: 0:00` and announce expiry *before* calling `reload()`, so the last visible value is accurate. Low-effort, low-priority polish item.
 
+**~~REST error notice has no visible background in WP 7.0 (cosmetic)~~** ✅ Fixed
+
+- Fixed by adding `#application-passwords-section .notice.notice-error` selector to `wp-sudo-notices.css`. Scoped to the Application Passwords section on profile.php — doesn't affect other admin notices.
+
+**WebAuthn challenge page UX needs attention**
+
+- When the Two Factor WebAuthn Provider is the 2FA method, the challenge page's two-step flow (password → 2FA code input) doesn't integrate smoothly with the browser-based WebAuthn ceremony. The provider's `authentication_page()` renders and works, but the JS-based ceremony (navigator.credentials.get) doesn't fit the synchronous form-submit model cleanly.
+- **Impact:** UX is "messy" — the WebAuthn popup appears after form submission, not as a natural step. Users may be confused by the flow.
+- **Action:** Consider a dedicated WebAuthn flow path on the challenge page that triggers the ceremony automatically after the password step, rather than showing a generic 2FA code input. This is a design task that needs mockups and user testing before implementation.
+
 **Request stash stores raw POST payloads**
 
 - Stash stores verbatim request arrays (`class-request-stash.php:65-67`, `205-212`).

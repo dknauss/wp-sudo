@@ -386,7 +386,7 @@ class ExitPathTest extends TestCase {
 		wp_set_current_user( $user->ID );
 
 		$stash = new Request_Stash();
-		$challenge = new Challenge( new Sudo_Session(), $stash );
+		$challenge = new Challenge( $stash );
 
 		// Set up AJAX request context.
 		$_POST['password']  = 'wrong-password';
@@ -426,7 +426,7 @@ class ExitPathTest extends TestCase {
 		wp_set_current_user( $user->ID );
 
 		$stash = new Request_Stash();
-		$challenge = new Challenge( new Sudo_Session(), $stash );
+		$challenge = new Challenge( $stash );
 
 		// Session-only flow: no stash_key, just password.
 		$_POST['password']  = $password;

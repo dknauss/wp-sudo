@@ -310,6 +310,20 @@ If your 2FA method uses WebAuthn (browser-based passkey ceremonies), you'll need
 
 The Two Factor plugin's WebAuthn provider already works this way through `authentication_page()`, so the pattern is proven.
 
+#### Gating WebAuthn Key Registration
+
+By default, WebAuthn security key registration and deletion are **not gated** by WP Sudo. An attacker with a hijacked session could silently register their own security key — the same risk class as ungated Application Password creation.
+
+To gate these operations, install the WebAuthn bridge as a mu-plugin:
+
+```bash
+cp bridges/wp-sudo-webauthn-bridge.php wp-content/mu-plugins/
+```
+
+The bridge uses the `wp_sudo_gated_actions` filter to add AJAX rules for the WebAuthn Provider's `webauthn_preregister`, `webauthn_register`, and `webauthn_delete_key` endpoints. Key renaming (`webauthn_rename_key`) is intentionally not gated — it is not a security-sensitive operation.
+
+See `bridges/wp-sudo-webauthn-bridge.php` for the complete implementation, or the [Developer Reference](developer-reference.md#gating-third-party-plugin-actions) for a general guide to adding custom gated actions.
+
 ---
 
 ## Security Model

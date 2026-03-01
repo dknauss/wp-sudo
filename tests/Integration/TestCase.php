@@ -71,6 +71,10 @@ class TestCase extends \WP_UnitTestCase {
 		// Gate reads $GLOBALS['pagenow'] for admin request matching.
 		unset( $GLOBALS['pagenow'] );
 
+		// Reset the current screen set by simulate_admin_request().
+		// Without this, is_admin() leaks 'true' to subsequent tests.
+		$GLOBALS['current_screen'] = null;
+
 		parent::tear_down();
 	}
 
@@ -143,6 +147,7 @@ class TestCase extends \WP_UnitTestCase {
 	 * - $_REQUEST['action'] — read by Gate::match_request()
 	 * - $_SERVER['HTTP_HOST'] and $_SERVER['REQUEST_URI'] — read by Request_Stash::build_original_url()
 	 * - $_GET and $_POST — captured by Request_Stash::save()
+	 * - WP_Screen — set via set_current_screen() so is_admin() returns true
 	 *
 	 * @param string $pagenow  The page (e.g. 'plugins.php', 'themes.php').
 	 * @param string $action   The action parameter (e.g. 'activate', 'delete-selected').
@@ -158,6 +163,10 @@ class TestCase extends \WP_UnitTestCase {
 		array $post = array()
 	): void {
 		$GLOBALS['pagenow'] = $pagenow;
+
+		// Establish admin context so Gate::detect_surface() returns 'admin'.
+		// set_current_screen() sets the global WP_Screen, which is_admin() checks.
+		set_current_screen( $pagenow );
 
 		$_SERVER['REQUEST_METHOD'] = strtoupper( $method );
 		$_SERVER['HTTP_HOST']      = 'example.org';
