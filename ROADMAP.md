@@ -112,7 +112,7 @@ Current project state (as of v2.9.2):
 
 These gaps have been closed by the integration suite:
 
-| Gap | Integration coverage (v2.4.1) |
+| Gap | Integration coverage (v2.9.2) |
 |-----|-------------------------------|
 | **Cross-class workflows** (Gate → Challenge → Session → Stash) | `ReauthFlowTest` — 4 end-to-end tests |
 | **Request stash replay** | `RequestStashTest` — 7 tests including transient TTL |
@@ -122,17 +122,43 @@ These gaps have been closed by the integration suite:
 | **Database state after migrations** | `UpgraderTest` — 4 tests against real options/meta |
 | **REST API with real auth** | `RestGatingTest` — 7 tests with cookie and app password auth |
 | **AJAX gating** | `AjaxGatingTest` — 12 tests covering all 7 declared AJAX actions |
-| **Audit hooks** | `AuditHooksTest` — 8 tests across CLI, Cron, XML-RPC, REST |
+| **Audit hooks** | `AuditHooksTest` — 11 tests across CLI, Cron, XML-RPC, REST |
 | **Rate limiting** | `RateLimitingTest` — 6 tests with real user meta |
 | **Multisite isolation** | `MultisiteTest` — 5 tests |
+| **WPGraphQL surface gating** | `WpGraphQLGatingTest` — 16 tests (policy modes, mutation detection, bypass filter) |
+| **Exit paths and grace window** | `ExitPathTest` — 9 tests (REST, AJAX, WPGraphQL, admin redirect, challenge auth, grace window) |
+| **Uninstall cleanup** | `UninstallTest` — 2 tests (single-site + multisite) |
+| **Login grants sudo** | `LoginSudoGrantTest` — 3 tests |
+| **Password change expiry** | `PasswordChangeExpiryTest` — 8 tests |
 
 ### Remaining integration gaps
 
+**Not addressable with PHPUnit:**
 - **Cookie/header behavior** — `setcookie()` still guarded by `headers_sent()` check.
   Real httponly/SameSite attributes require browser-level testing (Playwright/Cypress).
 - **Hook timing and priority** — no automated test verifies `admin_init` priority 1
   ordering relative to other plugins. Covered by manual testing guide.
 - **Admin UI rendering** — visual correctness tested manually, not automated.
+
+**Addressable — potential PHPUnit improvements:**
+
+| Opportunity | Current state | Value |
+|-------------|--------------|-------|
+| **Admin settings CRUD integration tests** | `Admin` class (1,244 lines) has 55 unit tests but no integration tests. Settings registration, sanitization, and option persistence use standard WordPress APIs. | Medium — would catch real-world settings persistence bugs |
+| **REST cookie-auth `_wpnonce` fallback** | Gate checks `X-WP-Nonce` header only; no fallback for `_wpnonce` request param. Some cookie-auth clients may be misclassified as headless. | Medium — requires production code change + tests |
+| **Admin integration test for MU-plugin install/remove** | MU-plugin install button and status detection tested manually only. | Low — UI-dependent, hard to test without browser |
+| **Plugin lifecycle integration tests** | Activation, deactivation, and uninstall are tested (2 uninstall tests), but activation/deactivation hooks lack dedicated integration coverage. | Low — mostly covered by existing tests indirectly |
+| **`@runInSeparateProcess` exit paths** | 9 tests use WPDieException + output capture. Cannot verify real HTTP headers or `Set-Cookie` output. | Low — Playwright would be more natural for this |
+
+**Deferred to browser-level testing (Playwright/Cypress):**
+
+| Scenario | Why browser-level |
+|----------|-------------------|
+| Challenge page cookie attributes (httponly, SameSite, Secure) | `setcookie()` output not capturable in PHPUnit |
+| Admin bar countdown timer JS accuracy | Requires real DOM + `setInterval` |
+| MU-plugin install button AJAX flow | Button click → AJAX → file copy → status update |
+| Block editor snackbar integration (future) | Requires `@wordpress/notices` API in browser |
+| Challenge page keyboard navigation | Real focus management needs browser DOM |
 
 ---
 
