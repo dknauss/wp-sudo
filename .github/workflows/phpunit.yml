@@ -7,6 +7,7 @@ on:
     branches: [main]
   schedule:
     - cron: '0 3 * * *'  # Nightly at 3 AM UTC — catches WordPress trunk regressions.
+  workflow_dispatch: # Allow manual re-runs to confirm fixes without waiting for the schedule.
 
 jobs:
   unit-tests:
