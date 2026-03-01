@@ -31,15 +31,15 @@ quietly exposed, yet enduring.
 
 In 2024, Broken Access Control was the third-largest source of discovered WordPress vulnerabilities ([Patchstack 2025](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2024/#headline-899-17052)). In 2025, it took the #1 position on the [OWASP Top 10](https://owasp.org/Top10/2025/). In 2026, Broken Access Control accounted for 57% of all actual exploitation attempts on WordPress sites ([Patchstack 2026](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/)). These trends indicate attackers are focusing their efforts on the vectors that are difficult to defend against with firewalls but have high rewards: the ability to create admin accounts, install plugins, and change settings. Add Privilege Escalation (20%) and Broken Authentication (3%) — that's 80% of real-world WordPress attacks targeting the operations Sudo gates. 
 
-Approximately half of high-impact WordPress vulnerabilities are exploited within 24 hours — median time to first exploit is 5 hours. When the firewall misses it, the plugin hasn't patched it, and the attacker already has a session — Sudo is the barrier gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every potentially destructive action requires reauthentication, regardless of how the attacker got in. 
+Approximately half of high-impact WordPress vulnerabilities are exploited within 24 hours — median time to first exploit is 5 hours. When the firewall misses the exploit, the vulnerable plugin hasn't been patched, and the attacker already has a session... Sudo is the last barrier between the break-in and the damage. Plugin installs, user creation, role changes, settings modifications: every potentially destructive action requires reauthentication, regardless of how the attacker got in. 
 
 ## Barrier Gate Architecture 門
 
-WordPress has rich access control — roles, capabilities, policies on _who_ can do _what_. It has no native control over _when_ those capabilities and actions can be exercised within a session. Sudo fills that gap. By gating consequential actions behind a mandatory reauthentication whenever those actions are taken, Sudo inserts a final check against potential intrusion and abuse. If a privileged account has been compromised, as is often the case, by an attacker who does not know its password or control its associated email, Sudo's challenge will prevent them from executing privileged actions. Coupled with two-factor-authentication (2FA), Sudo will limit the blast radius or potential harm of any session compromise — regardless of how that compromise occurred, and regardless of the user's role. **The attack surface becomes a policy decision.**
+WordPress has rich access control — roles, capabilities, policies on _who_ can do _what_. It has no native control over _when_ those capabilities and actions can be exercised within a session. Sudo fills that gap. By gating consequential actions behind a mandatory reauthentication step whenever those actions are taken, Sudo inserts a final check against potential intrusion and abuse. If a privileged account has been compromised, as is often the case, by an attacker who does not know its password or control its associated email, Sudo's challenge will prevent them from executing privileged actions. Coupled with two-factor-authentication (2FA), Sudo will limit the blast radius or potential harm of any session compromise — regardless of how that compromise occurred, and regardless of the user's role. **The attack surface becomes a policy decision.**
 
 This is not role-based escalation. Every logged-in user is treated the same: attempt a gated action, get challenged. Sessions are time-bounded and non-extendable, enforcing the zero-trust principle that trust must be continuously earned, never assumed. WordPress capability checks still run after the gate, so Sudo adds a security layer without changing the permission model.
 
-Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is represented by the gate 門, a [CJK grapheme](https://en.wikipedia.org/wiki/CJK_characters) ([Kangxi radical 169](https://en.wiktionary.org/wiki/%E9%96%80)) and 3,000-year-old pictograph. At once an entrance, barrier, and threshold, the sign of the gate has endured in East Asian writing systems that descend from the Shang dynasty [oracle bone script](https://en.wikipedia.org/wiki/Oracle_bone_script) — where the gate made its earliest known appearance. It appears in the Kanji character for the Japanese frontier pass or barrier gate — _seki_ ([関](https://en.wiktionary.org/wiki/%E9%96%A2)) or _sekisho_ (関所). These were crucial checkpoints that came into use in medieval times but are associated with the centralization of control they enabled in the early modern Edo period (1603–1868) as a way to control traffic along major highways, such as the [Tōkaidō](https://en.wikipedia.org/wiki/T%C5%8Dkaid%C5%8D_(road)).
+Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is represented by the gate 門, a [CJK grapheme](https://en.wikipedia.org/wiki/CJK_characters) ([Kangxi radical 169](https://en.wiktionary.org/wiki/%E9%96%80)) that originates in a 3,000-year-old pictograph. At once an entrance, barrier, and threshold, the sign of the gate has endured in East Asian writing systems that descend from the Shang dynasty [oracle bone script](https://en.wikipedia.org/wiki/Oracle_bone_script) — where the gate made its earliest known appearance. It appears in the Kanji character for the Japanese frontier pass or barrier gate — _seki_ ([関](https://en.wiktionary.org/wiki/%E9%96%A2)) or _sekisho_ (関所). These were crucial checkpoints that came into use in medieval times but are associated with the centralization of control they enabled in the early modern Edo period (1603–1868) as a way to control traffic along major highways, such as the [Tōkaidō](https://en.wikipedia.org/wiki/T%C5%8Dkaid%C5%8D_(road)).
 
 ### What Gets Gated?
 
@@ -94,7 +94,7 @@ An optional mu-plugin ensures gate hooks are registered before any other plugin 
 
 ### Multisite
 
-Settings and sessions are network-wide. The action registry includes 8 additional network admin rules. Settings page appears under **Network Admin > Settings > Sudo**.
+Settings and sessions are network-wide. The action registry includes 8 additional network admin rules. The Settings page appears under **Network Admin > Settings > Sudo**.
 
 ## Installation
 
@@ -182,7 +182,7 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 **Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
 
-- **Unit tests** (397 tests, 944 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, hook registration.
+- **Unit tests** (397 tests, 944 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, and hook registration.
 - **Integration tests** (92 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
 
 **Static analysis and code style.** PHPStan level 6 (zero errors) and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early.
@@ -258,7 +258,7 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, PHPCS, Brain\Mon
 
 ### 2.7.0
 
-- **`wp_sudo_wpgraphql_bypass` filter** — new filter for WPGraphQL JWT authentication compatibility. Fires in Limited mode before mutation detection; return `true` to exempt specific requests (e.g. JWT login/refresh mutations). See [developer reference](docs/developer-reference.md#wp_sudo_wpgraphql_bypass-filter) for a bridge mu-plugin example.
+- **`wp_sudo_wpgraphql_bypass` filter** — new filter for WPGraphQL JWT authentication compatibility. Fires in Limited mode before mutation detection; return `true` to exempt specific requests (e.g., JWT login/refresh mutations). See [developer reference](docs/developer-reference.md#wp_sudo_wpgraphql_bypass-filter) for a bridge mu-plugin example.
 - **Fix: WPGraphQL listed in non-interactive entry points** — the "How Sudo Works" help tab now includes WPGraphQL in the list of policy-governed surfaces.
 
 ### 2.6.1
@@ -268,7 +268,7 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, PHPCS, Brain\Mon
 
 ### 2.6.0
 
-- **Login implicitly grants a sudo session** — a successful browser-based login now automatically activates a sudo session. No second challenge required immediately after logging in. Application Password and XML-RPC logins are unaffected.
+- **Login implicitly grants a sudo session** — a successful browser-based login now automatically activates a sudo session. No second challenge is required immediately after logging in. Application Password and XML-RPC logins are unaffected.
 - **`user.change_password` gated** — password changes on the profile and user-edit pages now require a sudo session. Closes the session-theft → silent password change → lockout attack chain. The REST API endpoint is also gated.
 - **Grace period (120 s)** — a 2-minute grace window after session expiry lets in-flight form submissions complete without triggering a re-challenge. Session binding is verified throughout the grace window.
 - **375 unit tests, 905 assertions. 73 integration tests in CI.**
@@ -283,7 +283,7 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, PHPCS, Brain\Mon
 ### 2.4.1
 
 - **AJAX gating integration tests** — 11 new tests covering the AJAX surface: rule matching for all 7 declared AJAX actions, full intercept flow, session bypass, non-gated pass-through, blocked transient lifecycle, admin notice fallback (`render_blocked_notice`), and `wp.updates` slug passthrough.
-- **Action registry filter integration tests** — 3 new tests verifying custom rules added via `wp_sudo_gated_actions` are matched by the Gate in a real WordPress environment; including custom admin rules, custom AJAX rules, and filter-based removal of built-in rules.
+- **Action registry filter integration tests** — 3 new tests verifying custom rules added via `wp_sudo_gated_actions` are matched by the Gate in a real WordPress environment, including custom admin rules, custom AJAX rules, and filter-based removal of built-in rules.
 - **Audit hook coverage** — `wp_sudo_action_blocked` now integration-tested for CLI, Cron, and XML-RPC surfaces (in addition to REST app-password). Documents that `wp_sudo_action_allowed` is intentionally absent from the production code path.
 - **CI quality gate** — new GitHub Actions job runs PHPCS and PHPStan on every push and PR; Composer dependency cache added to unit and integration jobs; nightly scheduled run at 3 AM UTC against WP trunk.
 - **MU-plugin manual install instructions** — fallback copy instructions added to the settings page UI and help tab for environments where the one-click installer fails due to file permissions.
