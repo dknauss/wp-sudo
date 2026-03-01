@@ -15,7 +15,7 @@ use WP_Sudo\Tests\TestCase;
 use Brain\Monkey\Functions;
 
 /**
- * @covers bridges/wp-sudo-webauthn-bridge.php
+ * @coversNothing — bridge is a procedural file outside includes/.
  */
 class WebAuthnBridgeTest extends TestCase {
 
