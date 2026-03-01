@@ -20,7 +20,7 @@ Sudo will neutralize attacks or severely limit their blast radius (the scope of 
 
 Sudo is *not* intended as a replacement for diligent plugin selection, timely updates, and effective firewalling; instead, it complements and backstops those layers of defense. 
 
-When the firewall misses an exploit, the vulnerable plugin it targets hasn't been patched, and/or the attacker already has an active session — Sudo is the gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every destructive action requires reauthentication, regardless of how the attacker got in.
+When the firewall misses an exploit, the vulnerable plugin it targets hasn't been patched, and/or the attacker already has an active session, *Sudo is the gate between access and damage*. Plugin installs, user creation, role changes, settings modifications: every destructive action requires reauthentication, regardless of how the attacker got in.
 
 ## How is Sudo different from WordPress security plugins?
 
@@ -39,7 +39,7 @@ Sudo doesn't operate at the perimeter but at the final point of consequence. It 
 
 This is your site's innermost armor — the skin-tight layer that interposes reauthentication at the moment of consequence, after every other defense has had its turn. There is no comparable WordPress plugin. This is not access control — it is action control.
 
-**Why this matters by the numbers.** Of the 7,966 WordPress vulnerabilities catalogued in 2024 ([Patchstack](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2025/)), ~28% fall into classes Sudo directly mitigates (Broken Access Control, CSRF, Privilege Escalation, Broken Authentication). When XSS exploitation chains are included — XSS is 47.7% of all WP vulnerabilities and is primarily dangerous because it enables session hijacking → admin actions — the figure rises to 55–65%. Post-compromise, [Sucuri found](https://sucuri.net/reports/2023-hacked-website-report/) that 55% of hacked WordPress databases contained malicious admin users and 49–70% had backdoor plugins — both actions that Sudo gates. In 2025 the total rose 42% to 11,334 ([Patchstack](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/)), with highly exploitable vulnerabilities up 113% and traditional WAFs blocking only 12–26% of WordPress-specific attacks. When measured by actual exploitation attempts rather than discovery counts, Sudo-mitigated vulnerability classes account for 80% of real-world WordPress attacks (Patchstack 2025 RapidMitigate data) — Broken Access Control alone represents 57%. See the [Security Model](docs/security-model.md#threat-model-the-kill-chain) for the full threat model and risk reduction estimates.
+**Why this matters by the numbers.** Of the 7,966 WordPress vulnerabilities catalogued in 2024 ([Patchstack](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2025/)), ~28% fall into classes Sudo directly mitigates (Broken Access Control, CSRF, Privilege Escalation, Broken Authentication). When XSS exploitation chains are included, the figure rises to 55–65%. (XSS currently accounts for 47.7% of all WordPress vulnerabilities and is primarily dangerous because it enables session hijacking → admin actions.) Post-compromise, [Sucuri found](https://sucuri.net/reports/2023-hacked-website-report/) that 55% of hacked WordPress databases contained malicious admin users and 49–70% had backdoor plugins — both actions that Sudo gates. In 2025, the total rose 42% to 11,334 ([Patchstack](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/)), with highly exploitable vulnerabilities up 113% and traditional WAFs blocking only 12–26% of WordPress-specific attacks. When measured by actual exploitation attempts rather than discovery counts, Sudo-mitigated vulnerability classes account for 80% of real-world WordPress attacks (Patchstack 2025 RapidMitigate data) — Broken Access Control alone represents 57%. See the [Security Model](docs/security-model.md#threat-model-the-kill-chain) for the full threat model and risk reduction estimates.
 
 ## Does Sudo complement or compete with WordPress security plugins?
 
@@ -92,13 +92,13 @@ Each has its own three-tier policy setting: **Disabled**, **Limited** (default),
 
 When the [WPGraphQL](https://wordpress.org/plugins/wp-graphql/) plugin is active, WP Sudo adds its own **WPGraphQL** policy setting with the same three modes: Disabled, Limited (default), and Unrestricted. WPGraphQL gating works at the surface level rather than per-action: in Limited mode, all mutations require an active sudo session while read-only queries always pass through. In Disabled mode, all requests to the endpoint are rejected. WP Sudo detects mutations by inspecting the request body for a `mutation` operation type. WPGraphQL handles its own URL routing, so gating works regardless of how the endpoint is configured.
 
-## Why does WPGraphQL gating block all mutations rather than specific ones?
+## Why does WPGraphQL's gating block all mutations rather than specific ones?
 
 WP Sudo's action registry rules are tied to **WordPress action hooks** — `activate_plugin`, `delete_user`, `wp_update_options`, and so on. These hooks fire regardless of entry surface, which is how the same rules cover the admin UI, AJAX, and REST simultaneously.
 
 WPGraphQL mutations do not reliably fire those same hooks. WPGraphQL dispatches through its own resolver chain, and whether a mutation eventually triggers a WordPress hook depends entirely on how each resolver is implemented. There is no guaranteed 1:1 mapping from "mutation name" to "WordPress action hook" across the full WPGraphQL ecosystem (core resolvers, WooCommerce, custom extensions).
 
-Per-action gating would require either parsing GraphQL request bodies to extract operation names and maintaining a mutation→hook mapping, or a new WPGraphQL-specific rule type separate from the hook-based registry. Both carry significant ongoing maintenance cost for the plugins and custom mutations that WPGraphQL-based sites rely on.
+Per-action gating would require either parsing GraphQL request bodies to extract operation names and maintaining a mutation→hook mapping, or a new WPGraphQL-specific rule type separate from the hook-based registry. Both carry significant ongoing maintenance costs for the plugins and custom mutations that WPGraphQL-based sites rely on.
 
 The surface-level approach — blocking any request body containing `mutation` in Limited mode — is reliable and appropriate for the primary use case: headless deployments where mutations come from automated API clients rather than interactive admin users. For mutations that should not require a sudo session (content mutations, authentication handshakes, etc.), the `wp_sudo_wpgraphql_bypass` filter provides precise per-mutation control without modifying the global policy.
 FYI: In GraphQL, a "mutation" is a type of operation used to modify server-side data, causing side effects on the back end. While queries are used for fetching data, mutations are specifically designed for creating, updating, or deleting data. (This is similar to `POST`, `PUT`, `PATCH`, or `DELETE` in `REST`.) 
@@ -107,7 +107,7 @@ FYI: In GraphQL, a "mutation" is a type of operation used to modify server-side 
 
 The [wp-graphql-jwt-authentication](https://github.com/wp-graphql/wp-graphql-jwt-authentication) plugin is the standard way to authenticate WPGraphQL requests using JSON Web Tokens. With WP Sudo's default **Limited** policy, two issues arise: (1) the JWT `login` mutation is sent by unauthenticated users who cannot have a sudo session, so it is blocked; (2) JWT-authenticated mutations fail because JWT requests do not carry the browser-bound sudo session cookie. The result is that Limited mode breaks the JWT authentication flow entirely.
 
-**Solution:** Use the `wp_sudo_wpgraphql_bypass` filter (added in v2.7.0) to exempt authentication mutations. Add this to an mu-plugin:
+**Solution:** Use the `wp_sudo_wpgraphql_bypass` filter (added in v2.7.0) to exempt authentication mutations. Add this to a mu-plugin:
 
 ```php
 add_filter( 'wp_sudo_wpgraphql_bypass', function ( bool $bypass, string $body ): bool {
@@ -125,15 +125,15 @@ This exempts only the `login` and `refreshJwtAuthToken` mutations — all other 
 
 ## What about the WordPress Abilities API?
 
-The [Abilities API](https://developer.wordpress.org/apis/abilities-api/) (introduced in WordPress 6.9) registers its own REST namespace at `/wp-abilities/v1/`. It uses standard WordPress REST authentication, so Application Password–authenticated requests are governed by WP Sudo's **REST API (App Passwords)** policy — no special configuration is needed. In Disabled mode, all Abilities API requests via Application Passwords are blocked. In Limited mode, ability reads and standard executions pass through as non-gated operations; site owners who want to require sudo for specific destructive ability executions can add custom rules via the `wp_sudo_gated_actions` filter.
+The [Abilities API](https://developer.wordpress.org/apis/abilities-api/) (introduced in WordPress 6.9) registers its own REST namespace at `/wp-abilities/v1/`. It uses standard WordPress REST authentication, so Application Password–authenticated requests are governed by WP Sudo's **REST API (App Passwords)** policy — no special configuration is needed. In Disabled mode, all Abilities API requests via Application Passwords are blocked. In Limited mode, ability reads, and standard executions pass through as non-gated operations; site owners who want to require sudo for specific destructive ability executions can add custom rules via the `wp_sudo_gated_actions` filter.
 
 ## How does session binding work?
 
-When sudo is activated, a cryptographic token is stored in a secure httponly cookie and its hash is saved in user meta. On every gated request, both must match. A stolen session cookie on a different browser will not have a valid sudo session. See [Security Model](security-model.md) for full details.
+When sudo is activated, a cryptographic token is stored in a secure httponly cookie, and its hash is saved in user meta. On every gated request, both must match. A stolen session cookie on a different browser will not have a valid sudo session. See [Security Model](security-model.md) for full details.
 
 ## How does 2FA browser binding work?
 
-When the password step succeeds and 2FA is required, a one-time challenge cookie is set in the browser. The 2FA pending state is keyed by the hash of this cookie, not by user ID. An attacker who stole the WordPress session cookie but is on a different machine does not have the challenge cookie and cannot complete the 2FA step. See [Security Model](security-model.md) for full details.
+When the password step succeeds, and 2FA is required, a one-time challenge cookie is set in the browser. The 2FA pending state is keyed by the hash of this cookie, not by user ID. An attacker who stole the WordPress session cookie but is on a different machine does not have the challenge cookie and cannot complete the 2FA step. See [Security Model](security-model.md) for full details.
 
 ## Is there brute-force protection?
 
@@ -153,9 +153,9 @@ Yes. Settings are network-wide (one configuration for all sites). Sudo sessions 
 
 ## What is gated on multisite subsites?
 
-On multisite, WordPress core already removes the most dangerous General Settings fields (site URL, home URL, membership, default role) from subsite admin pages — only Super Admins can change those at the network level. The remaining subsite settings (site title, tagline, admin email, timezone, date/time formats) are low-risk and not gated. Changing admin email also requires email confirmation by WordPress core. Network-level operations — network settings, theme management, site creation/deletion, and Super Admin grants — are all gated.
+On multisite, WordPress core already removes the most dangerous General Settings fields (site URL, home URL, membership, default role) from subsite admin pages — only Super Admins can change those at the network level. The remaining subsite settings (site title, tagline, admin email, timezone, date/time formats) are low-risk and not gated. Changing the admin email also requires email confirmation by WordPress core. Network-level operations — network settings, theme management, site creation/deletion, and Super Admin grants — are all gated.
 
-## What is the mu-plugin and do I need it?
+## What is the mu-plugin, and do I need it?
 
 The "must-use" mu-plugin is optional but ***highly recommended***. It ensures Sudo's gate hooks are registered before any other regular plugin loads, preventing another plugin from deregistering the hooks or processing dangerous actions before the gate fires. You can install it with one click from the settings page or follow the instructions for copying it to the `/mu-plugins` folder. (You may need to do this manually in many hosting environments.) The mu-plugin is a thin shim in `wp-content/mu-plugins/` that loads the gate code from the main plugin directory — it updates automatically with regular plugin updates.
 
@@ -185,6 +185,6 @@ Password changes on `profile.php`, `user-edit.php`, or via the REST API (`PUT`/`
 
 A 2-minute wind-down window (since v2.6.0) allows gated actions to pass for 120 seconds after session expiry, provided the session token is still valid. This prevents form submissions and multi-step workflows from being interrupted by session expiry — without it, a user who spent three minutes on a form would have their work rejected and need to reauthenticate, losing any unsaved input.
 
-**How it works:** when the gate checks the session, it first calls `Sudo_Session::is_active()`. If the session has expired, it also calls `is_within_grace()`. If the expiry happened within the last 120 seconds *and* the session token still matches (session binding is enforced throughout), the request passes. The gate does not distinguish between actions that were "in progress" before expiry and new ones — any gated action within the window is permitted if the token is valid.
+**How it works:** When the gate checks the session, it first calls `Sudo_Session::is_active()`. If the session has expired, it also calls `is_within_grace()`. If the expiry happened within the last 120 seconds *and* the session token still matches (session binding is enforced throughout), the request passes. The gate does not distinguish between actions that were "in progress" before expiry and new ones — any gated action within the window is permitted if the token is valid.
 
 **What it does not relax:** session binding. A stolen cookie on a different browser does not gain grace-period access. The session token must still match — `is_within_grace()` calls `verify_token()` before returning true. The admin bar timer always reflects the true session state (`is_active()`), not the grace state — the user sees accurately when their session has expired.
