@@ -145,8 +145,138 @@ For headless deployments that need to gate mutations by authentication — requi
 ## Environmental Considerations
 
 - **Cookies** — sudo session tokens require secure httponly cookies. Reverse proxies that strip or rewrite `Set-Cookie` headers may break session binding. Ensure the proxy passes cookies through to PHP.
-- **Object cache** — user meta reads go through `get_user_meta()`, which may be served from an object cache (Redis, Memcached). If the cache returns stale meta, a revoked session could briefly appear valid. Standard WordPress cache invalidation handles this correctly; custom cache configurations should verify meta writes propagate.
+- **Object cache** — user meta reads go through `get_user_meta()`, which may be served from an object cache (Redis, Memcached). Standard WordPress cache invalidation handles this correctly, but custom or misconfigured cache setups can cause issues. See [Caching Considerations](#caching-considerations) for a full risk analysis.
 - **Surface detection** — the gate relies on WordPress constants (`REST_REQUEST`, `DOING_CRON`, `WP_CLI`, `XMLRPC_REQUEST`) set by WordPress core before plugin code runs. These constants are stable across all standard WordPress hosting environments.
+
+## Caching Considerations
+
+WP Sudo stores state in three WordPress data layers — user meta, transients, and
+cookies — all of which can be affected by caching systems. This section documents
+the risks and mitigations for each caching layer.
+
+### Object Cache (Redis, Memcached)
+
+**What WP Sudo stores via user meta:**
+
+| Meta key | Purpose | Written by | Read by |
+|----------|---------|------------|---------|
+| `_wp_sudo_token` | Hashed session token | `Sudo_Session::activate()` | `Sudo_Session::verify_token()` |
+| `_wp_sudo_expires` | Session expiry timestamp | `Sudo_Session::activate()` | `Sudo_Session::is_active()`, `is_within_grace()` |
+| `_wp_sudo_failed_attempts` | Failed auth attempt count | `Sudo_Session::record_failed_attempt()` | `Sudo_Session::is_locked_out()` |
+| `_wp_sudo_lockout_until` | Lockout expiry timestamp | `Sudo_Session::record_failed_attempt()` | `Sudo_Session::is_locked_out()` |
+
+All reads go through `get_user_meta()`, which checks the object cache before
+querying the database. All writes go through `update_user_meta()` /
+`delete_user_meta()`, which call `wp_cache_delete()` to invalidate the cached
+value.
+
+**Risk: Stale session state after revocation.** If a persistent object cache
+returns a stale `_wp_sudo_token` or `_wp_sudo_expires` value after it has been
+updated or deleted, a revoked sudo session could briefly appear active. This is
+a **fail-open** condition — the gate would allow a gated action that should have
+been blocked.
+
+**Mitigations:**
+
+- WordPress core's metadata API invalidates the object cache on every write. A
+  properly configured persistent object cache (Redis, Memcached) is safe.
+- The risk only materializes with misconfigured or custom cache setups that do not
+  honor `wp_cache_delete()` calls — for example, a read-replica cache that has
+  eventual consistency, or a cache plugin that batches invalidations.
+- External cache flushes (Redis restart, Memcached eviction under memory pressure)
+  remove the cached value entirely, causing a database read on the next request.
+  This is a **fail-closed** condition (session data is re-fetched from the source
+  of truth) and is not a security risk.
+
+**Risk: Stale rate-limit counters.** If `_wp_sudo_failed_attempts` or
+`_wp_sudo_lockout_until` are served from a stale cache, an attacker could
+exceed the 5-attempt lockout threshold without being locked out.
+
+**Mitigations:**
+
+- Same as session state — WordPress core invalidates the cache on write.
+- Rate limiting is a defense-in-depth measure, not the primary security boundary.
+  The password hash comparison is the critical check, and it is not cache-dependent.
+
+### Page Cache (Varnish, nginx fastcgi_cache, Cloudflare, CDN)
+
+**Risk: Cached admin pages or REST responses.** If a full-page cache caches
+WordPress admin pages, the challenge interstitial, or REST/AJAX error responses,
+users could:
+
+- See a stale challenge page that no longer corresponds to their session state
+- Receive a cached "sudo_required" error response after they have already
+  reauthenticated
+- Bypass gating entirely if the cache serves a previously-allowed response to a
+  different user or session
+
+**Mitigations:**
+
+- WordPress core sets `Cache-Control: no-cache, must-revalidate, max-age=0` on
+  all admin pages. Well-configured page caches respect this header.
+- WordPress REST API responses include `Cache-Control: no-store` for authenticated
+  requests. CDNs and reverse proxies should not cache these.
+- WP Sudo does not add any custom cache headers — it relies on WordPress core's
+  cache control, which is designed to prevent caching of authenticated responses.
+
+**Known failure modes:**
+
+- A Varnish or nginx configuration that ignores `Cache-Control` headers for
+  logged-in users. This is a server misconfiguration, not a WP Sudo issue, but
+  it can break sudo gating.
+- CDNs configured to cache all responses from `/wp-json/` without checking auth
+  headers. This would break all authenticated REST API functionality, not just
+  WP Sudo.
+- Aggressive "edge caching" plugins that cache full HTML responses for logged-in
+  users. These are rare but exist (e.g., some configurations of WP Rocket,
+  LiteSpeed Cache, or Cloudflare APO). WP Sudo cannot detect or prevent this.
+
+**Recommendation:** If using a reverse proxy or CDN, verify that admin pages
+(`/wp-admin/`), REST API responses (`/wp-json/`), and AJAX endpoints
+(`/wp-admin/admin-ajax.php`) are excluded from full-page caching for
+authenticated requests.
+
+### Transients (Request Stash)
+
+**What WP Sudo stores via transients:**
+
+`Request_Stash` uses `set_transient()` to save the original HTTP request data
+(method, URL, POST body) when redirecting to the challenge page. After successful
+reauthentication, the stash is retrieved with `get_transient()` and the original
+request is replayed.
+
+**Risk: Stash eviction before reauthentication completes.** With a persistent
+object cache, transients are stored in the object cache rather than the database.
+If the object cache evicts the stash entry (due to memory pressure, TTL
+expiration, or cache flush) before the user completes the challenge, the original
+request data is lost.
+
+**Impact:** The user reauthenticates successfully but is redirected to the admin
+dashboard instead of replaying their original action. They must repeat the
+action manually. This is **annoying but not a security issue** — it fails safe
+(no action is taken without authentication).
+
+**Mitigations:**
+
+- Transient TTL is set to 5 minutes, which is generous for a password challenge.
+- Without a persistent object cache, transients fall back to the `wp_options`
+  database table, which is not subject to memory-pressure eviction.
+- The stash stores only the request metadata needed for replay — it is small
+  (typically under 1 KB) and unlikely to be evicted by LRU policies.
+
+### Summary: Failure Modes by Cache Layer
+
+| Cache layer | Failure mode | Direction | Security impact |
+|-------------|-------------|-----------|-----------------|
+| Object cache (stale write) | Revoked session appears active | Fail-open | **Medium** — gated action allowed without valid session |
+| Object cache (eviction/flush) | Session data re-fetched from DB | Fail-closed | None |
+| Object cache (stale rate limit) | Lockout threshold not enforced | Fail-open | **Low** — defense-in-depth measure, not primary control |
+| Page cache (cached admin/REST) | Stale responses served | Fail-open | **Medium** — depends on what is cached |
+| Transient eviction | Request stash lost | Fail-closed | None — user must repeat action |
+
+All fail-open conditions require a misconfigured cache. Standard WordPress hosting
+with a properly configured persistent object cache and standard page cache
+exclusions for `/wp-admin/` and `/wp-json/` does not trigger any of these risks.
 
 ## Session Binding
 

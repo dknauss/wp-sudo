@@ -86,6 +86,13 @@
 			btn.classList.add( 'disabled', 'wp-sudo-disabled' );
 			btn.setAttribute( 'aria-disabled', 'true' );
 
+			// Links styled as buttons need role="button" so screen readers
+			// announce the disabled state (aria-disabled is only recognised
+			// on elements with an interactive ARIA role).
+			if ( btn.tagName === 'A' && ! btn.getAttribute( 'role' ) ) {
+				btn.setAttribute( 'role', 'button' );
+			}
+
 			// Remove href so the link does not navigate.
 			if ( btn.hasAttribute( 'href' ) ) {
 				btn.removeAttribute( 'href' );

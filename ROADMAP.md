@@ -27,6 +27,12 @@
 ### Immediate (Blocking WP 7.0 GA — April 9, 2026)
 - **Update "Tested up to"** in readme files when WordPress 7.0 ships
 
+### ✓ Completed in v2.10.0
+
+- ~~WebAuthn gating bridge~~ — shipped v2.10.0: `bridges/wp-sudo-webauthn-bridge.php` gates security key registration and deletion AJAX endpoints (`webauthn_preregister`, `webauthn_register`, `webauthn_delete_key`) via `wp_sudo_gated_actions` filter. Prevents silent key registration from a hijacked session.
+- ~~WP 7.0 REST error notice CSS fix~~ — shipped v2.10.0: scoped `#application-passwords-section .notice.notice-error` selector restores background in WP 7.0
+- ~~CI integration test fixes~~ — shipped v2.10.0: fixed Challenge constructor arg order in ExitPathTest, added `set_current_screen()` for admin context in CI
+
 ### ✓ Completed in v2.8.0
 
 - ~~Expire sudo session on password change~~ — shipped v2.8.0: hooks `after_password_reset` and `profile_update`; meta-existence guard prevents phantom audit events
@@ -85,8 +91,8 @@
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.9.2):
-- **405 unit tests**, 979 assertions, across 13 test files (Brain\Monkey mocks)
+Current project state (as of v2.10.0):
+- **411 unit tests**, 1008 assertions, across 14 test files (Brain\Monkey mocks)
 - **116 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.0–8.4, WordPress 6.7 + latest + trunk, single-site + multisite + PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
@@ -174,9 +180,9 @@ These gaps have been closed by the integration suite:
 | **Always-iframed post editor** | All blocks render in iframe. WP Sudo's admin UI gating does not touch the block editor — it intercepts `admin_init` actions, not editor saves. | **Low risk.** Verify the challenge page CSS still works inside the admin chrome. |
 | **Admin visual refresh** (DataViews, design tokens, Trac #64308) | Settings → Sudo page uses standard `settings_fields()` / `do_settings_sections()`. If WP 7.0 reskins these, our page gets the new look for free. | **Test visually** on a 7.0-beta site. Check help tabs, gated-actions table, admin notices. |
 | **Fragment Notes + @ mentions** | Extends 6.9 Notes (block-level comments). No auth surface — notes are post meta. | No impact on WP Sudo. |
-| **Abilities API expansion** | New REST surface for AI agents. Abilities use `permission_callback` (typically `current_user_can()`). Not gated by WP Sudo. | **Future consideration:** should destructive abilities trigger sudo? Not for 7.0 — monitor. |
-| **WP AI Client merge proposal** | Provider-agnostic AI API. Includes REST/JS layer. | No immediate impact. If merged, AI model calls are a new admin action surface. Monitor. |
-| **WordPress MCP Adapter** | Adapts Abilities to MCP tools for AI agents (Claude, Cursor, etc.). | Same consideration as Abilities API — a new surface for privileged operations. |
+| **Abilities API expansion** | New REST surface for AI agents. 3 read-only core abilities in WP 7.0. Abilities use `permission_callback` (typically `current_user_can()`). Not gated by WP Sudo. | **No action for 7.0.** Existing REST surface interception already covers `/wp-abilities/v1/` routes. When destructive abilities appear (`DELETE` on `/run`), add a REST rule to `Action_Registry`. See [`docs/abilities-api-assessment.md`](docs/abilities-api-assessment.md). |
+| **WP AI Client merge proposal** | Provider-agnostic AI API. Includes REST/JS layer. | No immediate impact. If merged, AI model calls routed through REST are covered by existing Gate. Monitor. |
+| **WordPress MCP Adapter** | Translates Abilities into MCP tools for AI agents (Claude, Cursor, etc.). Calls abilities through the same REST endpoints. | **No new surface.** MCP Adapter is a REST consumer — covered by existing `Gate::intercept_rest()`. Same gating strategy as Abilities API. See [`docs/abilities-api-assessment.md`](docs/abilities-api-assessment.md). |
 | **Viewport-based block visibility** | Editor-only. No auth surface. | No impact. |
 | **Trac #64690 — Bulk role-change error message** ([ticket](https://core.trac.wordpress.org/ticket/64690)) | Core will replace the confusing "user editing capabilities" notice with a clear message when bulk role change skips the current user. Our workaround in `Admin::handle_err_admin_role()` (`class-admin.php`) does the same thing and can be **removed** once 7.0 ships. | **After 7.0 GA:** remove `handle_err_admin_role()` and its `admin_notices` hook; delete the corresponding unit tests in `AdminTest.php`. |
 
@@ -191,16 +197,26 @@ These gaps have been closed by the integration suite:
    - Any docs still referencing "WordPress 6.9" as latest
 6. **Remove `handle_err_admin_role()` workaround** once WP 7.0 GA ships (Trac #64690 lands in core — see table row above).
 
-### Abilities API: the longer-range question
+### Abilities API and MCP Adapter: the longer-range question
 
-The Abilities API is the first new admin action surface WordPress has added since
-Application Passwords (WP 5.6). Currently, abilities use `permission_callback` for
-access control — there's no reauth step. If an ability does something destructive
-(e.g., a future `core/delete-plugin` ability), WP Sudo would need to intercept it.
+The Abilities API (WP 6.9+) and the WordPress MCP Adapter are the first new admin
+action surfaces WordPress has added since Application Passwords (WP 5.6). The MCP
+Adapter translates registered abilities into MCP tools for AI agents — it calls the
+same REST endpoints, so both are covered by the same gating strategy.
 
-**Recommended approach:** Add a new surface type `ability` to the Gate's surface
-detection. This is not urgent for 7.0 (only 3 read-only core abilities exist), but
-should be on the roadmap for when destructive abilities appear.
+Currently, all three core abilities are read-only (`GET` on `/run`). If a destructive
+ability appears (e.g., a future `core/delete-plugin` using `DELETE` on `/run`), WP Sudo
+would need to intercept it.
+
+**Recommended approach:** Add a REST rule to `Action_Registry` matching destructive
+ability runs. The existing `Gate::intercept_rest()` already intercepts all REST
+requests via `rest_request_before_callbacks` — no new surface type is needed. A new
+`ability` surface type would only be warranted if abilities gain a non-REST, non-CLI
+execution path (e.g., a PHP-level `do_ability()` function) — no such path exists in
+WP 7.0.
+
+For full analysis, trigger conditions, and example rules, see
+[`docs/abilities-api-assessment.md`](docs/abilities-api-assessment.md).
 
 ---
 
@@ -560,11 +576,10 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 - ~~**Action:** Clamp filter result to documented min/max, or remove hard-bound language from docs.~~
 - Fixed: clamped to 60–900 seconds (1–15 minutes) after `apply_filters`. 3 unit tests in `SudoSessionTest.php`. `developer-reference.md` updated.
 
-**Admin bar countdown stalls at `0:01` before reload (cosmetic)**
+**~~Admin bar countdown stalls at `0:01` before reload (cosmetic)~~** ✅ Fixed
 
-- When the session expires, the JS countdown decrements `r` to `0`, calls `window.location.reload()`, and returns — but the label was last set to `Sudo: 0:01` in the previous tick and is never updated to `0:00`. The reload latency (1–3s network round-trip) means the timer visually freezes at `0:01` before disappearing.
-- **Impact:** Cosmetic only — session has already expired when reload fires. No security or functional impact.
-- **Action:** Update the label to `Sudo: 0:00` and announce expiry *before* calling `reload()`, so the last visible value is accurate. Low-effort, low-priority polish item.
+- ~~When the session expires, the JS countdown decrements `r` to `0`, calls `window.location.reload()`, and returns — but the label was last set to `Sudo: 0:01` in the previous tick and is never updated to `0:00`. The reload latency (1–3s network round-trip) means the timer visually freezes at `0:01` before disappearing.~~
+- Fixed: label now updates to `Sudo: 0:00`, interval is cleared, and expiry is announced via SR live region before `reload()` fires.
 
 **~~REST error notice has no visible background in WP 7.0 (cosmetic)~~** ✅ Fixed
 
@@ -793,13 +808,16 @@ trigger is Gutenberg integration, which would require browser-level testing anyw
 | Feature | Reason |
 |---------|--------|
 | Session extension (extend without reauth) | Undermines the time-bounded trust model and violates zero-trust principles. The keyboard shortcut (`Cmd+Shift+S` / `Ctrl+Shift+S`) makes re-authentication fast enough. |
-| Passkey/WebAuthn reauthentication | Already works through the existing Two Factor plugin integration. The challenge page is provider-agnostic — it renders whatever the active 2FA provider outputs, including WebAuthn's `navigator.credentials.get()` ceremony. No WP Sudo changes needed. |
+| Passkey/WebAuthn as a reauthentication method | Already works through the existing Two Factor plugin integration. The challenge page is provider-agnostic — it renders whatever the active 2FA provider outputs, including WebAuthn's `navigator.credentials.get()` ceremony. No WP Sudo changes needed. **Note:** the UX is functional but rough — see [§9 WebAuthn challenge page UX](#9-code-review-findings-gpt-53-codex-verified-addendum). Gating of WebAuthn security key *registration/deletion* is a separate concern, addressed by the bridge plugin (`bridges/wp-sudo-webauthn-bridge.php`, shipped v2.10.0). |
 
 ---
 
 ## Appendix A: Accessibility Roadmap
 
-> **Status: Complete.** All items resolved in v2.2.0–v2.3.1. Retained for reference.
+> **Status: Complete.** Initial audit items resolved in v2.2.0–v2.3.1. Follow-up
+> audit items (v2.4.0–v2.10.0 UI additions) resolved in v2.10.1.
+
+### Initial audit (v2.2.0–v2.3.1)
 
 All Critical, High, Medium, and Low severity items from the WCAG 2.1 AA audit and
 WCAG 2.2 AA follow-up audit have been addressed:
@@ -831,3 +849,24 @@ WCAG 2.2 AA follow-up audit have been addressed:
   text on all fields.
 - **Lockout countdown SR throttling (WCAG 4.1.3):** `aria-live="off"` with
   30-second and 10-second `announce()` intervals.
+
+### Follow-up audit (v2.4.0–v2.10.0 additions, fixed v2.11.0)
+
+Three accessibility gaps found in UI added after v2.3.1:
+
+- **Per-app-password policy SR feedback (WCAG 4.1.3):** Save success/error was
+  visual-only (outline color). Added `wp.a11y.speak()` announcements for save
+  confirmation and error states. Added `wp-a11y` as script dependency.
+- **Disabled action button semantics (WCAG 4.1.2):** `aria-disabled="true"` on
+  `<a>` elements (theme/plugin pages) without `role="button"` — screen readers
+  may not announce disabled state on native links. Added `role="button"` to
+  disabled `<a>` elements.
+- **MU-plugin message `aria-atomic` (WCAG 4.1.3):** `role="status"` +
+  `aria-live="polite"` message element was missing `aria-atomic="true"`, so
+  content replacements may only announce changed text nodes. Added attribute.
+
+Also fixed in this pass:
+
+- **Admin bar countdown 0:01 stall (WCAG 4.1.3):** Timer label never updated to
+  `0:00` on session expiry — last visible value was `0:01` during reload latency.
+  Fixed: label updates to `0:00`, interval cleared, expiry announced before reload.

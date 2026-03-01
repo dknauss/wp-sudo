@@ -1,17 +1,22 @@
 # Abilities API Assessment
 
-**Date:** 2026-02-19
+**Date:** 2026-02-19 (updated 2026-02-28)
 **WP version evaluated:** 7.0 Beta 1
 **Status:** No gating changes required for WP 7.0
+**Covers:** Abilities API and WordPress MCP Adapter (same REST surface)
 
 ---
 
 ## Overview
 
 The WordPress Abilities API, introduced in WP 6.9, exposes registered "abilities" via
-REST endpoints and (optionally) WP-CLI. This document evaluates the current surface,
-explains why WP Sudo does not need to gate any abilities for WP 7.0, and documents
-the strategy for when gating will become necessary.
+REST endpoints and (optionally) WP-CLI. The WordPress MCP Adapter translates these
+abilities into MCP tools for AI agents (Claude, Cursor, etc.) — it calls the same
+REST endpoints, so both are covered by the same gating analysis.
+
+This document evaluates the current surface, explains why WP Sudo does not need to
+gate any abilities for WP 7.0, and documents the strategy for when gating will
+become necessary.
 
 **Verification sources for ability names and REST routes:**
 
@@ -152,6 +157,18 @@ ability runs in a single rule:
 
 No new surface type is required for REST-exposed abilities.
 
+### WordPress MCP Adapter (AI agent callers)
+
+The WordPress MCP Adapter translates registered abilities into MCP tools. When an AI
+agent calls an MCP tool, the adapter executes the corresponding ability via the same
+`/wp-abilities/v1/{ns}/{name}/run` REST endpoint. From WP Sudo's perspective, an
+MCP-originated ability call is indistinguishable from any other REST request — it
+flows through `rest_request_before_callbacks` and is subject to the same Gate
+interception.
+
+No special handling is required for MCP Adapter calls. The same REST rules that gate
+direct ability calls also gate MCP-mediated calls.
+
 ### WP-CLI `wp ability run` (CLI callers)
 
 For abilities executed via WP-CLI's `wp ability run` command, the existing CLI
@@ -192,7 +209,10 @@ a matching rule is ever added to `Action_Registry`.
    repository for new ability registrations, especially any using `DELETE` on `/run`.
 2. When destructive abilities appear, add a REST rule to `Action_Registry` matching
    `/wp-abilities/v1/.*/run` with `DELETE` method. No `Gate` class changes required.
+   This also covers MCP Adapter calls (same REST endpoints).
 3. For WP-CLI `wp ability run` with destructive abilities, add a function-level hook
    in `Gate::register_function_hooks()` targeting the appropriate WordPress action.
 4. Reassess the need for an `ability` surface type only if a non-REST, non-CLI
    ability execution path is introduced.
+5. Monitor the WordPress MCP Adapter for any direct-execution path that bypasses REST
+   (none exists as of WP 7.0 Beta 1).

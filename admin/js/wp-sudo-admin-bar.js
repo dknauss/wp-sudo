@@ -46,6 +46,8 @@
 	var intervalId = setInterval( function () {
 		r--;
 		if ( r <= 0 ) {
+			clearInterval( intervalId );
+			l.textContent  = 'Sudo: 0:00';
 			sr.textContent = 'Sudo session expired.';
 			window.location.reload();
 			return;

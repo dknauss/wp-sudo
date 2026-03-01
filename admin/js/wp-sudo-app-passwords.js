@@ -19,6 +19,17 @@
 	}
 
 	/**
+	 * Announce a message to screen readers via wp.a11y.speak().
+	 *
+	 * @param {string} message The message to announce.
+	 */
+	function announce( message ) {
+		if ( window.wp && window.wp.a11y && window.wp.a11y.speak ) {
+			window.wp.a11y.speak( message, 'assertive' );
+		}
+	}
+
+	/**
 	 * Build a policy <select> element for a given application password UUID.
 	 *
 	 * @param {string} uuid The application password UUID.
@@ -91,6 +102,7 @@
 					setTimeout( function () {
 						select.style.outline = '';
 					}, 1000 );
+					announce( config.i18n.policySaved );
 				} else if ( result.data && result.data.code === 'sudo_required' ) {
 					// No active sudo session — restore the previous value and inform the user.
 					var previous = ( config.policies && config.policies[ uuid ] ) || '';
@@ -106,6 +118,7 @@
 					setTimeout( function () {
 						select.style.outline = '';
 					}, 2000 );
+					announce( config.i18n.policyError );
 				}
 			} )
 			.catch( function () {
@@ -114,6 +127,7 @@
 				setTimeout( function () {
 					select.style.outline = '';
 				}, 2000 );
+				announce( config.i18n.policyError );
 			} );
 	}
 
