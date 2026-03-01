@@ -20,7 +20,7 @@ Sudo will neutralize attacks or severely limit their blast radius (the scope of 
 
 Sudo is *not* intended as a replacement for diligent plugin selection, timely updates, and effective firewalling; instead, it complements and backstops those layers of defense. 
 
-When the firewall misses it, the plugin hasn't patched it, and the attacker already has a session — Sudo is the gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every destructive action requires reauthentication, regardless of how the attacker got in.
+When the firewall misses an exploit, the vulnerable plugin it targets hasn't been patched, and/or the attacker already has an active session — Sudo is the gate between access and damage. Plugin installs, user creation, role changes, settings modifications: every destructive action requires reauthentication, regardless of how the attacker got in.
 
 ## How is Sudo different from WordPress security plugins?
 
