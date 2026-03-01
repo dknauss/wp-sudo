@@ -157,11 +157,11 @@ On multisite, WordPress core already removes the most dangerous General Settings
 
 ## What is the mu-plugin and do I need it?
 
-The mu-plugin is optional. It ensures Sudo's gate hooks are registered before any other regular plugin loads, preventing another plugin from deregistering the hooks or processing dangerous actions before the gate fires. You can install it with one click from the settings page. The mu-plugin is a thin shim in `wp-content/mu-plugins/` that loads the gate code from the main plugin directory — it updates automatically with regular plugin updates.
+The "must-use" mu-plugin is optional but ***highly recommended***. It ensures Sudo's gate hooks are registered before any other regular plugin loads, preventing another plugin from deregistering the hooks or processing dangerous actions before the gate fires. You can install it with one click from the settings page or follow the instructions for copying it to the `/mu-plugins` folder. (You may need to do this manually in many hosting environments.) The mu-plugin is a thin shim in `wp-content/mu-plugins/` that loads the gate code from the main plugin directory — it updates automatically with regular plugin updates.
 
 ## What happens if I deactivate the plugin?
 
-Any active sudo sessions expire naturally. All gated actions return to their normal, ungated behavior. No data is lost. The MU-plugin shim (if installed) checks the `active_plugins` option on each request and remains inert when the main plugin is deactivated — no gate hooks are registered and no plugin code is loaded. On uninstall, the shim file is automatically deleted from `wp-content/mu-plugins/`.
+Any active sudo sessions expire naturally. All gated actions return to their normal, ungated behavior. No data is lost. The MU-plugin shim (if installed) checks the `active_plugins` option on each request and remains inert when the main plugin is deactivated — no gate hooks are registered, and no plugin code is loaded. On uninstall, the shim file is automatically deleted from `wp-content/mu-plugins/`.
 
 ## Can I extend the list of gated actions?
 
