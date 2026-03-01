@@ -585,11 +585,19 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 
 - Fixed by adding `#application-passwords-section .notice.notice-error` selector to `wp-sudo-notices.css`. Scoped to the Application Passwords section on profile.php — doesn't affect other admin notices.
 
-**WebAuthn challenge page UX needs attention**
+**Reauthentication flow design: password-first is correct**
 
-- When the Two Factor WebAuthn Provider is the 2FA method, the challenge page's two-step flow (password → 2FA code input) doesn't integrate smoothly with the browser-based WebAuthn ceremony. The provider's `authentication_page()` renders and works, but the JS-based ceremony (navigator.credentials.get) doesn't fit the synchronous form-submit model cleanly.
-- **Impact:** UX is "messy" — the WebAuthn popup appears after form submission, not as a natural step. Users may be confused by the flow.
-- **Action:** Consider a dedicated WebAuthn flow path on the challenge page that triggers the ceremony automatically after the password step, rather than showing a generic 2FA code input. This is a design task that needs mockups and user testing before implementation.
+- The challenge page uses a two-step flow: password entry → optional 2FA (TOTP, email OTP, WebAuthn, etc.). This was evaluated against alternatives (2FA replacing password, method-picker with all factors on one screen, standalone WebAuthn button alongside password).
+- **Design decision (2026-02-28):** The current password-first flow is the right design.
+  - **Reauthentication ≠ login.** At reauth, the user already proved identity at login. Any single strong factor suffices to confirm "you're still here." In principle, 2FA could replace the password rather than supplement it. In practice, the tradeoffs make password-first the better default.
+  - **OS-level autofill mitigates password friction.** On macOS (Touch ID), Windows (Hello), iOS (Face ID), and Android (biometric), the browser offers biometric autofill for `autocomplete="current-password"` fields. Users tap a fingerprint sensor, the password fills, they click confirm. This makes the password step ~2 seconds with no typing — eliminating the main UX argument for a custom WebAuthn button.
+  - **WebAuthn as a standalone primary factor is redundant.** A "Use passkey" button alongside the password field would save one click over biometric autofill. The engineering cost (custom WebAuthn ceremony UI, bypassing the Two Factor provider's `authentication_page()`, new validation paths) is not justified by that marginal gain.
+  - **TOTP as a standalone primary factor is the best alternative** but has hook-architecture costs. The bridge plugin hooks (`wp_sudo_requires_two_factor`, `wp_sudo_render_two_factor_fields`, `wp_sudo_validate_two_factor`) all assume the sequential model. Changing to "password OR TOTP" would require new hook semantics and bridge plugin rewrites.
+  - **Email OTP as standalone is problematic.** Without a preceding password step, anyone who knows the username can trigger OTP email sends — a minor spam/enumeration vector.
+  - **Backup codes as standalone are weak.** Shorter than passwords, often stored in plaintext, intended as a fallback — not suitable as a primary reauth factor.
+- **WebAuthn ceremony UX** remains rough when WebAuthn is the active 2FA provider (the `navigator.credentials.get()` popup appears after form submission rather than as a natural step). This is a Two Factor plugin provider UX issue, not a WP Sudo architecture issue. The challenge page is provider-agnostic and renders whatever the active provider outputs.
+- **Modal challenge caveat:** This analysis assumes the current full-page challenge. If the client-side modal challenge (see §10) is implemented, OS-level autofill may not work reliably — browsers are increasingly cautious about autofilling inside iframes and dynamically injected forms, and password manager heuristics depend on page-level cues (form action, URL) that a modal disrupts. If the modal breaks the OS autofill shortcut, an explicit "Use passkey" or "Use TOTP" button on the modal becomes more valuable. Re-evaluate this decision when the modal ships.
+- **Status:** No code changes needed for the current full-page challenge. The flow is optimal given OS-level credential management. Revisit when (a) WordPress core introduces a native reauthentication API that supports method selection, or (b) the modal challenge design begins implementation.
 
 **Request stash stores raw POST payloads**
 
@@ -808,7 +816,7 @@ trigger is Gutenberg integration, which would require browser-level testing anyw
 | Feature | Reason |
 |---------|--------|
 | Session extension (extend without reauth) | Undermines the time-bounded trust model and violates zero-trust principles. The keyboard shortcut (`Cmd+Shift+S` / `Ctrl+Shift+S`) makes re-authentication fast enough. |
-| Passkey/WebAuthn as a reauthentication method | Already works through the existing Two Factor plugin integration. The challenge page is provider-agnostic — it renders whatever the active 2FA provider outputs, including WebAuthn's `navigator.credentials.get()` ceremony. No WP Sudo changes needed. **Note:** the UX is functional but rough — see [§9 WebAuthn challenge page UX](#9-code-review-findings-gpt-53-codex-verified-addendum). Gating of WebAuthn security key *registration/deletion* is a separate concern, addressed by the bridge plugin (`bridges/wp-sudo-webauthn-bridge.php`, shipped v2.10.0). |
+| Passkey/WebAuthn as a standalone reauthentication method | Evaluated and declined (2026-02-28). OS-level biometric autofill (Touch ID, Windows Hello, Face ID) already provides a smooth passwordless-like UX for the password field — a custom WebAuthn button saves one click at significant engineering cost. TOTP-only reauth is the strongest alternative but requires bridge hook redesign. Email OTP standalone has enumeration risk; backup codes standalone are too weak. The password-first + optional 2FA flow is correct for reauthentication. See [§9 reauthentication flow design](#9-code-review-findings-gpt-53-codex-verified-addendum). WebAuthn key *registration/deletion gating* is a separate concern, addressed by the bridge plugin (`bridges/wp-sudo-webauthn-bridge.php`, shipped v2.10.0). |
 
 ---
 
