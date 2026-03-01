@@ -43,7 +43,7 @@ This is your site's innermost armor — the skin-tight layer that interposes rea
 
 ## Does Sudo complement or compete with WordPress security plugins?
 
-Sudo is complementary to any other security layers you put in place. It doesn't compete with your WAF, for instance — it's the defense that matters when the WAF doesn't. Plugins that help you authenticate and manage users or software updates, or identify vulnerabilities in code and user accounts, are completely complementary. Two-factor authentication is critically important, and Sudo is specifically designed to work with the WordPress community standard solution for 2FA.
+Sudo is complementary to any other security layers you put in place. It doesn't compete with your WAF, for instance — it's the defense that matters when the WAF fails. Plugins that help you authenticate and manage users or software updates, or identify vulnerabilities in code and user accounts, are completely complementary. Two-factor authentication is critically important, and Sudo is specifically designed to work with the WordPress community standard solution for 2FA.
 
 ## What are Sudo's limitations?
 
