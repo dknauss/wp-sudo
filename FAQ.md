@@ -10,7 +10,7 @@ Broken Access Control is the #1 web application vulnerability today. OWASP ranke
 >
 > Add CSRF, Privilege Escalation, and Broken Authentication — all access control failures — and you're looking at 28% of all WordPress vulnerabilities catalogued in 2024. (Patchstack, [State of WordPress Security in 2026](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/#-broken-access-control-was-the-most-exploited-vulnerability))
 
-Verizon's Data Breach Investigations Report finds that 77–88% of basic web application attacks begin with stolen credentials. Sucuri's forensics show that 55% of hacked WordPress databases contain malicious admin accounts created after the breach. The attacker doesn't need to find a new exploit — they need an active session, and they need WordPress to do what attackers assume it will always do: obey without challenge.
+Verizon's 2025 Data Breach Investigations Report finds that 77–88% of basic web application attacks begin with stolen credentials. Sucuri's forensics show that 55% of hacked WordPress databases contain malicious admin accounts created after the breach. The attacker doesn't need to find a new exploit — they need an active session, and they need WordPress to do what attackers assume it will always do: obey without challenge.
 
 Sudo breaks that assumption — a key link in the attackers' kill chain. With Sudo active, every destructive action — user creation, plugin installation, role change, settings modification — requires password confirmation at the moment of execution. A stolen session cookie is not enough. An unattended browser is not enough. If a broken access control is the attack vector, Sudo is the guarded gate that will not allow it to pass.
 
