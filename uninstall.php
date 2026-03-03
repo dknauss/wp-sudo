@@ -34,6 +34,7 @@ function wp_sudo_cleanup_site(): void {
 	}
 
 	delete_option( 'wp_sudo_settings' );
+	delete_option( 'wp_sudo_version' );
 	delete_option( 'wp_sudo_activated' );
 	delete_option( 'wp_sudo_role_version' );
 	delete_option( 'wp_sudo_db_version' );
@@ -115,6 +116,7 @@ if ( is_multisite() ) {
 
 		// Clean up network-wide options (stored in wp_sitemeta).
 		delete_site_option( 'wp_sudo_settings' );
+		delete_site_option( 'wp_sudo_version' );
 		delete_site_option( 'wp_sudo_db_version' );
 		delete_site_option( 'wp_sudo_activated' );
 	}

@@ -522,9 +522,11 @@ class Admin {
 	 */
 	public static function get( string $key, mixed $default_value = null ): mixed {
 		if ( null === self::$cached_settings ) {
-			self::$cached_settings = is_multisite()
+			$settings = is_multisite()
 				? get_site_option( self::OPTION_KEY, self::defaults() )
 				: get_option( self::OPTION_KEY, self::defaults() );
+
+			self::$cached_settings = is_array( $settings ) ? $settings : self::defaults();
 		}
 
 		return self::$cached_settings[ $key ] ?? $default_value ?? self::defaults()[ $key ] ?? null;
