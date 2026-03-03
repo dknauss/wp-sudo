@@ -279,4 +279,4 @@ Per-application-password sudo policies, challenge page iframe fix, accessibility
 Entry point policies now have three modes: Disabled, Limited, Unrestricted. Existing Block/Allow settings are migrated automatically. Review Settings > Sudo after upgrading.
 
 = 2.0.0 =
-Major rewrite. The custom Site Manager role is removed — sudo now gates dangerous actions for all users via reauthentication. Review the new settings (entry point policies) after upgrading.
+Major rewrite. The custom Site Manager role is removed. Sudo now gates dangerous actions for all users via reauthentication. Review the new settings (entry point policies) after upgrading.
