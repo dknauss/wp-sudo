@@ -53,7 +53,7 @@
   - Note: report text says 11,334; chart label shows 11,332 (minor internal inconsistency — using prose figure as primary)
 - **By component:** Plugin 10,359, Theme 971, Core 2
 - **Premium components:** 1,983 total, 76% exploitable
-- **No discovery-by-type breakdown** for 2025 data (unlike the 2024 and 2025 reports)
+- **No discovery-by-type breakdown** for 2025 data (unlike the 2024 and 2025 report editions, which covered 2023 and 2024 data respectively)
 
 ### Exploitation Targeting (NEW — RapidMitigate blocked attack data)
 
@@ -71,6 +71,7 @@ This is the first Patchstack report to provide exploitation-by-type data (what a
 | XSS | 1% |
 
 - **Sudo-mitigated classes** (BAC + PrivEsc + BrokenAuth) = **80%** of all exploitation attempts
+  - Note: CSRF does not appear in the exploitation data because RapidMitigate tracks automated attack attempts; CSRF requires user interaction (e.g., tricking an admin into clicking a crafted link)
 
 ### Key Statistics
 
