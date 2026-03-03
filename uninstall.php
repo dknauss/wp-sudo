@@ -7,8 +7,10 @@
  * is also removed in case the 2.0.0 migration never ran.
  *
  * On multisite, per-site data (role, options) is cleaned for every
- * site that had the plugin active. Network-wide user meta is only
- * deleted when no remaining site still has the plugin active.
+ * site in the network, and network-wide data (user meta, MU-plugin
+ * shim, sitemeta options) is always removed. By the time WordPress
+ * calls uninstall.php the plugin has been deactivated and its files
+ * are about to be deleted, so all data is orphaned.
  *
  * @package WP_Sudo
  */
@@ -78,48 +80,23 @@ if ( is_multisite() ) {
 		)
 	);
 
-	$plugin_basename = plugin_basename( __DIR__ . '/wp-sudo.php' );
-
-	// Check if the plugin is network-activated (active across all sites).
-	// If so, only clean per-site data for the current site; preserve user meta.
-	$network_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
-	if ( isset( $network_plugins[ $plugin_basename ] ) ) {
-		wp_sudo_cleanup_site();
-		return;
-	}
-
-	$other_site_active = false;
-
+	// Clean per-site data (role, options) on every site.
 	foreach ( $site_ids as $site_id ) {
 		switch_to_blog( $site_id ); // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.switch_to_blog_switch_to_blog
-
-		$active_plugins = (array) get_option( 'active_plugins', array() );
-
-		if ( in_array( $plugin_basename, $active_plugins, true ) ) {
-			// Plugin is still active on this site — don't touch it,
-			// but note that user meta must be preserved.
-			$other_site_active = true;
-		} else {
-			// Plugin is not active here — clean up per-site data.
-			wp_sudo_cleanup_site();
-		}
-
+		wp_sudo_cleanup_site();
 		restore_current_blog();
 	}
 
-	// Only delete network-wide data when no site still has
-	// the plugin active. User meta is stored in a shared table,
-	// so removing it would break sudo on any remaining sites.
-	if ( ! $other_site_active ) {
-		wp_sudo_cleanup_user_meta();
-		wp_sudo_cleanup_mu_shim();
+	// Clean network-wide data.
+	wp_sudo_cleanup_user_meta();
+	wp_sudo_cleanup_mu_shim();
 
-		// Clean up network-wide options (stored in wp_sitemeta).
-		delete_site_option( 'wp_sudo_settings' );
-		delete_site_option( 'wp_sudo_version' );
-		delete_site_option( 'wp_sudo_db_version' );
-		delete_site_option( 'wp_sudo_activated' );
-	}
+	// Clean network-wide options (stored in wp_sitemeta).
+	delete_site_option( 'wp_sudo_settings' );
+	delete_site_option( 'wp_sudo_version' );
+	delete_site_option( 'wp_sudo_db_version' );
+	delete_site_option( 'wp_sudo_activated' );
+	delete_site_option( 'wp_sudo_role_version' );
 } else {
 	// Single-site: clean up everything.
 	wp_sudo_cleanup_site();
