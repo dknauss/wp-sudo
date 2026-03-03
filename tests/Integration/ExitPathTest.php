@@ -167,8 +167,8 @@ class ExitPathTest extends TestCase {
 
 	/**
 	 * A gated admin action (plugin activate) triggers a redirect to the
-	 * challenge page. We verify via the wp_redirect filter, since the
-	 * actual wp_safe_redirect() + exit cannot execute in PHPUnit.
+	 * challenge page. We verify via the wp_redirect filter and force
+	 * wp_safe_redirect() to fail so the code falls back to wp_die().
 	 */
 	public function test_admin_gating_redirects_to_challenge_page(): void {
 		$user = $this->make_admin();
@@ -179,21 +179,22 @@ class ExitPathTest extends TestCase {
 		) );
 
 		// Capture the redirect URL via the wp_redirect filter.
-		$redirect_url = null;
-		add_filter(
-			'wp_redirect',
-			static function ( $location ) use ( &$redirect_url ) {
-				$redirect_url = $location;
-				return false; // Prevent actual redirect.
-			}
-		);
+		$redirect_url      = null;
+		$redirect_callback = static function ( $location ) use ( &$redirect_url ) {
+			$redirect_url = $location;
+			return false; // Prevent actual redirect.
+		};
+		add_filter( 'wp_redirect', $redirect_callback );
 
-		// intercept() calls challenge_admin() which calls wp_safe_redirect() + exit.
-		// With wp_redirect returning false, wp_safe_redirect() does not call exit.
+		// intercept() calls challenge_admin(); when wp_safe_redirect() returns false,
+		// challenge_admin() fails closed via wp_die().
 		try {
 			$this->gate->intercept();
 		} catch ( \WPDieException $e ) {
-			// May or may not throw depending on wp_redirect path.
+			// Expected.
+			$this->addToAssertionCount( 1 );
+		} finally {
+			remove_filter( 'wp_redirect', $redirect_callback );
 		}
 
 		$this->assertNotNull( $redirect_url, 'Gate should redirect to challenge page.' );
@@ -247,19 +248,19 @@ class ExitPathTest extends TestCase {
 		) );
 
 		// If the gate triggers, it will redirect. Capture any redirect.
-		$redirect_url = null;
-		add_filter(
-			'wp_redirect',
-			static function ( $location ) use ( &$redirect_url ) {
-				$redirect_url = $location;
-				return false;
-			}
-		);
+		$redirect_url      = null;
+		$redirect_callback = static function ( $location ) use ( &$redirect_url ) {
+			$redirect_url = $location;
+			return false;
+		};
+		add_filter( 'wp_redirect', $redirect_callback );
 
 		try {
 			$this->gate->intercept();
 		} catch ( \WPDieException $e ) {
-			// Should not happen — grace window should let it through.
+			$this->fail( 'Grace-window request should not trigger wp_die().' );
+		} finally {
+			remove_filter( 'wp_redirect', $redirect_callback );
 		}
 
 		$this->assertNull( $redirect_url, 'Gate should NOT redirect during the grace window.' );
@@ -301,19 +302,20 @@ class ExitPathTest extends TestCase {
 			'plugin' => 'hello-dolly/hello.php',
 		) );
 
-		$redirect_url = null;
-		add_filter(
-			'wp_redirect',
-			static function ( $location ) use ( &$redirect_url ) {
-				$redirect_url = $location;
-				return false;
-			}
-		);
+		$redirect_url      = null;
+		$redirect_callback = static function ( $location ) use ( &$redirect_url ) {
+			$redirect_url = $location;
+			return false;
+		};
+		add_filter( 'wp_redirect', $redirect_callback );
 
 		try {
 			$this->gate->intercept();
 		} catch ( \WPDieException $e ) {
-			// Expected — redirect path.
+			// Expected.
+			$this->addToAssertionCount( 1 );
+		} finally {
+			remove_filter( 'wp_redirect', $redirect_callback );
 		}
 
 		$this->assertNotNull( $redirect_url, 'Gate should redirect after grace window closes.' );
@@ -393,6 +395,7 @@ class ExitPathTest extends TestCase {
 		$_POST['stash_key'] = '';
 		$_POST['_ajax_nonce'] = wp_create_nonce( Challenge::NONCE_ACTION );
 		$_REQUEST['_ajax_nonce'] = $_POST['_ajax_nonce'];
+		add_filter( 'wp_doing_ajax', '__return_true' );
 
 		ob_start();
 		try {
@@ -400,7 +403,9 @@ class ExitPathTest extends TestCase {
 			$this->fail( 'Expected WPDieException from wp_send_json_error.' );
 		} catch ( \WPDieException $e ) {
 			// Expected.
+			$this->addToAssertionCount( 1 );
 		} finally {
+			remove_filter( 'wp_doing_ajax', '__return_true' );
 			$output = ob_get_clean();
 		}
 
@@ -433,6 +438,7 @@ class ExitPathTest extends TestCase {
 		$_POST['stash_key'] = '';
 		$_POST['_ajax_nonce'] = wp_create_nonce( Challenge::NONCE_ACTION );
 		$_REQUEST['_ajax_nonce'] = $_POST['_ajax_nonce'];
+		add_filter( 'wp_doing_ajax', '__return_true' );
 
 		ob_start();
 		try {
@@ -440,7 +446,9 @@ class ExitPathTest extends TestCase {
 			$this->fail( 'Expected WPDieException from wp_send_json_success.' );
 		} catch ( \WPDieException $e ) {
 			// Expected.
+			$this->addToAssertionCount( 1 );
 		} finally {
+			remove_filter( 'wp_doing_ajax', '__return_true' );
 			$output = ob_get_clean();
 		}
 

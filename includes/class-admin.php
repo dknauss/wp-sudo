@@ -551,7 +551,7 @@ class Admin {
 		$sanitized = array();
 
 		// Session duration: 1–15 minutes.
-		$sanitized['session_duration'] = absint( $input['session_duration'] ?? 15 );
+		$sanitized['session_duration'] = (int) ( $input['session_duration'] ?? 15 );
 		if ( $sanitized['session_duration'] < 1 || $sanitized['session_duration'] > 15 ) {
 			$sanitized['session_duration'] = 15;
 		}

@@ -99,6 +99,13 @@ class AdminTest extends TestCase {
 		$this->assertSame( 15, $result['session_duration'] );
 	}
 
+	public function test_sanitize_clamps_negative_duration_to_default(): void {
+		$admin  = new Admin();
+		$result = $admin->sanitize_settings( array( 'session_duration' => -5 ) );
+
+		$this->assertSame( 15, $result['session_duration'] );
+	}
+
 	public function test_sanitize_accepts_valid_duration(): void {
 		Functions\when( 'absint' )->alias( fn( $val ) => abs( (int) $val ) );
 

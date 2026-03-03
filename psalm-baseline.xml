@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files psalm-version="6.15.1@28dc127af1b5aecd52314f6f645bafc10d0e11f9">
+  <file src="bridges/wp-sudo-webauthn-bridge.php">
+    <HookNotFound>
+      <code><![CDATA[add_filter(
+	'wp_sudo_gated_actions',
+	static function ( array $rules ): array {
+		// Only add rules when the WebAuthn Provider plugin is active.
+		if ( ! class_exists( 'WildWolf\WordPress\TwoFactorWebAuthn\Plugin' ) ) {
+			return $rules;
+		}
+
+		// Gate security key registration (two-step AJAX ceremony).
+		$rules[] = array(
+			'id'       => 'auth.webauthn_register',
+			'label'    => __( 'Register security key (WebAuthn)', 'wp-sudo' ),
+			'category' => 'users',
+			'admin'    => null,
+			'ajax'     => array(
+				'actions' => array( 'webauthn_preregister', 'webauthn_register' ),
+			),
+			'rest'     => null,
+		);
+
+		// Gate security key deletion.
+		$rules[] = array(
+			'id'       => 'auth.webauthn_delete',
+			'label'    => __( 'Delete security key (WebAuthn)', 'wp-sudo' ),
+			'category' => 'users',
+			'admin'    => null,
+			'ajax'     => array(
+				'actions' => array( 'webauthn_delete_key' ),
+			),
+			'rest'     => null,
+		);
+
+		return $rules;
+	}
+)]]></code>
+    </HookNotFound>
+  </file>
+  <file src="bridges/wp-sudo-wp2fa-bridge.php">
+    <HookNotFound>
+      <code><![CDATA[add_action(
+	'wp_sudo_render_two_factor_fields',
+	static function ( \WP_User $user ): void {
+		if ( ! class_exists( '\WP2FA\Admin\Helpers\User_Helper' ) ) {
+			return;
+		}
+
+		$method = \WP2FA\Admin\Helpers\User_Helper::get_enabled_method_for_user( $user );
+
+		if ( empty( $method ) ) {
+			return;
+		}
+
+		// Primary method input.
+		if ( 'totp' === $method ) {
+			?>
+			<p>
+				<label for="wp-sudo-wp2fa-code">
+					<?php esc_html_e( 'Enter the code from your authenticator app:', 'wp-sudo' ); ?>
+				</label><br />
+				<input type="text"
+					id="wp-sudo-wp2fa-code"
+					name="wp2fa_authcode"
+					class="regular-text"
+					autocomplete="one-time-code"
+					inputmode="numeric"
+					pattern="[0-9]*"
+					maxlength="6"
+					required />
+			</p>
+			<?php
+		} elseif ( 'email' === $method ) {
+			// Generate and send the email OTP now.
+			if ( class_exists( '\WP2FA\Authenticator\Authentication' ) ) {
+				\WP2FA\Authenticator\Authentication::generate_token( $user->ID );
+			}
+			?>
+			<p>
+				<label for="wp-sudo-wp2fa-code">
+					<?php esc_html_e( 'Enter the code sent to your email:', 'wp-sudo' ); ?>
+				</label><br />
+				<input type="text"
+					id="wp-sudo-wp2fa-code"
+					name="wp2fa_authcode"
+					class="regular-text"
+					autocomplete="one-time-code"
+					inputmode="numeric"
+					pattern="[0-9]*"
+					maxlength="6"
+					required />
+			</p>
+			<?php
+		}
+
+		// Backup code fallback — shown for any primary method.
+		if ( class_exists( '\WP2FA\Methods\Backup_Codes' ) ) {
+			$has_backup = get_user_meta( $user->ID, 'wp_2fa_backup_codes', true );
+			if ( ! empty( $has_backup ) ) {
+				?>
+				<details class="wp-sudo-wp2fa-backup">
+					<summary>
+						<?php esc_html_e( 'Use a backup code instead', 'wp-sudo' ); ?>
+					</summary>
+					<p>
+						<label for="wp-sudo-wp2fa-backup">
+							<?php esc_html_e( 'Backup code:', 'wp-sudo' ); ?>
+						</label><br />
+						<input type="text"
+							id="wp-sudo-wp2fa-backup"
+							name="wp2fa_backup_code"
+							class="regular-text"
+							autocomplete="off" />
+					</p>
+				</details>
+				<?php
+			}
+		}
+	}
+)]]></code>
+      <code><![CDATA[add_filter(
+	'wp_sudo_requires_two_factor',
+	static function ( bool $needs, int $user_id ): bool {
+		// Don't override if another plugin already claims 2FA.
+		if ( $needs ) {
+			return true;
+		}
+
+		if ( ! class_exists( '\WP2FA\Admin\Helpers\User_Helper' ) ) {
+			return $needs;
+		}
+
+		return \WP2FA\Admin\Helpers\User_Helper::is_user_using_two_factor( $user_id );
+	},
+	10,
+	2
+)]]></code>
+      <code><![CDATA[add_filter(
+	'wp_sudo_validate_two_factor',
+	static function ( bool $valid, \WP_User $user ): bool {
+		// Don't override if another plugin already validated.
+		if ( $valid ) {
+			return true;
+		}
+
+		if ( ! class_exists( '\WP2FA\Admin\Helpers\User_Helper' ) ) {
+			return $valid;
+		}
+
+		$method = \WP2FA\Admin\Helpers\User_Helper::get_enabled_method_for_user( $user );
+
+		if ( empty( $method ) ) {
+			return $valid;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- WP Sudo handles nonce verification.
+		$code = isset( $_POST['wp2fa_authcode'] )
+			? sanitize_text_field( wp_unslash( $_POST['wp2fa_authcode'] ) )
+			: '';
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$backup_code = isset( $_POST['wp2fa_backup_code'] )
+			? sanitize_text_field( wp_unslash( $_POST['wp2fa_backup_code'] ) )
+			: '';
+
+		// Try primary method.
+		if ( ! empty( $code ) ) {
+			if ( 'totp' === $method && class_exists( '\WP2FA\Authenticator\Authentication' ) && class_exists( '\WP2FA\Methods\TOTP' ) ) {
+				$key = \WP2FA\Methods\TOTP::get_totp_key( $user );
+				if ( $key && \WP2FA\Authenticator\Authentication::is_valid_authcode( $key, $code ) ) {
+					return true;
+				}
+			} elseif ( 'email' === $method && class_exists( '\WP2FA\Authenticator\Authentication' ) ) {
+				if ( \WP2FA\Authenticator\Authentication::validate_token( $user, $code ) ) {
+					return true;
+				}
+			}
+		}
+
+		// Try backup code fallback.
+		if ( ! empty( $backup_code ) && class_exists( '\WP2FA\Methods\Backup_Codes' ) ) {
+			if ( \WP2FA\Methods\Backup_Codes::validate_code( $user, $backup_code ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	},
+	10,
+	2
+)]]></code>
+    </HookNotFound>
+    <UndefinedClass>
+      <code><![CDATA[\WP2FA\Admin\Helpers\User_Helper]]></code>
+      <code><![CDATA[\WP2FA\Admin\Helpers\User_Helper]]></code>
+      <code><![CDATA[\WP2FA\Admin\Helpers\User_Helper]]></code>
+    </UndefinedClass>
+  </file>
+  <file src="includes/class-admin-bar.php">
+    <HookInvalidArgs>
+      <code><![CDATA[add_action( 'admin_init', array( $this, 'handle_deactivate' ), 5 )]]></code>
+    </HookInvalidArgs>
+    <UndefinedConstant>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+    </UndefinedConstant>
+  </file>
+  <file src="includes/class-admin.php">
+    <HookInvalidArgs>
+      <code><![CDATA[add_action( 'admin_init', array( $this, 'register_sections' ) )]]></code>
+      <code><![CDATA[add_action( 'admin_init', array( $this, 'register_settings' ) )]]></code>
+      <code><![CDATA[add_action( 'admin_notices', array( $this, 'render_role_error_notice' ) )]]></code>
+      <code><![CDATA[add_action( 'load-' . $hook_suffix, array( $this, 'add_help_tabs' ) )]]></code>
+      <code><![CDATA[add_action( 'load-' . $hook_suffix, array( $this, 'add_help_tabs' ) )]]></code>
+      <code><![CDATA[add_action( 'load-users.php', array( $this, 'rewrite_role_error' ) )]]></code>
+      <code><![CDATA[add_action( 'network_admin_edit_wp_sudo_settings', array( $this, 'handle_network_settings_save' ) )]]></code>
+      <code><![CDATA[add_action( 'wp_ajax_' . self::AJAX_MU_INSTALL, array( $this, 'handle_mu_install' ) )]]></code>
+      <code><![CDATA[add_action( 'wp_ajax_' . self::AJAX_MU_UNINSTALL, array( $this, 'handle_mu_uninstall' ) )]]></code>
+      <code><![CDATA[add_action( 'wp_ajax_wp_sudo_app_password_policy', array( $this, 'handle_app_password_policy_save' ) )]]></code>
+    </HookInvalidArgs>
+    <InvalidArgument>
+      <code><![CDATA[(array) $input]]></code>
+      <code><![CDATA[array(
+					'label_for'   => Gate::SETTING_WPGRAPHQL_POLICY,
+					'key'         => Gate::SETTING_WPGRAPHQL_POLICY,
+					'description' => __( 'Controls WPGraphQL. Disabled blocks all GraphQL requests. Limited blocks mutations without an active sudo session; queries always pass through. Unrestricted allows everything. Default: Limited.', 'wp-sudo' ),
+				)]]></code>
+      <code><![CDATA[array(
+				'label_for'   => Gate::SETTING_CLI_POLICY,
+				'key'         => Gate::SETTING_CLI_POLICY,
+				'description' => __( 'Disabled blocks all WP-CLI commands. Limited blocks only gated operations. Unrestricted allows everything. The wp cron subcommand also respects the Cron policy. Default: Limited.', 'wp-sudo' ),
+			)]]></code>
+      <code><![CDATA[array(
+				'label_for'   => Gate::SETTING_CRON_POLICY,
+				'key'         => Gate::SETTING_CRON_POLICY,
+				'description' => __( 'Disabled stops all cron execution (WP-Cron and server-level cron). Limited blocks only gated scheduled events. Unrestricted allows everything. Default: Limited.', 'wp-sudo' ),
+			)]]></code>
+      <code><![CDATA[array(
+				'label_for'   => Gate::SETTING_REST_APP_PASS_POLICY,
+				'key'         => Gate::SETTING_REST_APP_PASS_POLICY,
+				'description' => __( 'Controls non-cookie-auth REST requests (Application Passwords, Bearer tokens, OAuth). Cookie-auth browser requests always get the sudo challenge. Default: Limited.', 'wp-sudo' ),
+			)]]></code>
+      <code><![CDATA[array(
+				'label_for'   => Gate::SETTING_XMLRPC_POLICY,
+				'key'         => Gate::SETTING_XMLRPC_POLICY,
+				'description' => __( 'Disabled shuts off the entire XML-RPC protocol. Limited blocks only gated operations. Unrestricted allows everything. Default: Limited.', 'wp-sudo' ),
+			)]]></code>
+    </InvalidArgument>
+    <UndefinedConstant>
+      <code><![CDATA[WP_SUDO_PLUGIN_BASENAME]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_DIR]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+    </UndefinedConstant>
+  </file>
+  <file src="includes/class-challenge.php">
+    <HookInvalidArgs>
+      <code><![CDATA[add_action( 'wp_ajax_' . self::AJAX_2FA_ACTION, array( $this, 'handle_ajax_2fa' ) )]]></code>
+      <code><![CDATA[add_action( 'wp_ajax_' . self::AJAX_AUTH_ACTION, array( $this, 'handle_ajax_auth' ) )]]></code>
+    </HookInvalidArgs>
+    <UndefinedClass>
+      <code><![CDATA[\Two_Factor_Core]]></code>
+      <code><![CDATA[\Two_Factor_Core]]></code>
+    </UndefinedClass>
+    <UndefinedConstant>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+    </UndefinedConstant>
+  </file>
+  <file src="includes/class-gate.php">
+    <HookInvalidArgs>
+      <code><![CDATA[add_action( 'admin_init', array( $this, 'intercept' ), 1 )]]></code>
+      <code><![CDATA[add_action( 'admin_notices', array( $this, 'render_blocked_notice' ) )]]></code>
+      <code><![CDATA[add_action( 'admin_notices', array( $this, 'render_gate_notice' ) )]]></code>
+      <code><![CDATA[add_action( 'init', array( $this, 'gate_non_interactive' ), 0 )]]></code>
+      <code><![CDATA[add_action( 'network_admin_notices', array( $this, 'render_blocked_notice' ) )]]></code>
+      <code><![CDATA[add_action( 'network_admin_notices', array( $this, 'render_gate_notice' ) )]]></code>
+    </HookInvalidArgs>
+    <HookNotFound>
+      <code><![CDATA[add_action( 'graphql_process_http_request', array( $this, 'gate_wpgraphql' ) )]]></code>
+    </HookNotFound>
+  </file>
+  <file src="includes/class-plugin.php">
+    <HookInvalidArgs>
+      <code><![CDATA[add_action( 'init', array( $this, 'enforce_editor_unfiltered_html' ), 1 )]]></code>
+    </HookInvalidArgs>
+    <UndefinedConstant>
+      <code><![CDATA[WP_SUDO_PLUGIN_BASENAME]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_PLUGIN_URL]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+    </UndefinedConstant>
+  </file>
+  <file src="includes/class-request-stash.php">
+    <InvalidArgument>
+      <code><![CDATA[$_GET]]></code>
+      <code><![CDATA[$_POST]]></code>
+    </InvalidArgument>
+  </file>
+  <file src="includes/class-sudo-session.php">
+    <InvalidArrayOffset>
+      <code><![CDATA[self::PROGRESSIVE_DELAYS[ $attempts ]]]></code>
+    </InvalidArrayOffset>
+    <UndefinedClass>
+      <code><![CDATA[\Two_Factor_Core]]></code>
+    </UndefinedClass>
+  </file>
+  <file src="includes/class-upgrader.php">
+    <UndefinedConstant>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+      <code><![CDATA[WP_SUDO_VERSION]]></code>
+    </UndefinedConstant>
+  </file>
+  <file src="mu-plugin/wp-sudo-loader.php">
+    <HookInvalidArgs>
+      <code><![CDATA[add_action(
+	'muplugins_loaded',
+	static function () {
+		$gate = new WP_Sudo\Gate(
+			new WP_Sudo\Sudo_Session(),
+			new WP_Sudo\Request_Stash()
+		);
+		$gate->register_early();
+	}
+)]]></code>
+    </HookInvalidArgs>
+    <MissingFile>
+      <code><![CDATA[require_once $wp_sudo_plugin_dir . 'wp-sudo.php']]></code>
+    </MissingFile>
+  </file>
+  <file src="wp-sudo.php">
+    <HookInvalidArgs>
+      <code><![CDATA[add_action(
+	'plugins_loaded',
+	static function () {
+		wp_sudo()->init();
+	}
+)]]></code>
+    </HookInvalidArgs>
+  </file>
+</files>

@@ -16,6 +16,8 @@ TMPDIR=${TMPDIR-/tmp}
 TMPDIR=$(echo $TMPDIR | sed -e "s/\/$//")
 WP_TESTS_DIR=${WP_TESTS_DIR-$TMPDIR/wordpress-tests-lib}
 WP_CORE_DIR=${WP_CORE_DIR-$TMPDIR/wordpress}
+MYSQL_BIN=""
+MYSQLADMIN_BIN=""
 
 download() {
     if [ `which curl` ]; then
@@ -34,6 +36,44 @@ check_svn_installed() {
         echo "Error: svn is not installed. Please install svn and try again."
         exit 1
     fi
+}
+
+resolve_mysql_bin() {
+	local command_name="$1"
+
+	if command -v "$command_name" > /dev/null 2>&1; then
+		command -v "$command_name"
+		return 0
+	fi
+
+	# Homebrew often installs mysql-client without linking it into PATH.
+	for prefix in /opt/homebrew /usr/local; do
+		for formula in mysql mysql-client; do
+			local candidate="$prefix/opt/$formula/bin/$command_name"
+			if [ -x "$candidate" ]; then
+				echo "$candidate"
+				return 0
+			fi
+		done
+	done
+
+	return 1
+}
+
+check_mysql_tools_installed() {
+	MYSQL_BIN=$(resolve_mysql_bin mysql || true)
+	MYSQLADMIN_BIN=$(resolve_mysql_bin mysqladmin || true)
+
+	if [ -z "$MYSQL_BIN" ] || [ -z "$MYSQLADMIN_BIN" ]; then
+		echo "Error: mysql and mysqladmin are required for integration test setup."
+		echo "Install MySQL tooling and make sure it is available on PATH."
+		echo "macOS (Homebrew): brew install mysql-client"
+		echo "Ubuntu/Debian: sudo apt install mysql-client"
+		echo "If Homebrew mysql-client is not linked, add one of these paths to PATH:"
+		echo "  /opt/homebrew/opt/mysql-client/bin"
+		echo "  /usr/local/opt/mysql-client/bin"
+		exit 1
+	fi
 }
 
 if [[ $WP_VERSION =~ ^[0-9]+\.[0-9]+\-(beta|RC)[0-9]+$ ]]; then
@@ -125,7 +165,7 @@ install_test_suite() {
 		svn export --quiet --ignore-externals https://develop.svn.wordpress.org/${WP_TESTS_TAG}/tests/phpunit/data/ $WP_TESTS_DIR/data
 	fi
 
-	if [ ! -f wp-tests-config.php ]; then
+	if [ ! -s "$WP_TESTS_DIR/wp-tests-config.php" ]; then
 		download https://develop.svn.wordpress.org/${WP_TESTS_TAG}/wp-tests-config-sample.php "$WP_TESTS_DIR"/wp-tests-config.php
 		# remove all forward slashes in the end
 		WP_CORE_DIR=$(echo $WP_CORE_DIR | sed "s:/\+$::")
@@ -143,7 +183,7 @@ recreate_db() {
 	shopt -s nocasematch
 	if [[ $1 =~ ^(y|yes)$ ]]
 	then
-		mysqladmin drop $DB_NAME -f --user="$DB_USER" --password="$DB_PASS"$EXTRA
+		"$MYSQLADMIN_BIN" drop "$DB_NAME" -f --user="$DB_USER" --password="$DB_PASS"$EXTRA
 		create_db
 		echo "Recreated the database ($DB_NAME)."
 	else
@@ -153,7 +193,7 @@ recreate_db() {
 }
 
 create_db() {
-	mysqladmin create $DB_NAME --user="$DB_USER" --password="$DB_PASS"$EXTRA
+	"$MYSQLADMIN_BIN" create "$DB_NAME" --user="$DB_USER" --password="$DB_PASS"$EXTRA
 }
 
 install_db() {
@@ -169,7 +209,7 @@ install_db() {
 	local EXTRA=""
 
 	if ! [ -z $DB_HOSTNAME ] ; then
-		if [ $(echo $DB_SOCK_OR_PORT | grep -e '^[0-9]\{1,\}$') ]; then
+		if [ -n "$DB_SOCK_OR_PORT" ] && echo "$DB_SOCK_OR_PORT" | grep -Eq '^[0-9]+$'; then
 			EXTRA=" --host=$DB_HOSTNAME --port=$DB_SOCK_OR_PORT --protocol=tcp"
 		elif ! [ -z $DB_SOCK_OR_PORT ] ; then
 			EXTRA=" --socket=$DB_SOCK_OR_PORT"
@@ -179,8 +219,7 @@ install_db() {
 	fi
 
 	# create database
-	if [ $(mysql --user="$DB_USER" --password="$DB_PASS"$EXTRA --execute='show databases;' | grep ^$DB_NAME$) ]
-	then
+	if "$MYSQL_BIN" --user="$DB_USER" --password="$DB_PASS"$EXTRA --execute='show databases;' 2> /dev/null | grep -q "^${DB_NAME}$"; then
 		echo "Reinstalling will delete the existing test database ($DB_NAME)"
 		read -p 'Are you sure you want to proceed? [y/N]: ' DELETE_EXISTING_DB
 		recreate_db $DELETE_EXISTING_DB
@@ -199,6 +238,7 @@ install_plugins() {
 	fi
 }
 
+check_mysql_tools_installed
 install_wp
 install_test_suite
 install_db

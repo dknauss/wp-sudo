@@ -143,7 +143,11 @@ Two test environments are used deliberately — choose based on what you are tes
 
 When in doubt: if the test needs a real database, real crypto, or calls that cross class boundaries in production, write an integration test.
 
-Static analysis: `composer analyse` runs PHPStan level 6 (use `--memory-limit=1G` if needed). Zero errors required.
+Static analysis:
+
+- `composer analyse:phpstan` runs PHPStan.
+- `composer analyse:psalm` runs Psalm with the WordPress Psalm plugin/stubs.
+- `composer analyse` runs both analyzers.
 
 Code style: `composer lint` (PHPCS, WordPress-Extra + WordPress-Docs + WordPressVIPMinimum rulesets). Auto-fix with `composer lint:fix`.
 

@@ -10,10 +10,12 @@
         "automattic/vipwpcs": "^3.0",
         "brain/monkey": "^2.7",
         "cyclonedx/cyclonedx-php-composer": "^6.2",
+        "humanmade/psalm-plugin-wordpress": "^3.1",
         "mockery/mockery": "^1.6",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^9.6",
         "szepeviktor/phpstan-wordpress": "^2.0",
+        "vimeo/psalm": "^6.13",
         "yoast/phpunit-polyfills": "^4.0"
     },
     "autoload": {
@@ -43,7 +45,13 @@
         "test:unit": "phpunit --configuration phpunit.xml.dist",
         "test:integration": "phpunit --configuration phpunit-integration.xml.dist",
         "test:coverage": "phpunit --configuration phpunit.xml.dist --coverage-clover coverage.xml --coverage-text",
-        "analyse": "phpstan analyse",
+        "analyse": [
+            "@analyse:phpstan",
+            "@analyse:psalm"
+        ],
+        "analyse:phpstan": "phpstan analyse --memory-limit=1G",
+        "analyse:psalm": "psalm --config=psalm.xml.dist --threads=1 --no-progress",
+        "analyse:psalm:shepherd": "psalm --config=psalm.xml.dist --threads=1 --no-progress --shepherd",
         "sbom": "composer CycloneDX:make-sbom --output-file=bom.json --output-format=JSON --spec-version=1.6 --output-reproducible"
     }
 }

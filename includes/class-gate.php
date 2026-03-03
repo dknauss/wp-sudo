@@ -1126,8 +1126,15 @@ class Gate {
 
 		$challenge_url = add_query_arg( $query_args, $base_url );
 
-		wp_safe_redirect( $challenge_url );
-		exit;
+		if ( wp_safe_redirect( $challenge_url ) ) {
+			exit;
+		}
+
+		wp_die(
+			esc_html__( 'Unable to redirect to the sudo challenge page.', 'wp-sudo' ),
+			'',
+			array( 'response' => 403 )
+		);
 	}
 
 	/**

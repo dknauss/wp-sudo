@@ -19,7 +19,7 @@ if ( ! $_tests_dir ) {
 
 if ( ! file_exists( $_tests_dir . '/includes/functions.php' ) ) {
 	echo "ERROR: WordPress test library not found at {$_tests_dir}/includes/functions.php\n";
-	echo "Run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 latest\n";
+	echo "Run: bash bin/install-wp-tests.sh wordpress_test root '' 127.0.0.1 latest\n";
 	exit( 1 );
 }
 

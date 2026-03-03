@@ -4,7 +4,7 @@
 
 - PHP 8.1+
 - Composer
-- MySQL 8.0 (for integration tests only)
+- MySQL 8.0 server plus client tools (`mysql`, `mysqladmin`) (for integration tests only)
 - SVN + unzip (for integration test setup only — `apt install subversion unzip` on Ubuntu, `brew install subversion` on macOS)
 
 ## Setup
@@ -39,10 +39,32 @@ Set `WP_MULTISITE=1` to run the multisite test suite:
 WP_MULTISITE=1 composer test:integration
 ```
 
+If `mysql` or `mysqladmin` is not found, install client tooling first:
+
+```bash
+# macOS (Homebrew)
+brew install mysql-client
+
+# Ubuntu/Debian
+sudo apt install mysql-client
+```
+
+Homebrew may install client binaries without linking them on PATH. If needed:
+
+```bash
+# Apple Silicon
+export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
+
+# Intel macOS
+export PATH="/usr/local/opt/mysql-client/bin:$PATH"
+```
+
 ### Static analysis + code style
 
 ```bash
-composer analyse   # PHPStan level 6
+composer analyse:phpstan  # PHPStan
+composer analyse:psalm    # Psalm + WordPress plugin/stubs
+composer analyse          # Runs both
 composer lint      # PHPCS (WordPress-Extra + WordPress-Docs + VIP rulesets)
 composer lint:fix  # Auto-fix PHPCS violations
 ```
@@ -116,7 +138,7 @@ To test the current `main` branch interactively without opening a PR, use
 1. Write a failing test first — commit or show it before writing production code
 2. Write the minimum production code to pass
 3. `composer test:unit` must pass before every commit
-4. `composer analyse` must pass before every commit (PHPStan level 6, zero errors)
+4. `composer analyse` must pass before every commit (PHPStan + Psalm)
 
 ## MU-Plugin (Local Dev)
 

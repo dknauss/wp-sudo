@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<psalm
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="vendor/vimeo/psalm/config.xsd"
+    errorLevel="6"
+    resolveFromConfigFile="true"
+    findUnusedCode="false"
+    cacheDirectory=".cache/psalm"
+    errorBaseline="psalm-baseline.xml"
+>
+    <projectFiles>
+        <directory name="includes" />
+        <directory name="mu-plugin" />
+        <directory name="bridges" />
+        <file name="wp-sudo.php" />
+        <file name="uninstall.php" />
+        <ignoreFiles>
+            <directory name="vendor" />
+            <directory name="tests" />
+        </ignoreFiles>
+    </projectFiles>
+
+    <plugins>
+        <pluginClass class="PsalmWordPress\Plugin" />
+    </plugins>
+</psalm>

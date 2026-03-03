@@ -10,6 +10,8 @@ Sudo is the only solution that provides control over actions just before they're
 [![WordPress: 6.2–7.0](https://img.shields.io/badge/WordPress-6.2–7.0-0073aa.svg)](https://wordpress.org/)
 [![PHP: 8.0+](https://img.shields.io/badge/PHP-8.0%2B-777bb4.svg)](https://www.php.net/)
 [![PHPUnit](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml)
+[![Codecov](https://codecov.io/gh/dknauss/wp-sudo/graph/badge.svg?branch=main)](https://codecov.io/gh/dknauss/wp-sudo)
+[![Type Coverage](https://shepherd.dev/github/dknauss/wp-sudo/coverage.svg)](https://shepherd.dev/github/dknauss/wp-sudo)
 [![Try in Playground](https://img.shields.io/badge/Try%20it-Playground-3858e9?logo=wordpress&logoColor=white)](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/dknauss/wp-sudo/main/blueprint.json)
 
 > _**This exploratory plugin is NOT production-ready**. Please [**help test it**](https://github.com/dknauss/wp-sudo/blob/main/tests/MANUAL-TESTING.md) and share your feedback._
@@ -185,7 +187,7 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 - **Unit tests** (397 tests, 944 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.4s with no database. Cover request matching, session state machine, policy enforcement, and hook registration.
 - **Integration tests** (92 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
 
-**Static analysis and code style.** PHPStan level 6 (zero errors) and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early.
+**Static analysis and code style.** PHPStan, Psalm (with WordPress stubs/plugin), and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early. Type coverage is published to Shepherd on default-branch pushes (`main`/`master`).
 
 **Extensibility.** The action registry is filterable via `wp_sudo_gated_actions`. The plugin fires 9 audit hooks covering session lifecycle, gated actions, policy decisions, and lockouts — designed for integration with activity log plugins. Third-party 2FA plugins integrate via four filter hooks. See [docs/developer-reference.md](docs/developer-reference.md) for the full hook reference.
 
@@ -202,7 +204,7 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 | **Total PHP** (production + tests, excl. vendor) | 18,283 lines |
 | **Test-to-production ratio** | 1.7:1 |
 
-No production dependencies. Dev dependencies (PHPUnit, PHPStan, PHPCS, Brain\Monkey, Mockery) live in `vendor/` and are not shipped.
+No production dependencies. Dev dependencies (PHPUnit, PHPStan, Psalm, PHPCS, Brain\Monkey, Mockery) live in `vendor/` and are not shipped.
 
 *Last updated: 2026-02-27. See CLAUDE.md for the update command.*
 
