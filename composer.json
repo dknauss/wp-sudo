@@ -50,8 +50,8 @@
             "@analyse:psalm"
         ],
         "analyse:phpstan": "phpstan analyse --memory-limit=1G",
-        "analyse:psalm": "psalm --config=psalm.xml.dist --threads=1 --no-progress",
-        "analyse:psalm:shepherd": "psalm --config=psalm.xml.dist --threads=1 --no-progress --shepherd",
+        "analyse:psalm": "psalm --config=psalm.xml.dist --threads=1 --no-progress --no-cache",
+        "analyse:psalm:shepherd": "psalm --config=psalm.xml.dist --threads=1 --no-progress --no-cache --shepherd",
         "sbom": "composer CycloneDX:make-sbom --output-file=bom.json --output-format=JSON --spec-version=1.6 --output-reproducible"
     }
 }

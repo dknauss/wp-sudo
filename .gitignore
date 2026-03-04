@@ -10,8 +10,6 @@ coverage/
 coverage.xml
 .phpunit.result.cache
 
-# Psalm cache
-.cache/
 
 # System files (IDE / OS)
 .DS_Store

@@ -104,9 +104,9 @@ Identified by independent assessments from Codex, Gemini, and Claude (March 2026
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.10.2):
-- **429 unit tests**, 1050 assertions, across 14 test files (Brain\Monkey mocks)
-- **116 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
+Current project state (as of v2.10.2 + Phase 1 hardening):
+- **448 unit tests**, 1129 assertions, across 14 test files (Brain\Monkey mocks)
+- **121 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.0–8.4, WordPress 6.7 + latest + trunk, single-site + multisite + PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
