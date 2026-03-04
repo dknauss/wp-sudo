@@ -197,4 +197,14 @@ if ( ! class_exists( 'Two_Factor_Core' ) ) {
 }
 
 // ── Composer autoloader ──────────────────────────────────────────────
-require_once dirname( __DIR__ ) . '/vendor/autoload.php';
+$vendor_autoload      = dirname( __DIR__ ) . '/vendor/autoload.php';
+$vendor_test_autoload = dirname( __DIR__ ) . '/vendor_test/autoload.php';
+
+if ( file_exists( $vendor_autoload ) ) {
+	require_once $vendor_autoload;
+} elseif ( file_exists( $vendor_test_autoload ) ) {
+	require_once $vendor_test_autoload;
+} else {
+	fwrite( STDERR, "Unable to locate Composer autoloader in vendor/ or vendor_test/.\n" );
+	exit( 1 );
+}

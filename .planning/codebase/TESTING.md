@@ -1,6 +1,6 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-02-27 (revised; original 2026-02-19)
+**Analysis Date:** 2026-03-04 (revised; original 2026-02-19)
 
 ## Test Framework
 
@@ -59,14 +59,17 @@ tests/
 │   ├── SiteHealthTest.php
 │   ├── SudoSessionTest.php
 │   ├── UpgraderTest.php
+│   ├── WebAuthnBridgeTest.php
 │   └── WpGraphQLGatingTest.php
 └── Integration/
     ├── bootstrap.php              # Loads real WP test environment + plugin; no Brain\Monkey
     ├── TestCase.php               # Integration base class: superglobal snapshots, helpers
     ├── ActionRegistryTest.php
+    ├── AdminTest.php
     ├── AjaxGatingTest.php
     ├── AuditHooksTest.php
     ├── ChallengeTest.php
+    ├── ExitPathTest.php
     ├── MultisiteTest.php
     ├── RateLimitingTest.php
     ├── ReauthFlowTest.php
@@ -79,7 +82,7 @@ tests/
     └── WpGraphQLGatingTest.php
 ```
 
-**Current counts (v2.9.2):** 397 unit tests, 944 assertions. ~80 integration tests.
+**Current counts (2026-03-04):** 460 unit tests, 1182 assertions, and 130 integration tests.
 
 ## Test Types
 
@@ -400,7 +403,10 @@ public function test_soft_block_returns_json_error_for_ajax(): void {
 
 ```php
 public function test_lockout_constants(): void {
+    // Legacy counter key retained for uninstall/backward compatibility.
     $this->assertSame( '_wp_sudo_failed_attempts', Sudo_Session::LOCKOUT_META_KEY );
+    $this->assertSame( '_wp_sudo_failure_event', Sudo_Session::FAILURE_EVENT_META_KEY );
+    $this->assertSame( '_wp_sudo_throttle_until', Sudo_Session::THROTTLE_UNTIL_META_KEY );
     $this->assertSame( '_wp_sudo_lockout_until', Sudo_Session::LOCKOUT_UNTIL_META_KEY );
     $this->assertSame( 5, Sudo_Session::MAX_FAILED_ATTEMPTS );
     $this->assertSame( 300, Sudo_Session::LOCKOUT_DURATION );
@@ -434,4 +440,4 @@ $this->assertSame(hash('sha256', $cookie_token), $stored_hash);
 
 ---
 
-*Testing analysis revised: 2026-02-27*
+*Testing analysis revised: 2026-03-04*

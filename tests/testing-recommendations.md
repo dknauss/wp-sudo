@@ -1,6 +1,6 @@
 # Testing Recommendations
 
-*Updated March 3, 2026*
+*Updated March 4, 2026*
 
 **~~1. Measure before optimizing: add PCOV + coverage reporting~~ ✅ Done (v2.9.1, Codecov added v2.10.1)**
 
@@ -32,7 +32,7 @@ Unit test line coverage is 85.6% (2244/2621 lines). The remaining 14.4% is conce
 
 Pushing unit coverage from 85% to 90% would require ~20+ new unit tests heavily mocking WordPress internals. These tests break on WP updates without catching real bugs — high maintenance, low signal.
 
-**Set Codecov threshold at 80%** to prevent regressions. The actual effective coverage (unit + integration) is higher than what Codecov reports, since integration tests (121 tests) cover many of the same paths but aren't included in the Codecov upload.
+**Set Codecov threshold at 80%** to prevent regressions. The actual effective coverage (unit + integration) is higher than what Codecov reports, since integration tests (130 tests) cover many of the same paths but aren't included in the Codecov upload.
 
 Better investments for test quality:
 - More integration tests (real WP, real DB, real flows)

@@ -24,16 +24,16 @@ abstract class TestCase extends PHPUnitTestCase {
 
 		// Default stubs for sanitization functions used throughout the plugin.
 		// Individual tests can override these with specific expectations.
-		Functions\stubs(
-			array(
-				'wp_unslash'          => static function ( $value ) {
-					return $value;
-				},
-				'sanitize_text_field' => static function ( $str ) {
-					return (string) $str;
-				},
-			)
-		);
+			Functions\stubs(
+				array(
+					'wp_unslash'          => static function ( $value ) {
+						return $value;
+					},
+					'sanitize_text_field' => static function ( $str ) {
+						return (string) $str;
+					},
+				)
+			);
 
 		// Default stub for application password UUID — null means not app-password auth.
 		// Individual tests can override with Functions\when() for specific UUIDs.

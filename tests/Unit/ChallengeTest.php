@@ -45,6 +45,7 @@ class ChallengeTest extends TestCase
 		// Prevent stash_key leakage between tests.
 		unset($_POST['stash_key'], $_GET['stash_key'], $_GET['return_url'], $_GET['page']);
 
+		Functions\when('get_user_meta')->justReturn('');
 		Functions\when('esc_url_raw')->returnArg();
 	}
 
@@ -114,6 +115,7 @@ class ChallengeTest extends TestCase
 		$_GET['stash_key'] = 'testkey123';
 
 		Functions\when('__')->returnArg();
+		Functions\when('get_current_user_id')->justReturn(42);
 
 		Functions\expect('wp_enqueue_style')
 			->once()
@@ -171,6 +173,7 @@ class ChallengeTest extends TestCase
 		$_GET['stash_key'] = 'key123';
 
 		Functions\when('__')->returnArg();
+		Functions\when('get_current_user_id')->justReturn(42);
 
 		Functions\expect('wp_enqueue_style')->once();
 		Functions\expect('wp_enqueue_script')->once();
@@ -206,6 +209,7 @@ class ChallengeTest extends TestCase
 			'networkError',
 			'authenticationFailed',
 			'lockoutCountdown',
+			'throttleCountdown',
 			'timeRemaining',
 			'timeRemainingWarn',
 			'sessionExpired',
@@ -350,9 +354,9 @@ class ChallengeTest extends TestCase
 	}
 
 	/**
-	 * Test handle_ajax_auth returns delay metadata when password flow is throttled.
+	 * Test handle_ajax_auth default invalid-password path includes delay in JSON error payload when backend result has delay.
 	 */
-	public function test_handle_ajax_auth_returns_delay_when_throttled(): void
+	public function test_handle_ajax_auth_returns_delay_in_invalid_password_response(): void
 	{
 		$_POST['password'] = 'wrong-password';
 
@@ -547,9 +551,82 @@ class ChallengeTest extends TestCase
 		$this->assertStringContainsString('expired', $error_calls[0]['data']['message']);
 	}
 
-	// -----------------------------------------------------------------
-	// Multisite: register() adds network admin menu
-	// -----------------------------------------------------------------
+	/**
+	 * Test handle_ajax_2fa returns delay metadata when 2FA code is invalid and throttled.
+	 */
+	public function test_handle_ajax_2fa_returns_delay_on_invalid_code(): void
+	{
+		// Set challenge cookie.
+		$challenge_nonce = 'test-challenge-nonce-2fa-delay';
+		$challenge_hash = hash('sha256', $challenge_nonce);
+		$_COOKIE[\WP_Sudo\Sudo_Session::CHALLENGE_COOKIE] = $challenge_nonce;
+
+		Functions\expect('check_ajax_referer')->once();
+		Functions\when('get_current_user_id')->justReturn(42);
+		Functions\expect('get_userdata')->once()->andReturn(new \WP_User(42));
+		Functions\when('__')->returnArg();
+		Functions\when('sanitize_text_field')->returnArg();
+
+		// get_2fa_pending() succeeds.
+		Functions\expect('get_transient')
+			->once()
+			->with('wp_sudo_2fa_pending_' . $challenge_hash)
+			->andReturn(array(
+				'user_id' => 42,
+				'expires_at' => time() + 600,
+			));
+
+		// Not throttled BEFORE validation; emulate 4 failed events after write for delay.
+		$now = time();
+		Functions\when('get_user_meta')->alias(function ($uid, $key, $single = true) use ($now) {
+			if (\WP_Sudo\Sudo_Session::THROTTLE_UNTIL_META_KEY === $key) {
+				return '';
+			}
+			if (\WP_Sudo\Sudo_Session::LOCKOUT_UNTIL_META_KEY === $key) {
+				return '';
+			}
+			if (\WP_Sudo\Sudo_Session::FAILURE_EVENT_META_KEY === $key) {
+				return array($now - 3, $now - 2, $now - 1, $now);
+			}
+			return '';
+		});
+
+		// 2FA validation fails.
+		Functions\when('apply_filters')->justReturn(false);
+
+		// Throttled AFTER validation (e.g. 4th attempt).
+		Functions\expect('add_user_meta')
+			->once()
+			->with(42, \WP_Sudo\Sudo_Session::FAILURE_EVENT_META_KEY, \Mockery::any(), false)
+			->andReturn(true);
+		Functions\expect('update_user_meta')
+			->once()
+			->with(42, \WP_Sudo\Sudo_Session::THROTTLE_UNTIL_META_KEY, \Mockery::type('int'))
+			->andReturn(true);
+
+		// Verify JSON response contains delay.
+		$error = null;
+		Functions\expect('wp_send_json_error')
+			->once()
+			->andReturnUsing(function ($data, $status = 200) use (&$error) {
+				$error = array('data' => $data, 'status' => $status);
+				throw new \RuntimeException('stop');
+			});
+
+		try {
+			$this->challenge->handle_ajax_2fa();
+			$this->fail('Expected early wp_send_json_error.');
+		} catch (\RuntimeException $e) {
+			$this->assertSame('stop', $e->getMessage());
+		}
+
+		$this->assertIsArray($error);
+		$this->assertSame(401, $error['status']);
+		$this->assertSame('invalid_two_factor', $error['data']['code'] ?? '');
+		$this->assertSame(2, $error['data']['delay'] ?? 0);
+
+		unset($_COOKIE[\WP_Sudo\Sudo_Session::CHALLENGE_COOKIE]);
+	}
 
 	/**
 	 * Test register adds network_admin_menu on multisite.
@@ -594,6 +671,7 @@ class ChallengeTest extends TestCase
 		// No stash_key — session-only mode.
 
 		Functions\when('__')->returnArg();
+		Functions\when('get_current_user_id')->justReturn(42);
 
 		Functions\expect('wp_enqueue_style')->once();
 		Functions\expect('wp_enqueue_script')->once();
@@ -1123,6 +1201,7 @@ class ChallengeTest extends TestCase
 		$_GET['stash_key'] = 'abc123';
 
 		Functions\when('__')->returnArg();
+		Functions\when('get_current_user_id')->justReturn(42);
 
 		Functions\expect('wp_enqueue_style')->once();
 		Functions\expect('wp_enqueue_script')->once();
@@ -1152,5 +1231,41 @@ class ChallengeTest extends TestCase
 		$this->challenge->enqueue_assets();
 
 		unset($_GET['page'], $_GET['stash_key']);
+	}
+
+	/**
+	 * Test render_page detects active throttle and disables form immediately.
+	 */
+	public function test_render_page_disables_form_when_throttled(): void
+	{
+		Functions\when('get_current_user_id')->justReturn(42);
+		Functions\when('__')->returnArg();
+		Functions\when('esc_html__')->returnArg();
+		Functions\when('esc_html_e')->returnArg();
+		Functions\when('esc_html')->returnArg();
+		Functions\when('esc_attr')->returnArg();
+		Functions\when('esc_url')->returnArg();
+		Functions\when('disabled')->returnArg();
+		Functions\when('wp_validate_redirect')->returnArg();
+		Functions\when('admin_url')->justReturn('https://example.com/wp-admin/');
+		Functions\expect('get_userdata')->andReturn(new \WP_User(42));
+
+		$this->stash->shouldReceive('get')->andReturn(null);
+
+		// Active throttle: 5 seconds.
+		Functions\when('get_user_meta')->alias(function ($uid, $key, $single = true) {
+			if (\WP_Sudo\Sudo_Session::THROTTLE_UNTIL_META_KEY === $key) {
+				return time() + 5;
+			}
+			return '';
+		});
+
+		ob_start();
+		$this->challenge->render_page();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString('disabled', $output);
+		$this->assertMatchesRegularExpression('/Please wait \d+ seconds/', $output);
+		$this->assertStringContainsString('wp-sudo-challenge-throttle-notice', $output);
 	}
 }

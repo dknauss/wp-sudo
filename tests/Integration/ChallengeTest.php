@@ -147,6 +147,24 @@ class ChallengeTest extends TestCase {
 	}
 
 	/**
+	 * 2FA failure path (record_failed_attempt) applies progressive throttle before lockout.
+	 */
+	public function test_record_failed_attempt_sets_throttle_before_lockout(): void {
+		$user = $this->make_admin( 'correct-password' );
+		wp_set_current_user( $user->ID );
+
+		for ( $i = 0; $i < 3; $i++ ) {
+			$this->assertSame( 0, Sudo_Session::record_failed_attempt( $user->ID ) );
+		}
+
+		$delay = Sudo_Session::record_failed_attempt( $user->ID );
+		$this->assertGreaterThan( 0, $delay, '4th failure should return a throttle delay.' );
+		$this->assertGreaterThan( 0, Sudo_Session::throttle_remaining( $user->ID ), 'Throttle meta should be active after 4th failure.' );
+		$this->assertFalse( Sudo_Session::is_locked_out( $user->ID ), '4th failure should throttle, not lock out.' );
+		$this->assertSame( 4, Sudo_Session::get_failed_attempts( $user->ID ) );
+	}
+
+	/**
 	 * Rate limiting: lockout after MAX_FAILED_ATTEMPTS wrong passwords.
 	 */
 	public function test_lockout_after_max_failed_attempts(): void {

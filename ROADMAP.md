@@ -5,7 +5,7 @@
 ## Table of Contents
 
 - **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
-- **[Context](#context)** — v2.8.0 state: 391 unit + 73 integration tests, CI matrix, WP 7.0 status
+- **[Context](#context)** — current state: 460 unit + 130 integration tests, CI matrix, WP 7.0 status
 - **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (80 tests), coverage analysis, remaining gaps
 - **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-ga-april-9-2026)** — Beta 1 tested ✓, one task remaining: "Tested up to" bump on GA day
 - **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
@@ -32,9 +32,9 @@
 
 Identified by independent assessments from Codex, Gemini, and Claude (March 2026). Focus on real security and availability gaps in existing code, not new features.
 
-- **P1 — Request Stash data minimization:** Redact sensitive fields (passwords, tokens) before transient storage; add per-user stash cap to bound growth.
-- **P1 — Upload-action coverage:** Gate `upload-plugin` and `upload-theme` ZIP upload paths (currently missing from Action Registry).
-- **P1 — Non-blocking rate limiting:** Replace `sleep()` in failed-auth path with time-based throttling to prevent PHP-FPM worker exhaustion.
+- ~~**P1 — Request Stash data minimization:** Redact sensitive fields (passwords, tokens) before transient storage; add per-user stash cap to bound growth.~~ ✅ Complete (Phase 1)
+- ~~**P1 — Upload-action coverage:** Gate `upload-plugin` and `upload-theme` ZIP upload paths (currently missing from Action Registry).~~ ✅ Complete (Phase 1)
+- ~~**P1 — Non-blocking rate limiting:** Replace `sleep()` in failed-auth path with time-based throttling to prevent PHP-FPM worker exhaustion.~~ ✅ Complete (Phase 2)
 - **P2 — Rule-schema validation:** Validate `wp_sudo_gated_actions` filter output before Gate consumes it; drop invalid rules fail-closed.
 - **P2 — MU loader path resilience:** Remove hardcoded plugin slug assumption in `mu-plugin/wp-sudo-loader.php`.
 - **P3 — WPGraphQL persisted-query strategy:** Document and optionally handle persisted-query mutations in Limited mode.
@@ -104,9 +104,9 @@ Identified by independent assessments from Codex, Gemini, and Claude (March 2026
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of v2.10.2 + Phase 1 hardening):
-- **448 unit tests**, 1129 assertions, across 14 test files (Brain\Monkey mocks)
-- **121 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
+Current project state (as of March 4, 2026):
+- **460 unit tests**, 1182 assertions, across 14 test files (Brain\Monkey mocks)
+- **130 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.0–8.4, WordPress 6.7 + latest + trunk, single-site + multisite + PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
@@ -615,17 +615,17 @@ The 76 `exit`/`die` paths in the codebase (mostly `wp_send_json()` + `exit` in t
 - **Modal challenge caveat:** This analysis assumes the current full-page challenge. If the client-side modal challenge (see §10) is implemented, OS-level autofill may not work reliably — browsers are increasingly cautious about autofilling inside iframes and dynamically injected forms, and password manager heuristics depend on page-level cues (form action, URL) that a modal disrupts. If the modal breaks the OS autofill shortcut, an explicit "Use passkey" or "Use TOTP" button on the modal becomes more valuable. Re-evaluate this decision when the modal ships.
 - **Status:** No code changes needed for the current full-page challenge. The flow is optimal given OS-level credential management. Revisit when (a) WordPress core introduces a native reauthentication API that supports method selection, or (b) the modal challenge design begins implementation.
 
-**Request stash stores raw POST payloads**
+**~~Request stash stores raw POST payloads~~** ✅ Fixed (Phase 1)
 
-- Stash stores verbatim request arrays (`class-request-stash.php:65-67`, `205-212`).
-- **Impact:** If transient storage is exposed (DB or object-cache compromise), sensitive form data has additional exposure surface.
-- **Action:** Consider redacting known-secret keys on stash write with denylist. Document tradeoff in security docs.
+- ~~Stash stores verbatim request arrays (`class-request-stash.php:65-67`, `205-212`).~~
+- Fixed: stash writes now redact sensitive keys and enforce a per-user stash cap before transient storage.
+- See `.planning/phases/01-request-stash-redaction-and-upload-action-coverage/`.
 
-**Progressive delay uses blocking `sleep()`**
+**~~Progressive delay uses blocking `sleep()`~~** ✅ Fixed (Phase 2)
 
-- `sleep($delay)` during failed auth attempts (`class-sudo-session.php:718`).
-- **Impact:** Under heavy abuse, blocked PHP-FPM workers reduce throughput.
-- **Action:** Consider non-blocking rate limiting (timestamp-only checks) if this becomes operationally relevant.
+- ~~`sleep($delay)` during failed auth attempts (`class-sudo-session.php:718`).~~
+- Fixed: non-blocking throttle uses `_wp_sudo_throttle_until` plus append-row `_wp_sudo_failure_event` tracking; no worker-blocking sleep.
+- See `.planning/phases/02-non-blocking-rate-limiting/`.
 
 **~~App-password admin JS has hardcoded English strings~~** ✅ Fixed
 
@@ -840,9 +840,9 @@ trigger is Gutenberg integration, which would require browser-level testing anyw
 
 *Added March 4, 2026 — based on independent assessments by Codex, Gemini, and Claude. Full analysis in `.planning/PROPOSED-NEXT-STEPS-{codex,gemini,Claude}.md` and `.planning/WORKING-ASSESSMENT-Codex.md`.*
 
-WP Sudo should run a focused hardening sprint before new UX or architecture expansion. The highest remaining risks are not auth bypasses — they are data-exposure tradeoffs in request stashing, ungated upload paths, and operational availability under abuse. These should be prioritized ahead of lower-impact feature expansion.
+WP Sudo ran a focused hardening sprint before new UX or architecture expansion. Sprint A and Sprint B are complete (request stash redaction/cap, upload-action coverage, and non-blocking rate limiting). Remaining work should prioritize reliability hardening and observability over lower-impact feature expansion.
 
-### P1: Request Stash Data Minimization
+### P1: Request Stash Data Minimization ✅ Complete (Phase 1)
 
 **Problem:** `Request_Stash::sanitize_params()` (`class-request-stash.php:205`) returns `$_POST` data verbatim, including passwords and tokens. These are stored in WordPress transients (`wp_options` table) accessible to any code with database read access, backup systems, and object cache backends.
 
@@ -854,7 +854,7 @@ WP Sudo should run a focused hardening sprint before new UX or architecture expa
 
 **Tests:** Unit tests for redaction and allowlist behavior, stash cap eviction. Integration tests confirming built-in replay flows still work.
 
-### P1: Upload-Action Coverage
+### P1: Upload-Action Coverage ✅ Complete (Phase 1)
 
 **Problem:** `Action_Registry` gates `install-plugin` and `install-theme` (WordPress.org directory installs) but has no rules for `update.php?action=upload-plugin` or `upload-theme` (ZIP upload paths). A compromised session can upload arbitrary plugin ZIPs without sudo challenge.
 
@@ -862,7 +862,7 @@ WP Sudo should run a focused hardening sprint before new UX or architecture expa
 
 **Tests:** Unit tests for matching upload action requests. Integration tests confirming challenge path on upload actions.
 
-### P1: Non-Blocking Rate Limiting
+### P1: Non-Blocking Rate Limiting ✅ Complete (Phase 2)
 
 **Problem:** `Sudo_Session::record_failed_attempt()` (`class-sudo-session.php:719`) uses `sleep()` for progressive delays (2s at attempt 4, 5s at attempt 5). Under concurrent abuse, this blocks PHP-FPM workers and reduces site throughput. The read-modify-write integer counter also has a TOCTOU race window.
 
@@ -916,8 +916,8 @@ WP Sudo should run a focused hardening sprint before new UX or architecture expa
 ### Delivery Sequence
 
 1. Complete Phase 5 `05-02` WP 7.0 manual verification.
-2. **Sprint A** (Security core): Stash redaction + per-user cap, upload-action coverage.
-3. **Sprint B** (Auth resilience): Non-blocking rate limiting.
+2. ~~**Sprint A** (Security core): Stash redaction + per-user cap, upload-action coverage.~~ ✅ Complete.
+3. ~~**Sprint B** (Auth resilience): Non-blocking rate limiting.~~ ✅ Complete.
 4. **Sprint C** (Reliability): Rule-schema validation, MU loader hardening.
 5. On/after April 9, 2026: Phase 5 `05-03` "Tested up to: 7.0" readme bump.
 6. **Sprint D** (Surface + Observability): WPGraphQL persisted-query strategy, WSAL sensor.

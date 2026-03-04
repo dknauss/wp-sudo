@@ -184,8 +184,8 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 **Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
 
-- **Unit tests** (428 tests, 1043 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.5s with no database. Cover request matching, session state machine, policy enforcement, and hook registration.
-- **Integration tests** (92 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
+- **Unit tests** (460 tests, 1182 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.5s with no database. Cover request matching, session state machine, policy enforcement, and hook registration.
+- **Integration tests** (130 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
 
 **Static analysis and code style.** PHPStan, Psalm (with WordPress stubs/plugin), and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early. Type coverage is published to Shepherd on default-branch pushes (`main`/`master`).
 
@@ -197,16 +197,16 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 | Component | Size |
 |---|---|
-| **Production PHP** (`includes/`, `wp-sudo.php`, `uninstall.php`, `mu-plugin/`, `bridges/`) | 248 KB · 6,846 lines |
+| **Production PHP** (`includes/`, `wp-sudo.php`, `uninstall.php`, `mu-plugin/`, `bridges/`) | 272 KB · 7,473 lines |
 | **Assets** (screenshots, banner images) | 5.0 MB |
-| **Tests** (`tests/`) | 520 KB · 13,504 lines |
-| **Docs** (`docs/` + root-level md/txt) | 432 KB |
-| **Total PHP** (production + tests, excl. vendor) | 20,390 lines |
+| **Tests** (`tests/`) | 616 KB · 14,869 lines |
+| **Docs** (`docs/` + root-level md/txt) | 348 KB |
+| **Total PHP** (production + tests, excl. vendor) | 22,342 lines |
 | **Test-to-production ratio** | 2.0:1 |
 
 No production dependencies. Dev dependencies (PHPUnit, PHPStan, Psalm, PHPCS, Brain\Monkey, Mockery) live in `vendor/` and are not shipped.
 
-*Last updated: 2026-02-27. See CLAUDE.md for the update command.*
+*Last updated: 2026-03-04. See CLAUDE.md for the update command.*
 
 ## Screenshots
 

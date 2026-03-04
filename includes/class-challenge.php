@@ -137,20 +137,23 @@ class Challenge {
 			'wp-sudo-challenge',
 			'wpSudoChallenge',
 			array(
-				'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
-				'nonce'       => wp_create_nonce( self::NONCE_ACTION ),
-				'stashKey'    => $stash_key,
-				'authAction'  => self::AJAX_AUTH_ACTION,
-				'tfaAction'   => self::AJAX_2FA_ACTION,
-				'cancelUrl'   => $cancel_url,
-				'sessionOnly' => empty( $stash_key ),
-				'strings'     => array(
+				'ajaxUrl'           => admin_url( 'admin-ajax.php' ),
+				'nonce'             => wp_create_nonce( self::NONCE_ACTION ),
+				'stashKey'          => $stash_key,
+				'authAction'        => self::AJAX_AUTH_ACTION,
+				'tfaAction'         => self::AJAX_2FA_ACTION,
+				'cancelUrl'         => $cancel_url,
+				'sessionOnly'       => empty( $stash_key ),
+				'throttleRemaining' => Sudo_Session::throttle_remaining( get_current_user_id() ),
+				'strings'           => array(
 					'unexpectedResponse'   => __( 'The server returned an unexpected response. Check the browser console for details.', 'wp-sudo' ),
 					'genericError'         => __( 'An error occurred.', 'wp-sudo' ),
 					'networkError'         => __( 'A network error occurred. Please try again.', 'wp-sudo' ),
 					'authenticationFailed' => __( 'Authentication failed.', 'wp-sudo' ),
 					/* translators: %s: countdown timer like "4:30" */
 					'lockoutCountdown'     => __( 'Too many failed attempts. Try again in %s.', 'wp-sudo' ),
+					/* translators: %s: countdown timer like "0:05" */
+					'throttleCountdown'    => __( 'Please wait %s before trying again.', 'wp-sudo' ),
 					/* translators: %s: countdown timer like "9:30" */
 					'timeRemaining'        => __( 'Time remaining: %s', 'wp-sudo' ),
 					/* translators: %s: countdown timer like "0:45" */
@@ -202,9 +205,10 @@ class Challenge {
 
 			$action_label = $stash['label'] ?? $stash['rule_id'] ?? __( 'this action', 'wp-sudo' );
 		}
-
-		$is_locked = Sudo_Session::is_locked_out( $user_id );
-
+		$throttle_delay = Sudo_Session::throttle_remaining( $user_id );
+		$is_locked      = Sudo_Session::is_locked_out( $user_id );
+		$is_throttled   = $throttle_delay > 0;
+		$disabled       = $is_locked || $is_throttled;
 		?>
 		<div class="wrap">
 			<div class="wp-sudo-challenge-card" id="wp-sudo-challenge-card">
@@ -235,6 +239,18 @@ class Challenge {
 							<p><?php esc_html_e( 'Too many failed attempts. The form is temporarily disabled. Please wait and try again.', 'wp-sudo' ); ?>
 							</p>
 						</div>
+					<?php elseif ( $is_throttled ) : ?>
+						<div class="notice notice-warning inline" id="wp-sudo-challenge-throttle-notice" role="alert">
+							<p>
+								<?php
+									printf(
+										/* translators: %d: seconds remaining */
+										esc_html__( 'Please wait %d seconds before trying again.', 'wp-sudo' ),
+										absint( $throttle_delay )
+									);
+								?>
+							</p>
+						</div>
 					<?php endif; ?>
 
 					<div class="notice notice-error inline" id="wp-sudo-challenge-error" hidden role="alert" aria-atomic="true">
@@ -247,10 +263,10 @@ class Challenge {
 								<?php esc_html_e( 'Password', 'wp-sudo' ); ?>
 							</label><br />
 							<input type="password" id="wp-sudo-challenge-password" class="regular-text"
-								autocomplete="current-password" aria-describedby="wp-sudo-challenge-error" required <?php echo $is_locked ? 'disabled' : 'autofocus'; ?> />
+								autocomplete="current-password" aria-describedby="wp-sudo-challenge-error" required <?php echo $disabled ? 'disabled' : 'autofocus'; ?> />
 						</p>
 						<p class="submit">
-							<button type="submit" class="button button-primary" id="wp-sudo-challenge-submit" <?php disabled( $is_locked ); ?>>
+							<button type="submit" class="button button-primary" id="wp-sudo-challenge-submit" <?php disabled( $disabled ); ?>>
 								<?php esc_html_e( 'Confirm & Continue', 'wp-sudo' ); ?>
 							</button>
 							<a href="<?php echo esc_url( $cancel_url ); ?>" class="button">
@@ -426,7 +442,7 @@ class Challenge {
 			);
 		}
 
-			$throttle_delay = Sudo_Session::throttle_remaining( $user_id );
+		$throttle_delay = Sudo_Session::throttle_remaining( $user_id );
 		if ( $throttle_delay > 0 ) {
 			wp_send_json_error(
 				array(
@@ -458,7 +474,7 @@ class Challenge {
 			);
 		}
 
-			$stash_key = self::sanitize_input_string( $_POST['stash_key'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verified above; sanitized in helper.
+		$stash_key = self::sanitize_input_string( $_POST['stash_key'] ?? '' ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce verified above; sanitized in helper.
 
 		$valid = false;
 

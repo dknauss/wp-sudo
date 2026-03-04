@@ -74,15 +74,19 @@ wp-env, DDEV, etc.).
 4. **Expected:** Timer disappears from admin bar. Page auto-reloads.
    The next gated action triggers a challenge.
 
-### 1.5 Rate Limiting
+### 1.5 Rate Limiting (Non-Blocking)
 
 1. Open the challenge page.
 2. Enter an incorrect password 5 times.
-3. **Expected:** After attempt 4 there is a noticeable delay (~2s).
-   After attempt 5, the form is disabled and shows a lockout message
-   with a countdown (~5 minutes).
-4. **Accessibility:** Lockout countdown announces to screen readers at
-   30-second intervals.
+3. **Expected:**
+   - **Attempt 1–3**: Immediate "Authentication failed" error.
+   - **Attempt 4**: Submit button disables for **2 seconds**. A countdown "0:02" is visible in the notice: "Please wait 0:02 before trying again."
+   - **Attempt 5**: Submit button disables for **5 seconds**. A countdown "0:05" is visible in the notice.
+   - **After Attempt 5**: Hard lockout triggers. The form is disabled for **5 minutes**. A visible countdown shows "Too many failed attempts. Try again in 5:00."
+4. **Accessibility:**
+   - Throttle countdowns (2s/5s) update visually without interrupting screen readers.
+   - Lockout countdown announces to screen readers at 30-second intervals.
+   - Re-enabling of the form after any wait is announced as "Lockout expired. You may try again." (or similar).
 
 ### 1.6 Two-Factor Authentication
 

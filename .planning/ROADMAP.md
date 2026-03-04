@@ -26,8 +26,8 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Core TDD: replace blocking delay with non-blocking throttle and add_user_meta append-row failure tracking in `Sudo_Session` (Wave 1)
 - [x] 02-02-PLAN.md — Integration TDD: migrate scalar-counter-coupled tests and validate throttle/lockout/hook behavior in real WP flows (Wave 2)
-- [ ] 02-04-PLAN.md — UX TDD: wire delay through challenge AJAX handler and add client-side throttle disable/countdown behavior (Wave 3)
-- [ ] 02-03-PLAN.md — Cleanup TDD: uninstall/meta cleanup + security-model docs alignment + full gate verification (Wave 4)
+- [x] 02-04-PLAN.md — UX TDD: wire delay through challenge AJAX handler and add client-side throttle disable/countdown behavior (Wave 3)
+- [x] 02-03-PLAN.md — Cleanup TDD: uninstall/meta cleanup + security-model docs alignment + full gate verification (Wave 4)
 
 ### Phase 3: Rule Schema Validation and MU Loader Resilience
 
