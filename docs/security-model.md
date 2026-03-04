@@ -162,13 +162,14 @@ the risks and mitigations for each caching layer.
 |----------|---------|------------|---------|
 | `_wp_sudo_token` | Hashed session token | `Sudo_Session::activate()` | `Sudo_Session::verify_token()` |
 | `_wp_sudo_expires` | Session expiry timestamp | `Sudo_Session::activate()` | `Sudo_Session::is_active()`, `is_within_grace()` |
-| `_wp_sudo_failed_attempts` | Failed auth attempt count | `Sudo_Session::record_failed_attempt()` | `Sudo_Session::is_locked_out()` |
+| `_wp_sudo_failure_event` | Append-row failed auth event timestamps | `Sudo_Session::record_failed_attempt()` | `Sudo_Session::get_failed_attempts()`, `Sudo_Session::is_locked_out()` |
+| `_wp_sudo_throttle_until` | Throttle expiry timestamp for non-blocking retry delay | `Sudo_Session::record_failed_attempt()` | `Sudo_Session::throttle_remaining()`, `Sudo_Session::attempt_activation()` |
 | `_wp_sudo_lockout_until` | Lockout expiry timestamp | `Sudo_Session::record_failed_attempt()` | `Sudo_Session::is_locked_out()` |
 
 All reads go through `get_user_meta()`, which checks the object cache before
-querying the database. All writes go through `update_user_meta()` /
-`delete_user_meta()`, which call `wp_cache_delete()` to invalidate the cached
-value.
+querying the database. Writes go through `add_user_meta()` /
+`update_user_meta()` / `delete_user_meta()`, which call `wp_cache_delete()` to
+invalidate the cached value.
 
 **Risk: Stale session state after revocation.** If a persistent object cache
 returns a stale `_wp_sudo_token` or `_wp_sudo_expires` value after it has been
@@ -188,9 +189,10 @@ been blocked.
   This is a **fail-closed** condition (session data is re-fetched from the source
   of truth) and is not a security risk.
 
-**Risk: Stale rate-limit counters.** If `_wp_sudo_failed_attempts` or
-`_wp_sudo_lockout_until` are served from a stale cache, an attacker could
-exceed the 5-attempt lockout threshold without being locked out.
+**Risk: Stale rate-limit state.** If append-row failure events
+(`_wp_sudo_failure_event`) or lockout/throttle timestamps
+(`_wp_sudo_lockout_until`, `_wp_sudo_throttle_until`) are served from stale
+cache data, lockout and retry-delay behavior can be incorrect.
 
 **Mitigations:**
 

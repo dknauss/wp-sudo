@@ -120,6 +120,33 @@ class ChallengeTest extends TestCase {
 	}
 
 	/**
+	 * Throttle state in challenge flow returns delay without attempt progression.
+	 */
+	public function test_throttled_attempt_returns_delay_without_progression(): void {
+		$user = $this->make_admin( 'correct-password' );
+		wp_set_current_user( $user->ID );
+
+		// Seed one prior failed attempt so no-progression is explicit.
+		add_user_meta( $user->ID, Sudo_Session::FAILURE_EVENT_META_KEY, time(), false );
+		$attempts_before = Sudo_Session::get_failed_attempts( $user->ID );
+
+		// Simulate active throttle during challenge authentication.
+		update_user_meta( $user->ID, Sudo_Session::THROTTLE_UNTIL_META_KEY, time() + 10 );
+
+		$result = Sudo_Session::attempt_activation( $user->ID, 'wrong-password' );
+
+		$this->assertSame( 'invalid_password', $result['code'], 'Throttled challenge attempt should be rejected.' );
+		$this->assertArrayHasKey( 'delay', $result, 'Throttled challenge response should include delay.' );
+		$this->assertGreaterThan( 0, $result['delay'], 'Throttle delay should be positive.' );
+		$this->assertSame(
+			$attempts_before,
+			Sudo_Session::get_failed_attempts( $user->ID ),
+			'Failed attempt count should not increase while throttled.'
+		);
+		$this->assertFalse( Sudo_Session::is_locked_out( $user->ID ), 'Throttle state should not imply lockout.' );
+	}
+
+	/**
 	 * Rate limiting: lockout after MAX_FAILED_ATTEMPTS wrong passwords.
 	 */
 	public function test_lockout_after_max_failed_attempts(): void {

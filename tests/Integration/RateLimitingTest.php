@@ -63,7 +63,8 @@ class RateLimitingTest extends TestCase {
 	/**
 	 * SURF-05: Successful activation resets all failure tracking.
 	 *
-	 * 2 failed attempts → 1 success → failure events + throttle cleared.
+	 * 2 failed attempts + stale throttle meta → 1 success →
+	 * failure events + throttle cleared.
 	 */
 	public function test_successful_activation_resets_failed_attempts(): void {
 		$password = 'correct-password';
@@ -74,6 +75,13 @@ class RateLimitingTest extends TestCase {
 		Sudo_Session::attempt_activation( $user->ID, 'wrong' );
 		Sudo_Session::attempt_activation( $user->ID, 'wrong' );
 		$this->assertSame( 2, Sudo_Session::get_failed_attempts( $user->ID ) );
+
+		// Seed an expired throttle marker to verify success cleanup.
+		update_user_meta( $user->ID, Sudo_Session::THROTTLE_UNTIL_META_KEY, time() - 1 );
+		$this->assertNotEmpty(
+			get_user_meta( $user->ID, Sudo_Session::THROTTLE_UNTIL_META_KEY, true ),
+			'Throttle meta should exist before successful activation cleanup.'
+		);
 
 		// Successful activation.
 		$result = Sudo_Session::attempt_activation( $user->ID, $password );
@@ -152,6 +160,7 @@ class RateLimitingTest extends TestCase {
 	public function test_retry_during_throttle_window_returns_delay(): void {
 		$user = $this->make_admin( 'correct-password' );
 		wp_set_current_user( $user->ID );
+		$attempts_before = Sudo_Session::get_failed_attempts( $user->ID );
 
 		// Directly set throttle meta — deterministic, no wall-clock dependency.
 		update_user_meta( $user->ID, Sudo_Session::THROTTLE_UNTIL_META_KEY, time() + 10 );
@@ -161,6 +170,11 @@ class RateLimitingTest extends TestCase {
 		$this->assertSame( 'invalid_password', $result['code'], 'Throttled attempt should return invalid_password.' );
 		$this->assertArrayHasKey( 'delay', $result, 'Throttled response should include delay.' );
 		$this->assertGreaterThan( 0, $result['delay'], 'Delay should be positive.' );
+		$this->assertSame(
+			$attempts_before,
+			Sudo_Session::get_failed_attempts( $user->ID ),
+			'Failed attempt count should not progress during throttle window.'
+		);
 		$this->assertFalse(
 			Sudo_Session::is_locked_out( $user->ID ),
 			'Throttled attempt should not trigger lockout.'
