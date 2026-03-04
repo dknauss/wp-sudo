@@ -308,7 +308,6 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, Psalm, PHPCS, Br
 ### 2.5.0
 
 - **WPGraphQL surface gating** — adds WPGraphQL as a fifth non-interactive surface alongside WP-CLI, Cron, XML-RPC, and Application Passwords. Three-tier policy (Disabled / Limited / Unrestricted); default is Limited. GraphQL mutations are blocked without a sudo session; read-only queries pass through. Fires `wp_sudo_action_blocked` on block.
-- **`wp_sudo_wpgraphql_route` filter** — allows the gated endpoint to be overridden for custom WPGraphQL configurations.
 - **Site Health** — WPGraphQL policy included in Entry Point Policies health check.
 - **364 unit tests, 887 assertions. 73 integration tests in CI.**
 

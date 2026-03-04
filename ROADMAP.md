@@ -1,6 +1,6 @@
 # Roadmap: Past and Future Planning — Integration Tests, WP 7.0 Prep, Collaboration, TDD, and Core Design
 
-*Updated February 28, 2026*
+*Updated March 4, 2026*
 
 ## Table of Contents
 
@@ -18,6 +18,7 @@
 - **[9. Code Review Findings](#9-code-review-findings-gpt-53-codex-verified-addendum)** — Triaged findings from line-verified code review
 - **[10. Core Sudo Design](#10-core-sudo-design)** — Already achieved (13), to implement (6), to consider (4), discarded (5)
 - **[11. Feature Backlog](#11-feature-backlog)** — WSAL sensor, IP+user rate limiting, dashboard widget, Gutenberg, network policy
+- **[12. Security Hardening Sprint](#12-security-hardening-sprint)** — Stash redaction, upload-action coverage, non-blocking rate limiting, rule validation, MU loader
 - **[Appendix A: Accessibility](#appendix-a-accessibility-roadmap)** — 15 resolved WCAG items (v2.2.0–v2.3.1)
 
 ---
@@ -26,6 +27,18 @@
 
 ### Immediate (Blocking WP 7.0 GA — April 9, 2026)
 - **Update "Tested up to"** in readme files when WordPress 7.0 ships
+
+### Next: Security Hardening Sprint (see [section 12](#12-security-hardening-sprint))
+
+Identified by independent assessments from Codex, Gemini, and Claude (March 2026). Focus on real security and availability gaps in existing code, not new features.
+
+- **P1 — Request Stash data minimization:** Redact sensitive fields (passwords, tokens) before transient storage; add per-user stash cap to bound growth.
+- **P1 — Upload-action coverage:** Gate `upload-plugin` and `upload-theme` ZIP upload paths (currently missing from Action Registry).
+- **P1 — Non-blocking rate limiting:** Replace `sleep()` in failed-auth path with time-based throttling to prevent PHP-FPM worker exhaustion.
+- **P2 — Rule-schema validation:** Validate `wp_sudo_gated_actions` filter output before Gate consumes it; drop invalid rules fail-closed.
+- **P2 — MU loader path resilience:** Remove hardcoded plugin slug assumption in `mu-plugin/wp-sudo-loader.php`.
+- **P3 — WPGraphQL persisted-query strategy:** Document and optionally handle persisted-query mutations in Limited mode.
+- **P3 — WSAL sensor extension:** Ship audit log integration after core hardening.
 
 ### ✓ Completed in v2.10.0
 
@@ -61,7 +74,7 @@
 - Public `wp_sudo_check()` / `wp_sudo_require()` API for third-party plugins
 
 **Feature Backlog (Open):**
-- WSAL (WordPress Activity Log) sensor extension — high impact for enterprise
+- WSAL (WordPress Activity Log) sensor extension — scheduled for hardening Sprint D (see [section 12](#12-security-hardening-sprint))
 - Multi-dimensional rate limiting (IP + user combination)
 - Session activity dashboard widget
 - Gutenberg block editor integration
@@ -342,7 +355,7 @@ not context retrieval.
 
 ## Recommended Next Steps (Priority Order)
 
-> Steps 1–5 completed in v2.4.0–v2.4.1. Steps 6–7 completed in v2.5.0–v2.5.2. Remaining work:
+> Steps 1–9 completed in v2.4.0–v2.10.2. Updated March 4, 2026.
 
 1. ~~Add TDD requirement to CLAUDE.md~~ — done (v2.4.0)
 2. ~~Install WP 7.0 Beta 1, run manual testing guide~~ — done (v2.4.0)
@@ -353,7 +366,10 @@ not context retrieval.
 7. ~~Abilities API coverage documented~~ — done (v2.5.1)
 8. **Update "Tested up to"** when WP 7.0 ships (April 9, 2026)
 9. ~~**Core design features** — login=sudo, gate password changes, grace period~~ — done (v2.6.0)
-10. **Plan environment diversity testing** (see section 5)
+10. **Security hardening sprint** — stash redaction, upload-action gating, non-blocking rate limiting (see [section 12](#12-security-hardening-sprint))
+11. **Rule-schema validation and MU loader resilience** — P2 reliability hardening
+12. **WSAL sensor extension and GraphQL persisted-query strategy** — P3 observability and surface coverage
+13. **Plan environment diversity testing** (see section 5)
 
 ---
 
@@ -817,6 +833,105 @@ trigger is Gutenberg integration, which would require browser-level testing anyw
 |---------|--------|
 | Session extension (extend without reauth) | Undermines the time-bounded trust model and violates zero-trust principles. The keyboard shortcut (`Cmd+Shift+S` / `Ctrl+Shift+S`) makes re-authentication fast enough. |
 | Passkey/WebAuthn as a standalone reauthentication method | Evaluated and declined (2026-02-28). OS-level biometric autofill (Touch ID, Windows Hello, Face ID) already provides a smooth passwordless-like UX for the password field — a custom WebAuthn button saves one click at significant engineering cost. TOTP-only reauth is the strongest alternative but requires bridge hook redesign. Email OTP standalone has enumeration risk; backup codes standalone are too weak. The password-first + optional 2FA flow is correct for reauthentication. See [§9 reauthentication flow design](#9-code-review-findings-gpt-53-codex-verified-addendum). WebAuthn key *registration/deletion gating* is a separate concern, addressed by the bridge plugin (`bridges/wp-sudo-webauthn-bridge.php`, shipped v2.10.0). |
+
+---
+
+## 12. Security Hardening Sprint
+
+*Added March 4, 2026 — based on independent assessments by Codex, Gemini, and Claude. Full analysis in `.planning/PROPOSED-NEXT-STEPS-{codex,gemini,Claude}.md` and `.planning/WORKING-ASSESSMENT-Codex.md`.*
+
+WP Sudo should run a focused hardening sprint before new UX or architecture expansion. The highest remaining risks are not auth bypasses — they are data-exposure tradeoffs in request stashing, ungated upload paths, and operational availability under abuse. These should be prioritized ahead of lower-impact feature expansion.
+
+### P1: Request Stash Data Minimization
+
+**Problem:** `Request_Stash::sanitize_params()` (`class-request-stash.php:205`) returns `$_POST` data verbatim, including passwords and tokens. These are stored in WordPress transients (`wp_options` table) accessible to any code with database read access, backup systems, and object cache backends.
+
+**Fix:**
+- Implement secret-key redaction before transient storage (recursive, case-insensitive matching on `password`, `pass`, `user_pass`, `token`, `secret`, `api_key`, etc.).
+- Add filter for extending/overriding the sensitive key list.
+- Add per-user stash cap (e.g., 5 concurrent) with oldest-first eviction to bound growth from authenticated abuse.
+- Preserve replay fidelity for non-secret fields; fail safely with explicit error if a redacted field is required for replay.
+
+**Tests:** Unit tests for redaction and allowlist behavior, stash cap eviction. Integration tests confirming built-in replay flows still work.
+
+### P1: Upload-Action Coverage
+
+**Problem:** `Action_Registry` gates `install-plugin` and `install-theme` (WordPress.org directory installs) but has no rules for `update.php?action=upload-plugin` or `upload-theme` (ZIP upload paths). A compromised session can upload arbitrary plugin ZIPs without sudo challenge.
+
+**Fix:** Add explicit action mappings for `upload-plugin` and `upload-theme` in the Action Registry.
+
+**Tests:** Unit tests for matching upload action requests. Integration tests confirming challenge path on upload actions.
+
+### P1: Non-Blocking Rate Limiting
+
+**Problem:** `Sudo_Session::record_failed_attempt()` (`class-sudo-session.php:719`) uses `sleep()` for progressive delays (2s at attempt 4, 5s at attempt 5). Under concurrent abuse, this blocks PHP-FPM workers and reduces site throughput. The read-modify-write integer counter also has a TOCTOU race window.
+
+**Fix:** Replace `sleep()` with non-blocking time-based throttling. Use a model that narrows race susceptibility without blocking workers. Preserve existing hook contracts (`wp_sudo_reauth_failed`, `wp_sudo_lockout`).
+
+**Tests:** Unit tests for threshold and lockout windows. Integration tests for repeated failures and lockout expiration.
+
+### P2: Rule-Schema Validation
+
+**Problem:** `Action_Registry::get_rules()` returns the output of `wp_sudo_gated_actions` filter without schema validation. Malformed rules from third-party code could cause silent matching failures. (Note: `safe_preg_match()` already guards against regex crashes, so this is a reliability issue, not a crash risk.)
+
+**Fix:** Add normalizer/validator requiring scalar `id`, `label`, `category` and known surface shapes. Drop invalid rules silently (fail closed per rule, not fatal globally). Preserve current filter contract and cache behavior.
+
+**Tests:** Unit tests for valid/invalid/mixed filtered rule sets. Integration test confirming plugin operates normally when one custom rule is malformed.
+
+### P2: MU Loader Path Resilience
+
+**Problem:** `mu-plugin/wp-sudo-loader.php:22` hardcodes `'wp-sudo/wp-sudo.php'` as the plugin basename. The loader fails silently in non-standard directory layouts.
+
+**Fix:** Harden path detection with fallback strategies. Add admin notice for unresolved plugin path. Keep canonical installs unchanged.
+
+**Tests:** Unit tests for path resolution fallbacks.
+
+### P3: WPGraphQL Persisted-Query Strategy
+
+**Problem:** Mutation detection in Limited mode (`class-gate.php:919`) uses `str_contains($body, 'mutation')`. Persisted queries send only a query ID, not the operation text, so mutations sent via the Persisted Queries extension bypass detection.
+
+**Fix:** Document the limitation. Add optional resolver/filter hook so implementers can classify persisted operations. Default behavior remains secure (Disabled policy).
+
+**Tests:** Unit tests for bypass and mutation classification paths.
+
+### P3: WSAL Sensor Extension
+
+**Problem:** Audit hooks exist but have no integration with enterprise logging tools.
+
+**Fix:** Ship WSAL sensor extension first (structured event mapping from existing hooks). Stream adapter second.
+
+**Tests:** Adapter unit tests for hook-to-event mapping. Compatibility validation against current plugin versions.
+
+### Explicit Deferrals
+
+| Feature | Reason |
+|---------|--------|
+| Modal challenge rewrite | Design-heavy; no security improvement over current stash-challenge-replay flow. |
+| Per-session/device sudo isolation | Valuable but requires larger architectural change; not a hardening item. |
+| `enforce_editor_unfiltered_html()` optimization | Negligible overhead (cached role lookup); relocating to `admin_init` introduces a detection gap on frontend requests. |
+| REST early-exit optimization | No measured bottleneck at 29 rules; worth revisiting if rule count grows significantly. |
+
+### Delivery Sequence
+
+1. Complete Phase 5 `05-02` WP 7.0 manual verification.
+2. **Sprint A** (Security core): Stash redaction + per-user cap, upload-action coverage.
+3. **Sprint B** (Auth resilience): Non-blocking rate limiting.
+4. **Sprint C** (Reliability): Rule-schema validation, MU loader hardening.
+5. On/after April 9, 2026: Phase 5 `05-03` "Tested up to: 7.0" readme bump.
+6. **Sprint D** (Surface + Observability): WPGraphQL persisted-query strategy, WSAL sensor.
+
+### Release Gates
+
+All hardening work must pass before merge:
+
+```
+composer test:unit
+composer test:integration -- --do-not-cache-result
+WP_MULTISITE=1 composer test:integration -- --do-not-cache-result
+composer analyse:phpstan
+psalm --no-cache
+composer lint
+```
 
 ---
 
