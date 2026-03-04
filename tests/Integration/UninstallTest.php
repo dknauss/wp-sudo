@@ -36,12 +36,17 @@ class UninstallTest extends TestCase {
 		wp_set_current_user( $user->ID );
 
 		// Activate a sudo session so user meta exists.
-		$result = Sudo_Session::attempt_activation( $user->ID, $password );
-		$this->assertSame( 'success', $result['code'], 'Session should activate for test setup.' );
+		Sudo_Session::attempt_activation( $user->ID, $password );
+
+		// Seed rate-limit metadata.
+		add_user_meta( $user->ID, '_wp_sudo_failure_event', time() );
+		update_user_meta( $user->ID, '_wp_sudo_throttle_until', time() + 30 );
 
 		// Verify the data exists before uninstall.
 		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_expires', true ), 'Expiry meta should exist before uninstall.' );
 		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_token', true ), 'Token meta should exist before uninstall.' );
+		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_failure_event', false ), 'Failure event meta should exist before uninstall.' );
+		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_throttle_until', true ), 'Throttle meta should exist before uninstall.' );
 
 		// Set an option so we can verify deletion.
 		update_option( 'wp_sudo_settings', array( 'session_duration' => 5 ) );
@@ -62,7 +67,9 @@ class UninstallTest extends TestCase {
 		// Assert: user meta is removed.
 		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_expires', true ), 'Expiry meta should be deleted.' );
 		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_token', true ), 'Token meta should be deleted.' );
-		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_failed_attempts', true ), 'Failed attempts meta should be deleted.' );
+		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_failed_attempts', true ), 'Legacy failed attempts meta should be deleted.' );
+		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_failure_event', false ), 'Failure event meta should be deleted.' );
+		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_throttle_until', true ), 'Throttle meta should be deleted.' );
 		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_lockout_until', true ), 'Lockout meta should be deleted.' );
 
 		// Assert: unfiltered_html restored to editors.
@@ -90,12 +97,17 @@ class UninstallTest extends TestCase {
 		wp_set_current_user( $user->ID );
 
 		// Activate a sudo session.
-		$result = Sudo_Session::attempt_activation( $user->ID, $password );
-		$this->assertSame( 'success', $result['code'], 'Session should activate for test setup.' );
+		Sudo_Session::attempt_activation( $user->ID, $password );
+
+		// Seed rate-limit metadata.
+		add_user_meta( $user->ID, '_wp_sudo_failure_event', time() );
+		update_user_meta( $user->ID, '_wp_sudo_throttle_until', time() + 30 );
 
 		// Verify meta exists.
 		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_expires', true ), 'Expiry meta should exist before uninstall.' );
 		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_token', true ), 'Token meta should exist before uninstall.' );
+		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_failure_event', false ), 'Failure event meta should exist before uninstall.' );
+		$this->assertNotEmpty( get_user_meta( $user->ID, '_wp_sudo_throttle_until', true ), 'Throttle meta should exist before uninstall.' );
 
 		// Set site options.
 		update_site_option( 'wp_sudo_settings', array( 'session_duration' => 5 ) );
@@ -121,6 +133,10 @@ class UninstallTest extends TestCase {
 		// Assert: user meta is cleaned (no site has the plugin active).
 		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_expires', true ), 'Expiry meta should be deleted on multisite.' );
 		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_token', true ), 'Token meta should be deleted on multisite.' );
+		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_failed_attempts', true ), 'Legacy failed attempts meta should be deleted on multisite.' );
+		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_failure_event', false ), 'Failure event meta should be deleted on multisite.' );
+		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_throttle_until', true ), 'Throttle meta should be deleted on multisite.' );
+		$this->assertEmpty( get_user_meta( $user->ID, '_wp_sudo_lockout_until', true ), 'Lockout meta should be deleted on multisite.' );
 
 		// Assert: network options are cleaned.
 		$this->assertFalse( get_site_option( 'wp_sudo_settings' ), 'Network settings option should be deleted.' );

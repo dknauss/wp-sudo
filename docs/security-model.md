@@ -272,7 +272,7 @@ action manually. This is **annoying but not a security issue** — it fails safe
 |-------------|-------------|-----------|-----------------|
 | Object cache (stale write) | Revoked session appears active | Fail-open | **Medium** — gated action allowed without valid session |
 | Object cache (eviction/flush) | Session data re-fetched from DB | Fail-closed | None |
-| Object cache (stale rate limit) | Lockout threshold not enforced | Fail-open | **Low** — defense-in-depth measure, not primary control |
+| Object cache (stale rate limit) | Throttle/Lockout window not enforced | Fail-open | **Low** — defense-in-depth measure, not primary control |
 | Page cache (cached admin/REST) | Stale responses served | Fail-open | **Medium** — depends on what is cached |
 | Transient eviction | Request stash lost | Fail-closed | None — user must repeat action |
 
