@@ -793,6 +793,11 @@ class Admin {
 	 */
 	public function render_mu_plugin_status(): void {
 		$installed = defined( 'WP_SUDO_MU_LOADED' );
+		$mu_dir    = self::get_mu_plugin_dir();
+
+		// Check if the mu-plugins directory (or its parent) is writable.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable, WordPressVIPMinimum.Functions.RestrictedFunctions.file_ops_is_writable
+		$writable = is_dir( $mu_dir ) ? is_writable( $mu_dir ) : is_writable( dirname( $mu_dir ) );
 		?>
 		<h2><?php esc_html_e( 'Early Gate (MU-Plugin)', 'wp-sudo' ); ?></h2>
 		<p class="description">
@@ -816,12 +821,31 @@ class Admin {
 							<button type="button" class="button" id="wp-sudo-mu-uninstall">
 								<?php esc_html_e( 'Remove MU-Plugin', 'wp-sudo' ); ?>
 							</button>
-						<?php else : ?>
+						<?php elseif ( $writable ) : ?>
 							<button type="button" class="button button-primary" id="wp-sudo-mu-install">
 								<?php esc_html_e( 'Install MU-Plugin', 'wp-sudo' ); ?>
 							</button>
 							<details style="margin-top: 0.75em;">
 								<summary><?php esc_html_e( 'Manual install instructions', 'wp-sudo' ); ?></summary>
+								<ol style="margin: 0.5em 0 0 1.5em;">
+									<li>
+										<?php esc_html_e( 'Locate the shim file inside the plugin directory:', 'wp-sudo' ); ?><br>
+										<code>wp-content/plugins/wp-sudo/mu-plugin/wp-sudo-gate.php</code>
+									</li>
+									<li>
+										<?php esc_html_e( 'Copy it into your mu-plugins directory:', 'wp-sudo' ); ?><br>
+										<code>wp-content/mu-plugins/wp-sudo-gate.php</code>
+									</li>
+									<li><?php esc_html_e( 'Create the mu-plugins directory first if it does not exist.', 'wp-sudo' ); ?></li>
+									<li><?php esc_html_e( 'The mu-plugin will be active on the next page load.', 'wp-sudo' ); ?></li>
+								</ol>
+							</details>
+						<?php else : ?>
+							<details open style="margin-top: 0.75em;">
+								<summary><?php esc_html_e( 'Manual install instructions', 'wp-sudo' ); ?></summary>
+								<p class="description" style="margin: 0.5em 0;">
+									<?php esc_html_e( 'Your hosting environment does not allow writing to the mu-plugins directory. Install the mu-plugin manually:', 'wp-sudo' ); ?>
+								</p>
 								<ol style="margin: 0.5em 0 0 1.5em;">
 									<li>
 										<?php esc_html_e( 'Locate the shim file inside the plugin directory:', 'wp-sudo' ); ?><br>

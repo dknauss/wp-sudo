@@ -763,6 +763,14 @@ class AdminTest extends TestCase {
 			}
 		);
 
+		// Simulate a writable mu-plugins directory so the Install button renders.
+		\Patchwork\redefine(
+			'is_writable',
+			function ( string $path ): bool {
+				return str_contains( $path, 'wp-content' ) ? true : \Patchwork\relay();
+			}
+		);
+
 		// WP_SUDO_MU_LOADED is not defined, so render_mu_plugin_status()
 		// will show "Not installed" and an install button.
 		$admin = new Admin();
@@ -775,9 +783,52 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'wp-sudo-mu-install', $output );
 		$this->assertStringContainsString( 'Install MU-Plugin', $output );
 
+		// Manual instructions collapsed behind <details> (not <details open>).
+		$this->assertStringContainsString( '<details', $output );
+		$this->assertStringNotContainsString( '<details open', $output );
+
 		// Accessibility: spinner has role="status", message has role="status" + tabindex.
 		$this->assertStringContainsString( 'role="status"', $output );
 		$this->assertStringContainsString( 'tabindex="-1"', $output );
+	}
+
+	public function test_render_mu_plugin_status_hides_button_when_not_writable(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_attr_e' )->alias(
+			function ( $text ) {
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
+		Functions\when( 'esc_html_e' )->alias(
+			function ( $text ) {
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			}
+		);
+
+		// Simulate a non-writable mu-plugins directory.
+		\Patchwork\redefine(
+			'is_writable',
+			function ( string $path ): bool {
+				return str_contains( $path, 'wp-content' ) ? false : \Patchwork\relay();
+			}
+		);
+
+		$admin = new Admin();
+
+		ob_start();
+		$admin->render_mu_plugin_status();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Not installed', $output );
+
+		// Install button must NOT be rendered.
+		$this->assertStringNotContainsString( 'wp-sudo-mu-install', $output );
+		$this->assertStringNotContainsString( 'Install MU-Plugin', $output );
+
+		// Manual instructions shown expanded (<details open>).
+		$this->assertStringContainsString( '<details open', $output );
+		$this->assertStringContainsString( 'Manual install instructions', $output );
 	}
 
 	// -----------------------------------------------------------------

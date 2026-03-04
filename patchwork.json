@@ -5,6 +5,8 @@
         "hash_equals",
         "headers_sent",
         "function_exists",
-        "file_get_contents"
+        "file_get_contents",
+        "is_writable",
+        "is_dir"
     ]
 }
