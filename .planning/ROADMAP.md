@@ -21,12 +21,13 @@ Plans:
 ### Phase 2: Non-Blocking Rate Limiting
 
 **Goal:** Replace blocking sleep() in auth failure path with non-blocking time-based throttling. Eliminate PHP-FPM worker exhaustion under concurrent failed auth attempts. Address TOCTOU race in failure counter.
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Core TDD: replace blocking delay with non-blocking throttle; harden failed-attempt tracking in `Sudo_Session` (Wave 1)
-- [ ] 02-02-PLAN.md — Integration TDD: validate throttle/lockout/hook behavior in real WP flows; remove sleep-coupled assumptions (Wave 2)
-- [ ] 02-03-PLAN.md — Cleanup TDD: uninstall/meta cleanup + security-model docs alignment + full gate verification (Wave 3)
+- [ ] 02-01-PLAN.md — Core TDD: replace blocking delay with non-blocking throttle and add_user_meta append-row failure tracking in `Sudo_Session` (Wave 1)
+- [ ] 02-02-PLAN.md — Integration TDD: migrate scalar-counter-coupled tests and validate throttle/lockout/hook behavior in real WP flows (Wave 2)
+- [ ] 02-04-PLAN.md — UX TDD: wire delay through challenge AJAX handler and add client-side throttle disable/countdown behavior (Wave 3)
+- [ ] 02-03-PLAN.md — Cleanup TDD: uninstall/meta cleanup + security-model docs alignment + full gate verification (Wave 4)
 
 ### Phase 3: Rule Schema Validation and MU Loader Resilience
 
