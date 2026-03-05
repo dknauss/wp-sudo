@@ -248,9 +248,4 @@
       <code><![CDATA[\Two_Factor_Core]]></code>
     </UndefinedClass>
   </file>
-  <file src="mu-plugin/wp-sudo-loader.php">
-    <MissingFile>
-      <code><![CDATA[require_once $wp_sudo_plugin_dir . 'wp-sudo.php']]></code>
-    </MissingFile>
-  </file>
 </files>
