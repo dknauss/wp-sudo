@@ -36,3 +36,6 @@ vendor_test/
 
 # This gitignore file itself
 .gitignore
+
+# Private planning reference files
+.planning/private-reference/
