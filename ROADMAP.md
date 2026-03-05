@@ -25,27 +25,57 @@
 
 ## Planned Development Timeline
 
-### Immediate (Blocking WP 7.0 GA — April 9, 2026)
-- **Update "Tested up to"** in readme files when WordPress 7.0 ships
+### Immediate (April 2026)
 
-### Next: Security Hardening Sprint (see [section 12](#12-security-hardening-sprint))
+- **Update "Tested up to"** in readme files when WordPress 7.0 GA ships (April 9, 2026)
 
-Identified by independent assessments from Codex, Gemini, and Claude (March 2026). Focus on real security and availability gaps in existing code, not new features.
+### Next: Operator Tooling and Ecosystem Reach (v2.12)
 
-- ~~**P1 — Request Stash data minimization:** Redact sensitive fields (passwords, tokens) before transient storage; add per-user stash cap to bound growth.~~ ✅ Complete (Phase 1)
-- ~~**P1 — Upload-action coverage:** Gate `upload-plugin` and `upload-theme` ZIP upload paths (currently missing from Action Registry).~~ ✅ Complete (Phase 1)
-- ~~**P1 — Non-blocking rate limiting:** Replace `sleep()` in failed-auth path with time-based throttling to prevent PHP-FPM worker exhaustion.~~ ✅ Complete (Phase 2)
-- ~~**P2 — Rule-schema validation:** Validate `wp_sudo_gated_actions` filter output before Gate consumes it; drop invalid rules fail-closed.~~ ✅ Complete (Phase 3)
-- ~~**P2 — MU loader path resilience:** Remove hardcoded plugin slug assumption in `mu-plugin/wp-sudo-loader.php`.~~ ✅ Complete (Phase 3)
-- ~~**P3 — WPGraphQL persisted-query strategy:** Document and optionally handle persisted-query mutations in Limited mode.~~ ✅ Complete (Phase 4)
-- ~~**P3 — WSAL sensor extension:** Ship audit log integration after core hardening.~~ ✅ Complete (Phase 4)
+The security hardening sprint is complete (Phases 1–4 shipped in v2.10.2–v2.11.0). The next priority is operator-facing tooling and ecosystem adoption.
+
+- **WP-CLI `wp sudo` subcommands** — `wp sudo status`, `wp sudo revoke [--user=<id>]`, `wp sudo revoke --all`. The Session class has the primitives; this is mostly registration boilerplate + output formatting. High value for operators managing production sites. (See [section 10](#10-core-sudo-design))
+- **Stream bridge** — `bridges/wp-sudo-stream-bridge.php` following the proven WSAL bridge pattern. ~80 lines. Expands audit log ecosystem beyond WSAL. Low effort, high reach.
+- **Public `wp_sudo_check()` / `wp_sudo_require()` API** — Enables third-party plugins to gate their own actions without registering Gate rules. WP Crontrol's PHP cron events are the motivating use case. Needs design for the challenge trigger path when called outside the Gate's `admin_init` flow. (See [section 10](#10-core-sudo-design))
+
+### Short-term: Hardening and Testing Infrastructure (v2.13+)
+
+- **Multi-dimensional rate limiting (IP + user)** — Per-IP tracking via transients alongside existing per-user tracking. The non-blocking throttle infrastructure from Phase 2 provides the foundation. Include IP in the `wp_sudo_lockout` audit hook for logging.
+- **Playwright E2E test infrastructure** — 5 PHPUnit-uncoverable scenarios (cookie attributes, admin bar JS, MU-plugin AJAX, block editor snackbar, keyboard navigation). Also enables visual regression testing against WP 7.0's admin refresh. De-risks the modal challenge and all future JS work.
+- **Phase B:** Apache + MariaDB CI job
+- **Phase C:** Manual testing checklist for managed hosts
+
+### Medium-term: UX and Architecture Features (v2.14+)
+
+- **Session activity dashboard widget** — Active sudo sessions, recent gated operations, policy summary. Requires audit data persistence (lightweight custom table or transient ring buffer).
+- **Gutenberg block editor integration** — Detect block editor context, queue reauthentication via `@wordpress/notices` snackbar instead of page redirect. Natural trigger for Playwright E2E tests.
+- **Network policy hierarchy for multisite** — Super admins set minimum session duration and maximum entry-point policies; site admins can only tighten.
+
+### Later: Major Features (Need Design Work)
+
+- **Client-side modal challenge** (UX like GitHub) — `.needs-sudo` CSS class on forms, JS intercepts submit, inline password prompt. Significant complexity. Likely a milestone unto itself.
+- **REST API sudo grant endpoint** — `POST /wp/v2/sudo` for headless clients. Enables interactive sudo flow for SvelteKit/Next.js apps.
+- **Per-session sudo isolation** — Integration with `WP_Session_Tokens` for per-browser isolation.
+- **SSO/SAML/OIDC provider framework** — Provider interface parallel to existing 2FA hooks.
+- **Phase D:** Docker Compose with switchable stacks
+
+### ✅ Security Hardening Sprint — Complete (v2.10.2–v2.11.0)
+
+All 4 phases shipped. Identified by independent assessments from Codex, Gemini, and Claude (March 2026).
+
+- ~~**P1 — Request Stash data minimization**~~ ✅ Phase 1
+- ~~**P1 — Upload-action coverage**~~ ✅ Phase 1
+- ~~**P1 — Non-blocking rate limiting**~~ ✅ Phase 2
+- ~~**P2 — Rule-schema validation**~~ ✅ Phase 3
+- ~~**P2 — MU loader path resilience**~~ ✅ Phase 3
+- ~~**P3 — WPGraphQL persisted-query strategy**~~ ✅ Phase 4
+- ~~**P3 — WSAL sensor extension**~~ ✅ Phase 4
 
 ### ✓ Completed in v2.11.0
 
-- ~~Action Registry schema validation~~ — shipped v2.11.0: `normalize_filtered_rules()` validates and normalizes `wp_sudo_gated_actions` filter output; malformed rules dropped fail-closed.
-- ~~MU loader resilience~~ — shipped v2.11.0: basename/path resolution uses explicit fallback chain (`WP_SUDO_PLUGIN_BASENAME` → derived → canonical); diagnostic action on unresolved paths.
-- ~~WPGraphQL persisted-query strategy~~ — shipped v2.11.0: `wp_sudo_wpgraphql_classification` filter enables external mutation classification for persisted-query setups; `str_contains` heuristic preserved as fallback.
-- ~~WSAL sensor bridge~~ — shipped v2.11.0: `bridges/wp-sudo-wsal-sensor.php` maps all 9 audit hooks to structured WSAL events (IDs 1900001–1900009); inert when WSAL absent.
+- ~~Action Registry schema validation~~ — `normalize_filtered_rules()` validates and normalizes `wp_sudo_gated_actions` filter output; malformed rules dropped fail-closed.
+- ~~MU loader resilience~~ — basename/path resolution uses explicit fallback chain (`WP_SUDO_PLUGIN_BASENAME` → derived → canonical); diagnostic action on unresolved paths.
+- ~~WPGraphQL persisted-query strategy~~ — `wp_sudo_wpgraphql_classification` filter enables external mutation classification for persisted-query setups; `str_contains` heuristic preserved as fallback.
+- ~~WSAL sensor bridge~~ — `bridges/wp-sudo-wsal-sensor.php` maps all 9 audit hooks to structured WSAL events (IDs 1900001–1900009); inert when WSAL absent.
 
 ### ✓ Completed in v2.10.0
 
@@ -74,35 +104,9 @@ Identified by independent assessments from Codex, Gemini, and Claude (March 2026
 - ~~WPGraphQL headless authentication boundary~~ — documented v2.5.2
 - ~~Abilities API (WordPress 6.9+)~~ — documented v2.5.1: covered by existing REST API (App Passwords) policy
 
-### Medium-term (v2.9+)
+### ✓ CI Matrix — ~~Phase A~~ ✅ Done v2.9.2
 
-**Core Design:**
-- WP-CLI `wp sudo` subcommands (status, revoke)
-- Public `wp_sudo_check()` / `wp_sudo_require()` API for third-party plugins
-
-**Feature Backlog (Open):**
-- ~~WSAL (WordPress Activity Log) sensor extension~~ ✅ Shipped v2.11.0
-- Multi-dimensional rate limiting (IP + user combination)
-- Session activity dashboard widget
-- Gutenberg block editor integration
-- Network policy hierarchy for multisite
-
-### Later (v2.9+) — Deferred, Need Design Work
-
-**Major Features (require architectural design first):**
-- Client-side modal challenge (UX like GitHub) — significant complexity
-- Per-session sudo isolation (per-device/per-browser state)
-- REST API sudo grant endpoint for headless clients
-- SSO/SAML/OIDC provider framework
-
-**Testing Improvements:**
-- **Phase A:** ~~Expand CI matrix~~ ✅ Done v2.9.2 — PHP 8.0–8.4, WP 6.7 + latest + trunk
-- **Phase B:** Apache + MariaDB CI job
-- **Phase C:** Manual testing checklist for managed hosts
-- **Phase D:** Docker Compose with switchable stacks
-- Exit path testing — `@runInSeparateProcess` for 5–8 security-critical exit/die paths (see [section 8](#8-exit-path-testing))
-- Coverage tooling expansion (baseline established; full matrix after environment diversity milestone)
-- Mutation testing (after environment diversity milestone)
+- PHP 8.0–8.4, WP 6.7 + latest + trunk, single-site + multisite + PCOV coverage
 
 ---
 
