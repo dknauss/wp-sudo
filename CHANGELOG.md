@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.11.1
+
+- **Docs release + metadata alignment** — corrected post-v2.11.0 documentation drift: roadmap completion markers, RC re-test guidance, and release notes alignment across `CHANGELOG.md`, `readme.md`, and `readme.txt`.
+- **Version annotation fixes** — corrected `@since` annotations introduced in the v2.11.0 development cycle so Phase 3/4 additions no longer reference the nonexistent `2.10.3` version.
+- **Pre-release hygiene** — regenerated `bom.json` and updated ignore rules to keep `.planning/private-reference/`, `.composer_cache/`, and `vendor_test/` out of commits.
+- **478 unit tests, 1228 assertions. 130 integration tests in CI.**
+
 ## 2.11.0
 
 - **Phase 3 complete: Action Registry schema validation hardening** — filtered `wp_sudo_gated_actions` rules are now normalized and validated before caching, preventing malformed third-party payloads from reaching gate matchers.

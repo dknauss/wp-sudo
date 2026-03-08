@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0
 Requires PHP:      8.0
-Stable tag:        2.11.0
+Stable tag:        2.11.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -150,7 +150,7 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords, WPGraphQL), matches the incoming request against a registry of 29+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
 
-Testing: the suite is split into two tiers. Unit tests (397 tests, 944 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (80 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, uninstall cleanup, and all 9 audit hooks.
+Testing: the suite is split into two tiers. Unit tests (478 tests, 1228 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (130 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, uninstall cleanup, and all 9 audit hooks.
 
 CI: GitHub Actions runs PHPStan level 6 and PHPCS on every push and PR, the full test matrix across PHP 8.1-8.4 and WordPress latest + trunk, and a nightly scheduled run against WordPress trunk.
 
@@ -167,6 +167,12 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.11.1 =
+* **Docs release + metadata alignment** — corrected post-v2.11.0 documentation drift: roadmap completion markers, RC re-test guidance, and release notes alignment across `CHANGELOG.md`, `readme.md`, and `readme.txt`.
+* **Version annotation fixes** — corrected `@since` annotations introduced in the v2.11.0 development cycle so Phase 3/4 additions no longer reference the nonexistent `2.10.3` version.
+* **Pre-release hygiene** — regenerated `bom.json` and updated ignore rules for `.planning/private-reference/`, `.composer_cache/`, and `vendor_test/`.
+* **478 unit tests, 1228 assertions. 130 integration tests in CI.**
 
 = 2.11.0 =
 * **Action Registry hardening (Phase 3.01)** — filtered `wp_sudo_gated_actions` input is now normalized and validated before caching. Invalid or malformed third-party rule fragments are safely discarded instead of flowing into matchers.
