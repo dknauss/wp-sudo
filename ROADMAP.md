@@ -1,11 +1,11 @@
 # Roadmap: Past and Future Planning — Integration Tests, WP 7.0 Prep, Collaboration, TDD, and Core Design
 
-*Updated March 5, 2026*
+*Updated March 8, 2026*
 
 ## Table of Contents
 
 - **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
-- **[Context](#context)** — current state: 460 unit + 130 integration tests, CI matrix, WP 7.0 status
+- **[Context](#context)** — current state: 494 unit + 135 integration tests, CI matrix, WP 7.0 status
 - **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (80 tests), coverage analysis, remaining gaps
 - **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-ga-april-9-2026)** — Beta 1 tested ✓, one task remaining: "Tested up to" bump on GA day
 - **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
@@ -29,10 +29,9 @@
 
 - **Update "Tested up to"** in readme files when WordPress 7.0 GA ships (April 9, 2026)
 
-### ✅ Completed On `main`: Operator Tooling and Ecosystem Reach (v2.12.0 target release)
+### ✅ Shipped: Operator Tooling and Ecosystem Reach (v2.12.0)
 
-The operator tooling tranche has been implemented on `main` and is ready for
-the v2.12.0 release tag.
+The operator tooling tranche shipped in v2.12.0.
 
 - ~~**WP-CLI `wp sudo` subcommands**~~ ✅ implemented (`wp sudo status`, `wp sudo revoke [--user=<id>]`, `wp sudo revoke --all`)
 - ~~**Stream bridge**~~ ✅ implemented (`bridges/wp-sudo-stream-bridge.php`)
@@ -116,9 +115,9 @@ All 4 phases shipped. Identified by independent assessments from Codex, Gemini, 
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of March 5, 2026):
-- **478 unit tests**, 1228 assertions, across 15 test files (Brain\Monkey mocks)
-- **130 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
+Current project state (as of March 8, 2026):
+- **494 unit tests**, 1286 assertions, across 18 test files (Brain\Monkey mocks)
+- **135 integration tests** across 16 test files (real WordPress + MySQL via `WP_UnitTestCase`)
 - CI pipeline: PHP 8.0–8.4, WordPress 6.7 + latest + trunk, single-site + multisite + PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
@@ -195,7 +194,7 @@ These gaps have been closed by the integration suite:
 
 ## 2. WordPress 7.0 Prep (GA April 9, 2026)
 
-> **Status:** WP 7.0 Beta 1 manually tested February 19, 2026 — all sections PASS. Repeat the manual verification pass on each RC build, then do the final readme "Tested up to" bump on GA.
+> **Status:** WP 7.0 Beta 1 manually tested February 19, 2026 — all sections PASS. Repeat the manual verification pass on each RC build, including an RC3 checkpoint on April 2, 2026, then do the final readme "Tested up to" bump on GA.
 
 ### Verified changes that affect WP Sudo
 
@@ -217,7 +216,7 @@ These gaps have been closed by the integration suite:
 2. ~~**Run the manual testing guide** against 7.0-beta~~ — done; all 15 sections PASS
 3. ~~**Visual check:** settings page, help tabs, admin bar timer, challenge interstitial, admin notices~~ — done; all pass against refreshed admin chrome
 4. ~~**Run `composer test`**~~ — passing on WP 7.0-alpha / 7.0-beta; CI covers WP trunk
-5. **Repeat manual verification on each RC build** (RC1, RC2, etc.) and record date + build in `tests/MANUAL-TESTING.md`.
+5. **Repeat manual verification on each RC build** (RC1, RC2, etc.), with an explicit RC3 checkpoint on **April 2, 2026**, and record date + build in `tests/MANUAL-TESTING.md`.
 6. **Update version references** when 7.0 ships (April 9):
    - `readme.txt` / `readme.md` — "Tested up to" bump
    - Any docs still referencing "WordPress 6.9" as latest
@@ -697,7 +696,7 @@ fully implemented in WP Sudo (through v2.5.2):
 
 ### Features Shipped Since This Analysis
 
-**Implemented on `main` (v2.12.0 target release)**
+**Shipped in v2.12.0**
 
 | Feature | Rationale | Effort |
 |---------|-----------|--------|

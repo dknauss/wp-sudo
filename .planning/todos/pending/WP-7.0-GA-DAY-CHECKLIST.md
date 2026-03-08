@@ -21,6 +21,15 @@ Owner: wp-sudo maintainers
    - `composer lint`
 5. Open/track any regressions before GA release day.
 
+### Scheduled RC3 checkpoint (April 2, 2026)
+
+1. Run a full WP 7.0 RC3 manual verification pass using `tests/MANUAL-TESTING.md`.
+2. Confirm all release docs remain accurate for compatibility language:
+   - `readme.txt` (`Tested up to`)
+   - `readme.md`
+   - `docs/security-model.md` (if version language references latest core state)
+3. If all checks pass, mark the "final pre-GA tested-up-to confirmation pass complete" in the manual test log (no version bump until GA ships).
+
 ## GA-day execution (target: April 9, 2026)
 
 1. Re-run full manual verification on the final WordPress 7.0 GA build.
