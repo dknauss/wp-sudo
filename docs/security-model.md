@@ -241,14 +241,15 @@ users could:
 (`/wp-admin/admin-ajax.php`) are excluded from full-page caching for
 authenticated requests.
 
-### Transients (Request Stash)
+### Transients (Request Stash + IP Rate Limiting)
 
 **What WP Sudo stores via transients:**
 
-`Request_Stash` uses `set_transient()` to save the original HTTP request data
-(method, URL, POST body) when redirecting to the challenge page. After successful
-reauthentication, the stash is retrieved with `get_transient()` and the original
-request is replayed.
+- `Request_Stash` saves original admin request data (method, URL, POST body)
+  for challenge replay.
+- `Sudo_Session` stores per-IP failed-attempt event buckets
+  (`wp_sudo_ip_failure_event_{hash}`) and per-IP lockout timestamps
+  (`wp_sudo_ip_lockout_until_{hash}`) for multidimensional rate limiting.
 
 **Risk: Stash eviction before reauthentication completes.** With a persistent
 object cache, transients are stored in the object cache rather than the database.
@@ -269,6 +270,20 @@ action manually. This is **annoying but not a security issue** — it fails safe
 - The stash stores only the request metadata needed for replay — it is small
   (typically under 1 KB) and unlikely to be evicted by LRU policies.
 
+**Risk: IP-rate-limit transient eviction or stale reads.** If per-IP failure
+event/lockout transients are evicted early, the combined lockout policy can
+under-enforce temporarily for that source IP.
+
+**Impact:** This is a **low-severity fail-open** condition in a defense-in-depth
+control. Password verification and user-bound lockouts still apply.
+
+**Mitigations:**
+
+- Per-user lockout state in user meta remains active even if IP transients are lost.
+- IP lockout transients are time-boxed and rewritten on each lockout trigger.
+- Deployments requiring stronger consistency should pair WP Sudo with upstream
+  controls (WAF/rate limiting at edge or load balancer).
+
 ### Summary: Failure Modes by Cache Layer
 
 | Cache layer | Failure mode | Direction | Security impact |
@@ -278,6 +293,7 @@ action manually. This is **annoying but not a security issue** — it fails safe
 | Object cache (stale rate limit) | Throttle/Lockout window not enforced | Fail-open | **Low** — defense-in-depth measure, not primary control |
 | Page cache (cached admin/REST) | Stale responses served | Fail-open | **Medium** — depends on what is cached |
 | Transient eviction | Request stash lost | Fail-closed | None — user must repeat action |
+| Transient eviction/stale read (IP lockout) | Source-IP lockout may clear early | Fail-open | **Low** — user lockout + password checks still apply |
 
 All fail-open conditions require a misconfigured cache. Standard WordPress hosting
 with a properly configured persistent object cache and standard page cache

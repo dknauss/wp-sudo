@@ -88,6 +88,17 @@ wp-env, DDEV, etc.).
    - Lockout countdown announces to screen readers at 30-second intervals.
    - Re-enabling of the form after any wait is announced as "Lockout expired. You may try again." (or similar).
 
+### 1.5.1 Rate Limiting (IP + User Combined Policy)
+
+1. Create two administrator users (`admin-a`, `admin-b`) and sign out of both.
+2. From the same browser/network, trigger the challenge for `admin-a`.
+3. Enter a wrong password 4 times for `admin-a`.
+4. Sign out, sign in as `admin-b`, and trigger the challenge from the same browser/network.
+5. Enter a wrong password once.
+6. **Expected:** The fifth same-source attempt triggers hard lockout (`locked_out`) even though `admin-b` has not individually reached 5 failures.
+7. During that lockout window, submit the correct password for `admin-a` (same source IP).
+8. **Expected:** Request remains blocked until lockout expires; correct password does not bypass active source-IP lockout.
+
 ### 1.6 Two-Factor Authentication
 
 > Requires the [Two Factor](https://wordpress.org/plugins/two-factor/)

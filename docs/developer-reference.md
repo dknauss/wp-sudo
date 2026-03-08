@@ -151,7 +151,7 @@ do_action( 'wp_sudo_deactivated', int $user_id ); // Also fires on password chan
 
 // Authentication failures.
 do_action( 'wp_sudo_reauth_failed', int $user_id, int $attempts );
-do_action( 'wp_sudo_lockout', int $user_id, int $attempts );
+do_action( 'wp_sudo_lockout', int $user_id, int $attempts, string $ip );
 
 // Action gating.
 // $surface values: 'admin', 'ajax', 'rest_app_password', 'cli', 'cron', 'xmlrpc', 'wpgraphql', 'public_api'
@@ -163,6 +163,9 @@ do_action( 'wp_sudo_action_replayed', int $user_id, string $rule_id );
 // Tamper detection.
 do_action( 'wp_sudo_capability_tampered', string $role, string $capability );
 ```
+
+`wp_sudo_lockout` adds source IP as a third argument as of v2.13.0. Existing
+callbacks that register for two arguments continue to work unchanged.
 
 ### Optional WSAL Sensor Bridge
 
@@ -200,7 +203,7 @@ Record mapping:
   `reauth_failed`, `lockout`, `gated`, `blocked`, `allowed`,
   `replayed`, `capability_tampered`)
 - **Args/meta:** always includes `source=wp-sudo` and `hook`, plus hook
-  fields such as `user_id`, `rule_id`, `surface`, `attempts`, `expires`,
+  fields such as `user_id`, `rule_id`, `surface`, `attempts`, `ip`, `expires`,
   and `duration` where applicable.
 
 The bridge supports late Stream availability (mu-plugin loads before

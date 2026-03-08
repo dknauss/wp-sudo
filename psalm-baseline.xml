@@ -257,9 +257,6 @@
     </InvalidArgument>
   </file>
   <file src="includes/class-sudo-session.php">
-    <InvalidArrayOffset>
-      <code><![CDATA[self::PROGRESSIVE_DELAYS[ $attempts ]]]></code>
-    </InvalidArrayOffset>
     <UndefinedClass>
       <code><![CDATA[\Two_Factor_Core]]></code>
     </UndefinedClass>
