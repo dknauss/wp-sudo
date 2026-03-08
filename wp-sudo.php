@@ -70,6 +70,32 @@ function wp_sudo(): WP_Sudo\Plugin {
 	return $instance;
 }
 
+/**
+ * Public helper: check whether a user currently has an active sudo session.
+ *
+ * @since 2.12.0
+ *
+ * @param int|null $user_id Optional user ID. Defaults to current user.
+ * @return bool
+ */
+function wp_sudo_check( ?int $user_id = null ): bool {
+	return \WP_Sudo\Public_API::check( $user_id );
+}
+
+/**
+ * Public helper: require an active sudo session.
+ *
+ * See `WP_Sudo\Public_API::require()` for accepted args.
+ *
+ * @since 2.12.0
+ *
+ * @param array<string, mixed> $args Optional API args.
+ * @return bool
+ */
+function wp_sudo_require( array $args = array() ): bool {
+	return \WP_Sudo\Public_API::require( $args );
+}
+
 // Boot the plugin.
 add_action(
 	'plugins_loaded',

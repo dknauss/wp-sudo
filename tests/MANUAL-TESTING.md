@@ -1403,3 +1403,31 @@ curl -sk -X POST "YOUR_SITE_URL/graphql" \
 1. Without sudo, rename a registered key.
 2. **Expected:** Rename succeeds. This action is not security-sensitive
    and is intentionally not gated by the bridge.
+
+---
+
+## 21. Public API Helpers (`wp_sudo_check()` / `wp_sudo_require()`)
+
+### 21.1 Session Check Returns False Without Active Sudo
+
+1. Ensure sudo is inactive for your user.
+2. Run in `wp shell`:
+   `wp eval 'var_export( wp_sudo_check( get_current_user_id() ) );'`
+3. **Expected:** `false`.
+
+### 21.2 `wp_sudo_require()` Redirects to Challenge by Default
+
+1. Create a temporary mu-plugin with:
+   `add_action( 'admin_init', static function () { if ( isset( $_GET['wp_sudo_require_test'] ) ) { wp_sudo_require( array( 'rule_id' => 'manual.require_test' ) ); } } );`
+2. Visit `/wp-admin/?wp_sudo_require_test=1` while sudo is inactive.
+3. **Expected:** Redirect to `admin.php?page=wp-sudo-challenge` (session-only mode).
+4. Authenticate successfully.
+5. **Expected:** Return/cancel behavior follows the challenge page flow; future manual trigger passes once sudo is active.
+
+### 21.3 `wp_sudo_require()` Returns False When Redirect Disabled
+
+1. Run in `wp shell`:
+   `wp eval 'var_export( wp_sudo_require( array( \"redirect\" => false, \"rule_id\" => \"manual.require_no_redirect\" ) ) );'`
+2. **Expected:** `false` when sudo is inactive.
+3. Activate a sudo session, rerun the command.
+4. **Expected:** `true`.

@@ -104,6 +104,42 @@ To find the AJAX action names for a plugin, search its source for
 grep "wp_ajax_" /path/to/plugin/*.php
 ```
 
+## Public API Helpers
+
+Use these helpers when you want to gate a custom operation without adding a
+full `wp_sudo_gated_actions` rule.
+
+### `wp_sudo_check( ?int $user_id = null ): bool`
+
+Returns `true` when the user has an active sudo session (or is within the grace
+window), otherwise `false`.
+
+### `wp_sudo_require( array $args = array() ): bool`
+
+Returns `true` when sudo is active. If not active:
+
+- Fires `wp_sudo_action_gated` with surface `public_api`.
+- Redirects to the challenge page in session-only mode by default.
+- Returns `false` when redirecting is disabled or unavailable.
+
+Accepted args:
+
+- `user_id` (`int`) — target user; defaults to current user.
+- `rule_id` (`string`) — audit identifier; defaults to `public_api.require`.
+- `redirect` (`bool`) — default `true`; set `false` to receive `false` instead of redirect.
+- `return_url` (`string`) — optional URL for challenge cancel/return flow.
+
+Example:
+
+```php
+if ( ! wp_sudo_require( array( 'rule_id' => 'my-plugin.run_sensitive_task' ) ) ) {
+    return;
+}
+
+// Sensitive action runs only with active sudo.
+my_plugin_run_sensitive_task();
+```
+
 ## Audit Hook Signatures
 
 Sudo fires 9 action hooks for external logging integration with [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/), [Stream](https://wordpress.org/plugins/stream/), and similar plugins.
@@ -118,7 +154,7 @@ do_action( 'wp_sudo_reauth_failed', int $user_id, int $attempts );
 do_action( 'wp_sudo_lockout', int $user_id, int $attempts );
 
 // Action gating.
-// $surface values: 'admin', 'ajax', 'rest_app_password', 'cli', 'cron', 'xmlrpc', 'wpgraphql'
+// $surface values: 'admin', 'ajax', 'rest_app_password', 'cli', 'cron', 'xmlrpc', 'wpgraphql', 'public_api'
 do_action( 'wp_sudo_action_gated', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_allowed', int $user_id, string $rule_id, string $surface ); // Unrestricted policy (v2.9.0).

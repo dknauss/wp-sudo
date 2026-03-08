@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Feature: public integration API (`wp_sudo_check()` / `wp_sudo_require()`)** — added first-party helpers for third-party plugins/themes to require an active sudo session without registering full action rules. `wp_sudo_require()` can redirect to the challenge page in session-only mode (or return `false` when redirecting is disabled/unavailable) and emits `wp_sudo_action_gated` with surface `public_api` for audit visibility.
+- **Docs: developer reference update** — documented the new public helper API, args, usage example, and added `public_api` to the documented `wp_sudo_action_gated` surface list.
+- **494 unit tests, 1286 assertions.**
+
 ## 2.11.1
 
 - **Docs release + metadata alignment** — corrected post-v2.11.0 documentation drift: roadmap completion markers, RC re-test guidance, and release notes alignment across `CHANGELOG.md`, `readme.md`, and `readme.txt`.
