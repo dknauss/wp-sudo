@@ -226,4 +226,53 @@ class RateLimitingTest extends TestCase {
 			'Remaining should not exceed lockout duration.'
 		);
 	}
+
+	/**
+	 * v2.13: Same-IP failures across users trigger lockout at threshold.
+	 */
+	public function test_same_ip_failures_across_users_trigger_lockout_at_threshold(): void {
+		$ip     = '198.51.100.44';
+		$user_a = $this->make_admin( 'correct-password-a' );
+		$user_b = $this->make_admin( 'correct-password-b' );
+
+		$_SERVER['REMOTE_ADDR'] = $ip;
+
+		// First four failures on user A.
+		wp_set_current_user( $user_a->ID );
+		for ( $i = 0; $i < Sudo_Session::MAX_FAILED_ATTEMPTS - 1; $i++ ) {
+			$result = Sudo_Session::attempt_activation( $user_a->ID, 'wrong-password' );
+			$this->assertSame( 'invalid_password', $result['code'], 'Attempts before threshold should be invalid_password.' );
+		}
+
+		// Fifth failure from same IP but different user should lock out.
+		wp_set_current_user( $user_b->ID );
+		$result = Sudo_Session::attempt_activation( $user_b->ID, 'wrong-password' );
+		$this->assertSame( 'locked_out', $result['code'], 'Same-IP distributed failures should lock out at threshold.' );
+		$this->assertTrue( Sudo_Session::is_locked_out( $user_b->ID ), 'Current user should be in lockout state.' );
+
+		$ip_lockout_key = Sudo_Session::IP_LOCKOUT_UNTIL_TRANSIENT_PREFIX . hash( 'sha256', $ip );
+		$this->assertGreaterThan( time(), (int) get_transient( $ip_lockout_key ), 'IP lockout transient should be set.' );
+	}
+
+	/**
+	 * v2.13: Active IP lockout blocks correct-password attempts from that IP.
+	 */
+	public function test_active_ip_lockout_blocks_correct_password_for_same_ip(): void {
+		$ip       = '203.0.113.19';
+		$password = 'correct-password';
+		$user     = $this->make_admin( $password );
+		wp_set_current_user( $user->ID );
+
+		$_SERVER['REMOTE_ADDR'] = $ip;
+
+		$ip_lockout_key = Sudo_Session::IP_LOCKOUT_UNTIL_TRANSIENT_PREFIX . hash( 'sha256', $ip );
+		set_transient( $ip_lockout_key, time() + Sudo_Session::LOCKOUT_DURATION, Sudo_Session::LOCKOUT_DURATION );
+
+		$result = Sudo_Session::attempt_activation( $user->ID, $password );
+
+		$this->assertSame( 'locked_out', $result['code'] );
+		$this->assertArrayHasKey( 'remaining', $result );
+		$this->assertGreaterThan( 0, $result['remaining'] );
+		$this->assertFalse( Sudo_Session::is_active( $user->ID ), 'Session should not activate during IP lockout.' );
+	}
 }
