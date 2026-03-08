@@ -23,6 +23,14 @@ Thumbs.db
 .composer_cache/
 vendor_test/
 
+# Playwright E2E test artifacts
+tests/e2e/artifacts/
+playwright-report/
+test-results/
+
+# wp-env Docker state
+.wp-env/
+
 # Agent stuff (Claude / LLMs)
 .claude/
 
