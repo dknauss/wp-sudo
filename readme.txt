@@ -9,7 +9,7 @@ Tags:              sudo, security, reauthentication, access control, admin prote
 Requires at least: 6.2
 Tested up to:      7.0
 Requires PHP:      8.0
-Stable tag:        2.11.1
+Stable tag:        2.12.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -150,7 +150,7 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords, WPGraphQL), matches the incoming request against a registry of 29+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
 
-Testing: the suite is split into two tiers. Unit tests (478 tests, 1228 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (130 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, uninstall cleanup, and all 9 audit hooks.
+Testing: the suite is split into two tiers. Unit tests (494 tests, 1286 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (135 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, uninstall cleanup, and all 9 audit hooks.
 
 CI: GitHub Actions runs PHPStan level 6 and PHPCS on every push and PR, the full test matrix across PHP 8.1-8.4 and WordPress latest + trunk, and a nightly scheduled run against WordPress trunk.
 
@@ -167,6 +167,13 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 7. Active sudo session — the admin bar shows a green countdown timer.
 
 == Changelog ==
+
+= 2.12.0 =
+* **Feature: WP-CLI operator commands** — added `wp sudo status`, `wp sudo revoke --user=<id>`, and `wp sudo revoke --all` for session inspection and revocation workflows.
+* **Feature: Stream audit bridge** — added optional `bridges/wp-sudo-stream-bridge.php`, mapping all 9 WP Sudo audit hooks into Stream records with inert behavior when Stream APIs are unavailable.
+* **Feature: public integration API (`wp_sudo_check()` / `wp_sudo_require()`)** — added first-party helpers for third-party plugins/themes to require active sudo sessions without full Gate-rule registration.
+* **Docs and release hygiene** — updated developer reference/manual testing for Stream + public API, refreshed roadmap priorities, and regenerated `bom.json`.
+* **494 unit tests, 1286 assertions. 135 integration tests in CI.**
 
 = 2.11.1 =
 * **Docs release + metadata alignment** — corrected post-v2.11.0 documentation drift: roadmap completion markers, RC re-test guidance, and release notes alignment across `CHANGELOG.md`, `readme.md`, and `readme.txt`.

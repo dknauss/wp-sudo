@@ -1,10 +1,13 @@
 # Changelog
 
-## Unreleased
+## 2.12.0
 
-- **Feature: public integration API (`wp_sudo_check()` / `wp_sudo_require()`)** — added first-party helpers for third-party plugins/themes to require an active sudo session without registering full action rules. `wp_sudo_require()` can redirect to the challenge page in session-only mode (or return `false` when redirecting is disabled/unavailable) and emits `wp_sudo_action_gated` with surface `public_api` for audit visibility.
-- **Docs: developer reference update** — documented the new public helper API, args, usage example, and added `public_api` to the documented `wp_sudo_action_gated` surface list.
-- **494 unit tests, 1286 assertions.**
+- **Feature: WP-CLI operator commands** — added `wp sudo status`, `wp sudo revoke --user=<id>`, and `wp sudo revoke --all` for session inspection and revocation workflows.
+- **Feature: Stream audit bridge** — added optional `bridges/wp-sudo-stream-bridge.php`, mapping all 9 WP Sudo audit hooks into Stream records. Bridge remains inert when Stream APIs are unavailable and supports late plugin load order.
+- **Feature: public integration API (`wp_sudo_check()` / `wp_sudo_require()`)** — added first-party helpers for third-party plugins/themes to require an active sudo session without registering full action rules. `wp_sudo_require()` can redirect to the challenge page in session-only mode (or return `false` when redirecting is disabled/unavailable) and emits `wp_sudo_action_gated` with surface `public_api`.
+- **Docs: release alignment** — updated developer reference and manual testing docs for Stream bridge and public API helpers; refreshed roadmap and contributing guidance for current development priorities and repo-local integration test paths.
+- **Pre-release hygiene** — regenerated `bom.json`.
+- **494 unit tests, 1286 assertions. 135 integration tests in CI.**
 
 ## 2.11.1
 

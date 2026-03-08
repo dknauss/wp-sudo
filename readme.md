@@ -184,8 +184,8 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 **Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
 
-- **Unit tests** (478 tests, 1228 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.5s with no database. Cover request matching, session state machine, policy enforcement, and hook registration.
-- **Integration tests** (130 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
+- **Unit tests** (494 tests, 1286 assertions) — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.5s with no database. Cover request matching, session state machine, policy enforcement, and hook registration.
+- **Integration tests** (135 tests) — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
 
 **Static analysis and code style.** PHPStan, Psalm (with WordPress stubs/plugin), and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early. Type coverage is published to Shepherd on default-branch pushes (`main`/`master`).
 
@@ -197,16 +197,16 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 | Component | Size |
 |---|---|
-| **Production PHP** (`includes/`, `wp-sudo.php`, `uninstall.php`, `mu-plugin/`, `bridges/`) | 288 KB · 7,823 lines |
+| **Production PHP** (`includes/`, `wp-sudo.php`, `uninstall.php`, `mu-plugin/`, `bridges/`) | 312 KB · 8,438 lines |
 | **Assets** (screenshots, banner images) | 5.0 MB |
-| **Tests** (`tests/`) | 648 KB · 15,539 lines |
+| **Tests** (`tests/`) | 672 KB · 16,058 lines |
 | **Docs** (`docs/` + root-level md/txt) | 348 KB |
-| **Total PHP** (production + tests, excl. vendor) | 23,402 lines |
-| **Test-to-production ratio** | 2.0:1 |
+| **Total PHP** (production + tests, excl. vendor) | 24,496 lines |
+| **Test-to-production ratio** | 1.9:1 |
 
 No production dependencies. Dev dependencies (PHPUnit, PHPStan, Psalm, PHPCS, Brain\Monkey, Mockery) live in `vendor/` and are not shipped.
 
-*Last updated: 2026-03-05. See CLAUDE.md for the update command.*
+*Last updated: 2026-03-08. See CLAUDE.md for the update command.*
 
 ## Screenshots
 
@@ -239,6 +239,14 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, Psalm, PHPCS, Br
    ![Active sudo session](assets/screenshot-7.png?v=2)
 
 ## Changelog
+
+### 2.12.0
+
+- **Feature: WP-CLI operator commands** — added `wp sudo status`, `wp sudo revoke --user=<id>`, and `wp sudo revoke --all` for session inspection and revocation workflows.
+- **Feature: Stream audit bridge** — added optional `bridges/wp-sudo-stream-bridge.php`, mapping all 9 WP Sudo audit hooks into Stream records with inert behavior when Stream APIs are unavailable.
+- **Feature: public integration API (`wp_sudo_check()` / `wp_sudo_require()`)** — added first-party helpers for third-party plugins/themes to require active sudo sessions without full Gate-rule registration.
+- **Docs and release hygiene** — updated developer reference/manual testing for Stream + public API, refreshed roadmap priorities, and regenerated `bom.json`.
+- **494 unit tests, 1286 assertions. 135 integration tests in CI.**
 
 ### 2.11.1
 
