@@ -1,9 +1,9 @@
 # Roadmap: Security Hardening Sprint
 
 **Milestone:** Security Hardening Sprint
-**Status:** Complete (all 4 phases delivered)
+**Status:** Complete (all 5 phases delivered)
 **Created:** 2026-03-03
-**Depth:** Standard (4 phases)
+**Depth:** Standard (5 phases)
 **Source:** ROADMAP.md section 12, .planning/review/03-03-2026/PROPOSED-NEXT-STEPS-Claude.md
 
 ---
@@ -49,3 +49,13 @@ Plans:
 - [x] 04-01-PLAN.md — WPGraphQL TDD: add persisted-query classification strategy with preserved secure fallback behavior (Wave 1; depends on Phase 3)
 - [x] 04-02-PLAN.md — WSAL TDD: implement optional WSAL sensor bridge mapped from existing WP Sudo audit hooks (Wave 2)
 - [x] 04-03-PLAN.md — Integration + docs + manual verification + full-gate closure for Phase 4 deliverables (Wave 3)
+
+### Phase 5: IP + User Multidimensional Rate Limiting
+
+**Goal:** Add per-IP failed-attempt tracking alongside existing per-user tracking and enforce combined lockout policy with additive audit visibility.
+**Plans:** 3 plans
+
+Plans:
+- [x] 05-01-PLAN.md — Core TDD: add IP tracking and combined lockout policy in `Sudo_Session` (Wave 1)
+- [x] 05-02-PLAN.md — Integration TDD: validate same-IP cross-user lockout and hook payloads in real WP flows (Wave 2)
+- [x] 05-03-PLAN.md — Docs/manual alignment + full pre-PR verification gates (Wave 3)
