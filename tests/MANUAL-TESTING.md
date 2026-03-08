@@ -1338,6 +1338,28 @@ curl -sk -X POST "YOUR_SITE_URL/graphql" \
 7. Temporarily deactivate/uninstall WSAL while leaving the bridge file in place.
 8. **Expected:** No fatal errors; bridge remains inert when WSAL APIs are absent.
 
+### 19.7 Stream Bridge
+
+> Requires Stream plugin + `bridges/wp-sudo-stream-bridge.php`
+> copied into `wp-content/mu-plugins/`.
+
+1. Install and activate Stream.
+2. Copy bridge:
+   `wp-content/plugins/wp-sudo/bridges/wp-sudo-stream-bridge.php`
+   → `wp-content/mu-plugins/wp-sudo-stream-bridge.php`
+3. Trigger a blocked action (for example, plugin activation without sudo).
+4. Open **Stream > Records**.
+5. **Expected:** A record appears with connector `wp_sudo`, context
+   `wp_sudo`, and action `blocked`.
+6. Open the record details.
+7. **Expected:** Record args/meta include `source=wp-sudo`,
+   `hook=wp_sudo_action_blocked`, plus `rule_id` and `surface`.
+8. Trigger other lifecycle events (activate/deactivate sudo, lockout,
+   replay) and confirm corresponding actions (`activated`,
+   `deactivated`, `lockout`, `replayed`) appear in Stream.
+9. Temporarily deactivate/uninstall Stream while leaving the bridge file in place.
+10. **Expected:** No fatal errors; bridge remains inert when Stream APIs are absent.
+
 ---
 
 ## 20. WebAuthn Bridge (Two Factor WebAuthn Provider)

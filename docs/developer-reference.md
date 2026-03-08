@@ -150,8 +150,26 @@ Event mapping:
 
 The bridge is inert when WSAL APIs are unavailable.
 
-Stream parity note: WSAL bridge is first-party in this phase. Stream mapping is
-planned next (same WP Sudo hook source, Stream record writer target).
+### Optional Stream Bridge
+
+WP Sudo ships an optional Stream bridge at
+`bridges/wp-sudo-stream-bridge.php`. Install it as an mu-plugin to map
+WP Sudo hooks into Stream records.
+
+Record mapping:
+
+- **Connector:** `wp_sudo`
+- **Context:** `wp_sudo`
+- **Action:** derived from hook (`activated`, `deactivated`,
+  `reauth_failed`, `lockout`, `gated`, `blocked`, `allowed`,
+  `replayed`, `capability_tampered`)
+- **Args/meta:** always includes `source=wp-sudo` and `hook`, plus hook
+  fields such as `user_id`, `rule_id`, `surface`, `attempts`, `expires`,
+  and `duration` where applicable.
+
+The bridge supports late Stream availability (mu-plugin loads before
+regular plugins) by deferring registration to `plugins_loaded` when
+needed. It remains inert when Stream APIs are unavailable.
 
 ## Filters
 
