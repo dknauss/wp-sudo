@@ -1,61 +1,137 @@
-# Roadmap: Security Hardening Sprint
+# Roadmap: Playwright E2E Test Infrastructure
 
-**Milestone:** Security Hardening Sprint
-**Status:** Archived — shipped v2.10.2–v2.13.0 (all 5 phases delivered)
-**Created:** 2026-03-03
-**Depth:** Standard (5 phases)
-**Source:** ROADMAP.md section 12, .planning/review/03-03-2026/PROPOSED-NEXT-STEPS-Claude.md
+**Milestone:** v2.14 — Playwright E2E Test Infrastructure
+**Status:** Active — defining phases
+**Created:** 2026-03-08
+**Depth:** Standard (3 phases)
+**Source:** .planning/research/SUMMARY.md, .planning/REQUIREMENTS.md
 
 ---
 
-### Phase 1: Request Stash Redaction and Upload Action Coverage
+### Phase 6: E2E Infrastructure Scaffold
 
-**Goal:** Eliminate real data exposure in request stash (passwords stored verbatim in transients) and close the upload-plugin/upload-theme gating gap. Implement per-user stash cap to bound growth.
-**Plans:** 4 plans
+**Goal:** Stand up the complete Playwright + wp-env toolchain from zero Node.js baseline. First smoke test passes locally and in CI. Login helper works with storageState. No behavioral tests yet — this phase is pure infrastructure.
 
-Plans:
-- [x] 01-01-PLAN.md — Redaction TDD: sanitize_params() omits sensitive fields, wp_sudo_sensitive_stash_keys filter (Wave 1)
-- [x] 01-02-PLAN.md — Upload rules TDD: plugin.upload and theme.upload added to Action_Registry (Wave 1, parallel)
-- [x] 01-03-PLAN.md — Stash cap TDD: MAX_STASH_PER_USER=5, user meta index, enforce_stash_cap(), Challenge + uninstall updates (Wave 2)
-- [x] 01-04-PLAN.md — Integration tests: redaction + cap + index verified against real WordPress/MySQL (Wave 3)
+**Requirements covered:** TOOL-01, TOOL-02, TOOL-03, TOOL-04, TOOL-05, TOOL-06
 
-### Phase 2: Non-Blocking Rate Limiting
+**Key decisions:**
+- `@playwright/test` 1.58.2, `@wordpress/env` 11.1.0 (exact versions, pinned)
+- Chromium only (~300MB install)
+- Port 8889 for wp-env (avoids conflict with local dev sites on 8888)
+- `tests/e2e/` directory structure (third test tier alongside Unit and Integration)
+- `global-setup.ts` logs in once, saves WordPress auth cookies to `storageState`
+- Sudo token cookies explicitly excluded from `storageState`
+- Separate CI workflow (`e2e.yml`) — no changes to `phpunit.yml`
+- `workers: 1` — single WordPress instance
 
-**Goal:** Replace blocking sleep() in auth failure path with non-blocking time-based throttling. Eliminate PHP-FPM worker exhaustion under concurrent failed auth attempts. Address TOCTOU race in failure counter.
-**Plans:** 4 plans
+**Pitfalls addressed:** 1 (stale wp-env state), 5 (cold-start latency), 6 (stale sudo cookies in storageState), 9 (port conflict), 10 (TypeScript scope)
 
-Plans:
-- [x] 02-01-PLAN.md — Core TDD: replace blocking delay with non-blocking throttle and add_user_meta append-row failure tracking in `Sudo_Session` (Wave 1)
-- [x] 02-02-PLAN.md — Integration TDD: migrate scalar-counter-coupled tests and validate throttle/lockout/hook behavior in real WP flows (Wave 2)
-- [x] 02-04-PLAN.md — UX TDD: wire delay through challenge AJAX handler and add client-side throttle disable/countdown behavior (Wave 3)
-- [x] 02-03-PLAN.md — Cleanup TDD: uninstall/meta cleanup + security-model docs alignment + full gate verification (Wave 4)
+**New files:**
+- `package.json` — devDependencies only
+- `.wp-env.json` — plugin mount, PHP 8.2, port 8889
+- `.nvmrc` — pin Node 20
+- `playwright.config.ts` — testDir, baseURL, workers, retries, reporter
+- `tests/e2e/global-setup.ts` — login → storageState
+- `tests/e2e/fixtures/test.ts` — extended test with WP admin helpers
+- `tests/e2e/specs/smoke.spec.ts` — first smoke test (settings page loads)
+- `.github/workflows/e2e.yml` — CI job
+- `.gitignore` updates — `node_modules/`, `tests/e2e/artifacts/`, `playwright-report/`
 
-### Phase 3: Rule Schema Validation and MU Loader Resilience
+**Success criteria:**
+- `npx wp-env start && npx playwright test` passes locally
+- CI workflow runs, starts wp-env, runs smoke test, uploads artifacts on failure
+- `storageState` file created with WP auth cookies, no `wp_sudo_token`
+- Smoke test navigates to Settings → Sudo and asserts page title
 
-**Goal:** Add strict schema validation for wp_sudo_gated_actions filter output. Harden MU loader path detection for non-standard plugin directory layouts.
-**Plans:** 3 plans
+**Estimated plans:** 3
+- 06-01: Node.js toolchain + wp-env config + package.json (Wave 1)
+- 06-02: Playwright config + global-setup + login fixture + smoke test (Wave 2)
+- 06-03: CI workflow + .gitignore + documentation (Wave 3)
 
-Plans:
-- [x] 03-01-PLAN.md — Core TDD: normalize/validate filtered rules in `Action_Registry::get_rules()` and drop invalid rules fail-closed (Wave 1)
-- [x] 03-02-PLAN.md — MU-loader TDD: remove hardcoded basename/path assumptions and add resilient fallback resolution (Wave 2)
-- [x] 03-03-PLAN.md — Integration + docs + full-gate verification for Phase 3 contracts (Wave 3)
+---
 
-### Phase 4: WPGraphQL Persisted Query Strategy and WSAL Sensor
+### Phase 7: Core E2E Tests + Visual Regression Baselines
 
-**Goal:** Document and handle persisted-query mutation detection in Limited mode. Ship WSAL sensor extension for enterprise audit visibility.
-**Plans:** 3 plans
+**Goal:** Write the E2E tests that close the 5 PHPUnit-uncoverable gaps: cookie attributes, admin bar timer JS, MU-plugin AJAX, gate UI disabled buttons, and challenge stash-replay flow. Capture visual regression baselines for WP 7.0. This phase delivers the milestone's core value.
 
-Plans:
-- [x] 04-01-PLAN.md — WPGraphQL TDD: add persisted-query classification strategy with preserved secure fallback behavior (Wave 1; depends on Phase 3)
-- [x] 04-02-PLAN.md — WSAL TDD: implement optional WSAL sensor bridge mapped from existing WP Sudo audit hooks (Wave 2)
-- [x] 04-03-PLAN.md — Integration + docs + manual verification + full-gate closure for Phase 4 deliverables (Wave 3)
+**Requirements covered:** COOK-01, COOK-02, COOK-03, TIMR-01, TIMR-02, TIMR-03, TIMR-04, MUPG-01, MUPG-02, MUPG-03, GATE-01, GATE-02, GATE-03, CHAL-01, CHAL-02, CHAL-03, VISN-01, VISN-02, VISN-03, VISN-04
 
-### Phase 5: IP + User Multidimensional Rate Limiting
+**Key decisions:**
+- Cookie verification via `context.cookies()` API — programmatic, no screenshots
+- Admin bar timer tests use `page.clock.install()` + `page.clock.tick()` for deterministic time control
+- Challenge flow tests use `Promise.all([waitForURL, click])` pattern for AJAX navigation
+- Visual snapshots use `toHaveScreenshot()` with `clip` to isolate specific elements (challenge card, settings form, admin bar node)
+- Snapshot threshold: `threshold: 0.01`, `maxDiffPixels: 100`
+- Admin bar timer masked in non-timer visual snapshots
 
-**Goal:** Add per-IP failed-attempt tracking alongside existing per-user tracking and enforce combined lockout policy with additive audit visibility.
-**Plans:** 3 plans
+**Pitfalls addressed:** 2 (AJAX navigation pattern), 4 (countdown changes DOM), 7 (iframe-break), 8 (dynamic timestamps in snapshots)
 
-Plans:
-- [x] 05-01-PLAN.md — Core TDD: add IP tracking and combined lockout policy in `Sudo_Session` (Wave 1)
-- [x] 05-02-PLAN.md — Integration TDD: validate same-IP cross-user lockout and hook payloads in real WP flows (Wave 2)
-- [x] 05-03-PLAN.md — Docs/manual alignment + full pre-PR verification gates (Wave 3)
+**Test files:**
+- `tests/e2e/specs/session/cookie-attributes.spec.ts` — COOK-01, COOK-02, COOK-03
+- `tests/e2e/specs/session/admin-bar-timer.spec.ts` — TIMR-01, TIMR-02, TIMR-03, TIMR-04
+- `tests/e2e/specs/settings/mu-plugin-ajax.spec.ts` — MUPG-01, MUPG-02, MUPG-03
+- `tests/e2e/specs/challenge/gate-ui.spec.ts` — GATE-01, GATE-02, GATE-03
+- `tests/e2e/specs/challenge/reauth-flow.spec.ts` — CHAL-01, CHAL-02, CHAL-03
+- `tests/e2e/specs/visual/regression-baselines.spec.ts` — VISN-01, VISN-02, VISN-03, VISN-04
+
+**Success criteria:**
+- All 5 PHPUnit-uncoverable scenarios have passing E2E tests
+- Cookie `httpOnly`, `sameSite` values asserted programmatically
+- Admin bar timer countdown verified with clock manipulation (60s threshold, 0s reload)
+- MU-plugin AJAX install/uninstall flow exercised end-to-end
+- Gate UI disabled buttons verified with `aria-disabled` assertions
+- Challenge stash-replay flow completes: gated action → challenge → auth → destination
+- Visual baselines committed for challenge card, settings form, admin bar node
+- CI passes with all tests green
+
+**Estimated plans:** 4
+- 07-01: Cookie attribute + gate UI tests (Wave 1 — simpler, establish patterns)
+- 07-02: Admin bar timer tests with clock manipulation (Wave 2)
+- 07-03: Challenge stash-replay flow + MU-plugin AJAX (Wave 3 — highest complexity)
+- 07-04: Visual regression baselines + snapshot configuration (Wave 4)
+
+---
+
+### Phase 8: Keyboard Navigation + Admin Bar Interaction E2E
+
+**Goal:** Complete the E2E suite with keyboard-driven tests: Tab order on challenge page, Enter to submit, Ctrl+Shift+S shortcut behavior, and admin bar click-to-deactivate. These close the remaining user interaction gaps and establish the accessibility testing pattern for future milestones.
+
+**Requirements covered:** KEYB-01, KEYB-02, KEYB-03, KEYB-04, ABAR-01, ABAR-02
+
+**Key decisions:**
+- Keyboard tests use `page.keyboard.press()` for Tab, Enter, Escape
+- Focus assertions use `page.evaluate(() => document.activeElement?.id)`
+- Shortcut tests use `page.keyboard.press('Control+Shift+S')` (or `Meta+Shift+S` on macOS)
+- Admin bar deactivation asserts URL unchanged after click (no redirect)
+- Shortcut flash verified via CSS property check (not visual snapshot — animation is 300ms)
+
+**Test files:**
+- `tests/e2e/specs/challenge/keyboard-navigation.spec.ts` — KEYB-01, KEYB-02
+- `tests/e2e/specs/session/keyboard-shortcut.spec.ts` — KEYB-03, KEYB-04
+- `tests/e2e/specs/session/admin-bar-deactivate.spec.ts` — ABAR-01, ABAR-02
+
+**Success criteria:**
+- Tab key traverses challenge page form in correct order (password input → submit → cancel)
+- Enter submits challenge form
+- Ctrl+Shift+S navigates to challenge when no session active
+- Ctrl+Shift+S flashes admin bar when session is active
+- Admin bar click deactivates session without URL change
+- All tests pass in CI
+
+**Estimated plans:** 2
+- 08-01: Keyboard navigation + shortcut tests (Wave 1)
+- 08-02: Admin bar deactivation + CI verification + milestone docs (Wave 2)
+
+---
+
+## Phase Summary
+
+| Phase | Goal | Requirements | Plans | Depends On |
+|-------|------|-------------|-------|------------|
+| 6 | E2E infrastructure scaffold | TOOL-01–06 (6) | 3 | None |
+| 7 | Core E2E tests + visual regression | COOK, TIMR, MUPG, GATE, CHAL, VISN (20) | 4 | Phase 6 |
+| 8 | Keyboard + admin bar interaction | KEYB, ABAR (6) | 2 | Phase 7 |
+
+**Total:** 3 phases, 9 plans, 32 v1 requirements
+**Estimated effort:** ~2 weeks (Phase 6: 2–3 days, Phase 7: 5–7 days, Phase 8: 2–3 days)
+**Time-sensitive:** Visual regression baselines (VISN-01–04) should be captured before WP 7.0 GA (April 9, 2026)

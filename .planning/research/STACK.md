@@ -1,228 +1,230 @@
 # Stack Research
 
-**Domain:** WordPress plugin integration testing — WP_UnitTestCase alongside Brain\Monkey unit tests
-**Project:** WP Sudo v2.3.2 — adding integration tests + WP 7.0 compatibility verification
-**Researched:** 2026-02-19
-**Confidence:** HIGH (all critical claims verified against official WordPress core source, phpunit-polyfills GitHub, PHPUnit release history)
+**Domain:** Playwright E2E browser testing for a WordPress plugin (zero Node.js baseline)
+**Project:** WP Sudo — adding browser-level test infrastructure
+**Researched:** 2026-03-08
+**Confidence:** HIGH (all versions verified via npm registry as of research date; wp-env behavior verified from official Gutenberg monorepo README; CI runner capabilities verified from actions/runner-images Ubuntu2404-Readme.md; Playwright browser caching guidance verified from official Playwright CI docs)
 
 ---
 
 ## Context
 
-WP Sudo already has a working unit test stack:
-- PHPUnit 9.6 (locked)
-- Brain\Monkey 2.7 (function/hook mocking, no WordPress loaded)
-- Mockery 1.6 (object mocking)
-- Patchwork (redefines `setcookie`/`header`)
-- ~220 tests in `tests/Unit/`
+WP Sudo currently has:
+- PHPUnit 9.6 unit tests (Brain\Monkey, 496 tests)
+- PHPUnit integration tests (WP_UnitTestCase + MySQL, 132 tests)
+- Zero Node.js tooling — no `package.json`, no npm, no build step
+- GitHub Actions CI on ubuntu-24.04 with PHP 8.1–8.4 / WP 6.7, latest, trunk matrix
 
-This research covers **only what must be added** to support `WP_UnitTestCase`-based integration tests. Do not replace the existing unit test stack.
+This research covers **only what must be added** to support Playwright E2E browser tests. Do not alter the existing PHP test stack.
+
+Five test scenarios are the immediate target:
+1. Cookie attributes (httponly, samesite, secure flags — invisible to PHP assertions)
+2. Admin bar JS countdown timer (JavaScript behavior)
+3. MU-plugin AJAX challenge flow (browser redirect chain)
+4. Block editor snackbar preparation (future Gutenberg integration)
+5. Keyboard navigation / focus order (WCAG accessibility)
+
+Plus visual regression baselines for WP 7.0's admin refresh (GA April 9, 2026).
 
 ---
 
 ## Recommended Stack
 
-### Core Integration Test Infrastructure
+### Core Technologies
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| WordPress core test suite | trunk or tagged (fetched at CI time) | Provides `WP_UnitTestCase`, `WP_UnitTest_Factory`, transaction-based DB cleanup, spy REST server | The official test harness. `WP_UnitTestCase` is not on Packagist — it is fetched from `develop.svn.wordpress.org` or via `@wordpress/env`. No alternative provides the same depth of WordPress integration. |
-| `yoast/phpunit-polyfills` | `^2.0` | Bridges the `WP_UnitTestCase` inheritance chain to PHPUnit 9.6 | WordPress core bootstrap explicitly declares it a requirement (`"The PHPUnit Polyfills are a requirement for the WP test suite."`). It loads `Yoast\PHPUnitPolyfills\Autoload` and enforces a minimum version of 1.1.0. Use `^2.0` because the 2.x series supports PHPUnit 5.7–10.x, which covers PHPUnit 9.6 cleanly. The 1.x series also works but is the older branch. |
-| `install-wp-tests.sh` (from `wp-cli/scaffold-command`) | Current from scaffold-command main | Downloads WordPress test suite via SVN from `develop.svn.wordpress.org` and creates test database | Standard, battle-tested setup script used across the WordPress plugin ecosystem. Generates `wp-tests-config.php` from parameters. Runs at CI setup time, not as a Composer dependency. |
+| `@playwright/test` | `1.58.2` | Test runner, browser automation, built-in screenshot comparison | The standard for WordPress E2E testing. WordPress core, Gutenberg, and WooCommerce all use it. Built-in `toHaveScreenshot()` covers visual regression without additional packages. No external visual diff library needed. Ships its own test runner — no Jest/Mocha configuration required. |
+| `@wordpress/env` | `11.1.0` | WordPress environment — Docker or Playground runtime | The standard WordPress plugin test environment. Reads `.wp-env.json` from the plugin root, mounts the plugin automatically, manages WordPress installation. Used by Two Factor, Jetpack, and the wider WordPress plugin ecosystem. Docker runtime uses MySQL (production-representative). Playground runtime uses SQLite (avoid for WP Sudo — session transients and rate-limit transients need MySQL behavior). |
 
-### Coexistence: Two Separate Bootstrap Files
+### Supporting Tools (not npm packages)
 
-PHPUnit 9.6 supports a single global bootstrap per configuration, but **two test suites can each declare their own bootstrap** via the `<testsuites>` structure or separate `phpunit.xml` files. The integration suite needs its own bootstrap because it loads real WordPress; the unit suite's bootstrap (`tests/bootstrap.php`) explicitly does not.
+| Tool | Version on ubuntu-24.04 | Purpose | Notes |
+|------|------------------------|---------|-------|
+| Docker | 28.0.4 (pre-installed) | Required by `@wordpress/env` Docker runtime | Already on ubuntu-24.04 GitHub Actions runners. No setup step needed. |
+| Docker Compose v2 | 2.38.2 (pre-installed) | Used internally by `@wordpress/env` | Pre-installed. No setup step needed. |
+| Node.js | 20.20.0 (pre-installed) | Runs Playwright and wp-env | Pre-installed on ubuntu-24.04. Node >=18 satisfies both Playwright (>=18) and wp-env (>=18.12.0) requirements. |
 
-**Use two separate phpunit configuration files:**
+### What NOT to Add
 
-| Config file | Suite | Bootstrap | Database required |
-|-------------|-------|-----------|------------------|
-| `phpunit.xml.dist` (existing) | Unit (`tests/Unit/`) | `tests/bootstrap.php` (existing, no WordPress) | No |
-| `phpunit-integration.xml.dist` (new) | Integration (`tests/Integration/`) | `tests/integration-bootstrap.php` (new, loads WordPress) | Yes — MySQL via GitHub Actions service |
-
-This is the **only architecture that cleanly separates** the Brain\Monkey fake-WordPress bootstrap from the real-WordPress integration bootstrap without risk of class redefinition conflicts.
-
-### GitHub Actions: MySQL Service Container
-
-| Service | Version | Why |
-|---------|---------|-----|
-| MySQL | 8.0 | WordPress 6.2+ requires MySQL 5.7+. MySQL 8.0 is the current standard used by managed hosts and WordPress core CI. MariaDB 10.6 is an equivalent alternative if the host mirrors it. |
-
-GitHub Actions service container pattern (Ubuntu 24.04 runner):
-
-```yaml
-services:
-  mysql:
-    image: mysql:8.0
-    env:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: wordpress_test
-    options: >-
-      --health-cmd="mysqladmin ping"
-      --health-interval=10s
-      --health-timeout=5s
-      --health-retries=5
-    ports:
-      - 3306:3306
-```
-
-No Docker Compose or `@wordpress/env` is needed for a pure-PHP plugin. The MySQL service container + `install-wp-tests.sh` is simpler and faster than `@wordpress/env` for plugins without JavaScript block development.
-
-### Supporting Libraries (already in require-dev, no new additions needed)
-
-| Library | Already present | Role in integration tests |
-|---------|----------------|--------------------------|
-| PHPUnit 9.6 | Yes (`^9.6`) | Test runner — same binary, different suite |
-| Mockery 1.6 | Yes | Can still be used in integration tests for partial mocks; less needed when WordPress is real |
-
-**No new Composer `require-dev` packages beyond `yoast/phpunit-polyfills ^2.0` are required.** Brain\Monkey is not used in integration tests (the whole point is that WordPress functions are real), but it does not conflict — it is simply not initialized in the integration bootstrap.
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `pixelmatch` / `pngjs` | Playwright's built-in `toHaveScreenshot()` already does pixel-level comparison with configurable thresholds — no external image diff library is needed | Built-in `expect(page).toHaveScreenshot()` |
+| `@argos-ci/playwright` (6.4.2) | External SaaS for visual regression — adds billing dependency, network calls in CI, and account management overhead. Unnecessary for a plugin with a small visual regression surface | Built-in `toHaveScreenshot()` snapshots committed to the repo |
+| `@percy/playwright` (1.0.10) | Same problem as Argos — external SaaS, stale (last release Nov 2025), Percy account required | Built-in `toHaveScreenshot()` |
+| `@wordpress/e2e-test-utils-playwright` (1.41.0) | Heavy Gutenberg-specific utility layer (WP Core `RequestUtils`, `Admin`, `Editor` helpers). Peer-requires `@playwright/test>=1` and `@types/node@^20`. Built for Core/Gutenberg development, not plugin testing. WP Sudo needs simple page navigation and form submission — not block editor helpers | Direct `@playwright/test` page API |
+| `@wp-playground/cli` (3.1.4) as standalone env | WASM PHP (not real PHP binary). Uses SQLite, not MySQL. `wp-env run` command unavailable in Playground runtime. WP Sudo's transient-based rate limiting and session management need real MySQL semantics | `@wordpress/env` with Docker runtime |
+| `wp-env --runtime=playground` | Experimental runtime, SQLite only (no MySQL), no `wp-env run` command. Rate-limit transients, session transients, and `wp_check_password()` behavior must be validated against MySQL. Playground is fine for block editor testing, not for security plugin testing | `@wordpress/env` with default Docker runtime |
+| `@wordpress/scripts` | Build tooling for block-editor JS. WP Sudo has no JavaScript that requires compilation | Not applicable |
+| `actions/setup-node` in the E2E CI job | Node.js 20.20.0 is already pre-installed on ubuntu-24.04 runners. Adding setup-node wastes ~15 seconds and introduces an unnecessary dependency | Use pre-installed node; add `node-version` pin only if a specific version is required |
+| Browser binary caching in GitHub Actions | Playwright's own documentation explicitly states: "Caching browser binaries is not recommended, since the amount of time it takes to restore the cache is comparable to the time it takes to download the binaries." | Run `npx playwright install --with-deps chromium` on every CI run — it is the official recommendation |
+| Docker Compose custom `docker-compose.yml` | Manual Docker Compose requires maintaining image versions, health checks, volume mounts, and wp-config. `@wordpress/env` encapsulates all of this and is maintained by the WordPress project | `@wordpress/env` with `.wp-env.json` |
+| Full Playwright browser install (Chromium + Firefox + WebKit) | ~800MB download. WordPress admin works in all browsers but the interaction patterns tested (form submission, cookie inspection, DOM state) are browser-agnostic at the Chromium level. CI time scales with download size | `npx playwright install --with-deps chromium` (~300MB, covers the tested surface) |
 
 ---
 
 ## Installation
 
 ```bash
-# Only addition to composer.json require-dev
-composer require --dev yoast/phpunit-polyfills:"^2.0"
+# Initialize package.json (one-time, at repo root)
+npm init -y
+
+# Core E2E dependencies
+npm install --save-dev @playwright/test@1.58.2 @wordpress/env@11.1.0
+
+# Install Playwright browser (Chromium only — run after npm install)
+npx playwright install --with-deps chromium
 ```
 
 ```bash
-# Scaffold integration test infrastructure (run once locally, outputs bin/install-wp-tests.sh)
-wp scaffold plugin-tests --ci=github-actions
-# Or manually copy install-wp-tests.sh from:
-# https://github.com/wp-cli/scaffold-command/blob/main/templates/install-wp-tests.sh
-```
+# Start the test environment (requires Docker running)
+npx wp-env start
 
-```bash
-# Run integration tests (requires WordPress test suite installed locally)
-DB_NAME=wordpress_test DB_USER=root DB_PASS=root bash bin/install-wp-tests.sh wordpress_test root root localhost trunk
-./vendor/bin/phpunit -c phpunit-integration.xml.dist
-```
+# Run E2E tests
+npx playwright test
 
-```bash
-# Run unit tests (unchanged)
-composer test
-# or
-./vendor/bin/phpunit -c phpunit.xml.dist
+# Update visual regression snapshots (run when WP admin UI changes)
+npx playwright test --update-snapshots
 ```
 
 ---
 
 ## Configuration Files
 
-### `phpunit-integration.xml.dist` (new)
+### `package.json` (minimal — avoids tooling bloat)
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<phpunit
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
-    bootstrap="tests/integration-bootstrap.php"
-    colors="true"
-    beStrictAboutTestsThatDoNotTestAnything="true"
-    beStrictAboutOutputDuringTests="false"
-    failOnWarning="false"
->
-    <testsuites>
-        <testsuite name="Integration">
-            <directory suffix="Test.php">tests/Integration</directory>
-        </testsuite>
-    </testsuites>
-
-    <coverage>
-        <include>
-            <directory suffix=".php">includes</directory>
-        </include>
-    </coverage>
-</phpunit>
+```json
+{
+  "name": "wp-sudo",
+  "private": true,
+  "scripts": {
+    "env:start": "wp-env start",
+    "env:stop": "wp-env stop",
+    "env:clean": "wp-env destroy",
+    "test:e2e": "playwright test",
+    "test:e2e:update-snapshots": "playwright test --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@wordpress/env": "11.1.0"
+  }
+}
 ```
 
-Note: `beStrictAboutOutputDuringTests="false"` and `failOnWarning="false"` are needed because WordPress itself emits output and deprecation notices during bootstrap. The unit suite keeps strict mode because it never loads WordPress.
+### `.wp-env.json` (plugin root)
 
-### `tests/integration-bootstrap.php` (new)
-
-```php
-<?php
-/**
- * Integration test bootstrap.
- *
- * Loads the real WordPress test suite so WP_UnitTestCase is available.
- * Requires: install-wp-tests.sh to have been run first.
- */
-
-$_tests_dir = getenv( 'WP_TESTS_DIR' );
-
-if ( ! $_tests_dir ) {
-    $_tests_dir = rtrim( sys_get_temp_dir(), '/\\' ) . '/wordpress-tests-lib';
+```json
+{
+  "core": null,
+  "plugins": ["."],
+  "phpVersion": "8.2",
+  "port": 8888,
+  "config": {
+    "WP_DEBUG": true,
+    "WP_DEBUG_LOG": true,
+    "SCRIPT_DEBUG": true
+  }
 }
-
-if ( ! file_exists( "$_tests_dir/includes/functions.php" ) ) {
-    echo "ERROR: WordPress test suite not found at $_tests_dir.\n";
-    echo "Run: bash bin/install-wp-tests.sh wordpress_test root root localhost trunk\n";
-    exit( 1 );
-}
-
-// Register plugin activation before WordPress loads.
-function _manually_load_plugin() {
-    require dirname( dirname( __FILE__ ) ) . '/wp-sudo.php';
-}
-tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );
-
-require "$_tests_dir/includes/bootstrap.php";
-
-// phpunit-polyfills is required by the WP bootstrap above; Composer autoload handles it.
 ```
 
-### GitHub Actions workflow step (new job or existing job extension)
+Notes:
+- `"plugins": ["."]` mounts the current directory as the plugin under test. wp-env auto-installs and activates it.
+- `"core": null` uses the latest production WordPress release. For WP 7.0 baseline testing, set to `"https://wordpress.org/wordpress-7.0.zip"` once it ships.
+- `"phpVersion": "8.2"` is concrete and matches the CI PHP version used for integration tests. Do not use `null` (wp-env default) — pin a version for reproducible baselines.
+- No `testsEnvironment` — it is deprecated. Use `--config` with a separate `.wp-env.json` file if a separate test environment is needed.
+
+### `playwright.config.js` (minimal)
+
+```js
+// @ts-check
+const { defineConfig, devices } = require('@playwright/test');
+
+module.exports = defineConfig({
+  testDir: './tests/E2E',
+  timeout: 30_000,
+  retries: process.env.CI ? 2 : 0,
+  workers: 1,          // wp-env has one WordPress instance; parallel workers would conflict
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+  ],
+  use: {
+    baseURL: 'http://localhost:8888',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  // No webServer block — wp-env is started as a separate CI step, not via Playwright
+});
+```
+
+Notes:
+- `workers: 1` is mandatory. wp-env exposes a single WordPress instance. Parallel Playwright workers would share the same database and session state, causing intermittent failures.
+- `retries: 2` in CI handles the transient timing issues that appear in browser tests against a Docker container. Do not use retries locally.
+- No `webServer` block — wp-env has its own lifecycle (`wp-env start` / `wp-env stop`) and is not a simple dev server that Playwright can manage.
+
+---
+
+## GitHub Actions CI Integration
+
+The E2E job runs as a separate job after the existing `integration-tests` job. It does not replace or modify any existing jobs.
 
 ```yaml
-test-integration:
-  name: Integration Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }})
+e2e-tests:
+  name: "E2E Tests (WP ${{ matrix.wp }})"
   runs-on: ubuntu-24.04
-
   strategy:
+    fail-fast: false
     matrix:
-      php: ['8.1', '8.2', '8.3']
-      wp: ['latest', 'trunk']
-
-  services:
-    mysql:
-      image: mysql:8.0
-      env:
-        MYSQL_ROOT_PASSWORD: root
-        MYSQL_DATABASE: wordpress_test
-      options: >-
-        --health-cmd="mysqladmin ping"
-        --health-interval=10s
-        --health-timeout=5s
-        --health-retries=5
-      ports:
-        - 3306:3306
+      wp:
+        - null        # latest production release (wp-env default)
+        - "https://wordpress.org/wordpress-7.0.zip"  # add after WP 7.0 GA
 
   steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: ${{ matrix.php }}
-        tools: composer:v2, svn
-        extensions: mysqli
-        coverage: none
+    # Node.js 20.20.0 is pre-installed on ubuntu-24.04 — no setup-node needed
 
-    - name: Install Composer dependencies
-      run: composer install --no-interaction --prefer-dist
+    - name: Install npm dependencies
+      run: npm ci
 
-    - name: Install WordPress test suite
-      run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wp }}
+    - name: Install Playwright browsers
+      run: npx playwright install --with-deps chromium
+      # NOT cached — Playwright docs explicitly recommend against browser caching
 
-    - name: Run integration tests
-      run: ./vendor/bin/phpunit -c phpunit-integration.xml.dist
+    - name: Start WordPress environment
+      run: npx wp-env start
       env:
-        WP_TESTS_DIR: /tmp/wordpress-tests-lib
+        WP_ENV_CORE: ${{ matrix.wp }}
+        # null matrix value means wp-env uses its default (latest WP)
+
+    - name: Run E2E tests
+      run: npx playwright test
+
+    - name: Upload test report on failure
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: playwright-report-${{ matrix.wp }}
+        path: playwright-report/
+        retention-days: 7
+
+    - name: Stop WordPress environment
+      if: always()
+      run: npx wp-env stop
 ```
+
+Key integration points with the existing `phpunit.yml`:
+- The E2E job is a sibling job, not part of the existing `unit-tests`, `integration-tests`, or `code-quality` jobs.
+- The `notify-on-failure` job in `phpunit.yml` should list `e2e-tests` in its `needs:` array once E2E is stable.
+- No PHP version matrix for E2E — browser behavior is PHP-version-agnostic. One PHP version (8.2, same as wp-env default) is sufficient.
+- `fail-fast: false` matches the existing pattern in `phpunit.yml`.
 
 ---
 
@@ -230,74 +232,98 @@ test-integration:
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| WordPress test harness delivery | `install-wp-tests.sh` + SVN | `@wordpress/env` (wp-env) | wp-env requires Docker + Node.js. WP Sudo has no JavaScript, no block editor code. Docker overhead adds 60–90 seconds to CI. The SVN approach is standard for pure-PHP plugins and runs in 15–20 seconds. |
-| Database for CI | GitHub Actions MySQL service container | SQLite (via SQLite Database Integration plugin) | SQLite integration is experimental for WordPress and not representative of production. `wp_check_password()` behavior is identical, but transient TTL behavior and some `$wpdb->query()` edge cases differ. MySQL is what the plugin will run against in production. |
-| PHPUnit version upgrade | Stay on PHPUnit 9.6 | Upgrade to PHPUnit 11.x | PHPUnit 11 requires PHP 8.2+. WP Sudo supports PHP 8.0+. More importantly, WordPress core itself uses PHPUnit 9.x schema (`phpunit.xsd` at schema version 9.2 as of Feb 2026). Upgrading PHPUnit would require rewriting ~220 unit tests. No benefit justifies this. |
-| phpunit-polyfills version | `^2.0` | `^1.1` | WordPress core requires minimum 1.1.0. Both 1.x and 2.x work. Use 2.x because it will support PHPUnit 10.x when the project eventually upgrades. WordPress core uses `^1.1.0` for backward compatibility with older installations; a plugin targeting PHP 8.0+ can use 2.x freely. |
-| Integration test framework | `WP_UnitTestCase` (core harness) | `wp-browser` (Codeception-based) | wp-browser is a good tool for E2E + integration in one framework. WP Sudo's need is narrow: real `$wpdb`, real transients, real `wp_check_password()`. `WP_UnitTestCase` covers exactly this. Adding Codeception would add a new test paradigm alongside the existing PHPUnit unit tests, complicating the suite for no material gain. |
-| Multisite testing | Add `WP_TESTS_MULTISITE=1` variant to matrix | Separate phpunit-multisite.xml.dist | A CI matrix variable is simpler. `WP_UnitTestCase` reads the `WP_TESTS_MULTISITE` env var; no separate config file needed. |
-
----
-
-## What NOT to Use
-
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Brain\Monkey in integration tests | Brain\Monkey replaces WordPress function stubs with Mockery expectations. If Brain\Monkey is initialized alongside a real WordPress install, WordPress functions get double-defined and PHP throws fatal errors. Never call `Brain\Monkey\setUp()` in integration test `set_up()`. | Real WordPress functions — that's the entire point of integration tests. |
-| Patchwork in integration tests | Patchwork patches are applied globally. Redefining `setcookie` or `header` while WordPress is bootstrapped can corrupt session and redirect behavior under test. | Assert on side effects after the fact (e.g., check `headers_list()`, check meta values). For cookie testing, use `WP_UnitTestCase`'s `tearDown` + direct `$_COOKIE` manipulation. |
-| `WP_UnitTestCase` in `tests/Unit/` (or vice versa) | Mixing the two base classes in the same suite causes the Brain\Monkey bootstrap to conflict with the WordPress bootstrap. | Keep `tests/Unit/` → extends `WP_Sudo\Tests\TestCase` (Brain\Monkey base). Keep `tests/Integration/` → extends `WP_UnitTestCase`. |
-| `--no-interaction` flag omission in CI | Without it, Composer prompts for plugin allow-list confirmation on fresh runs. | Always use `composer install --no-interaction` in CI. |
-| Hardcoding `127.0.0.1` as DB host locally | GitHub Actions MySQL service containers bind to `127.0.0.1` (not `localhost`). `localhost` causes MySQL to attempt a Unix socket connection, which fails in CI. | Use `127.0.0.1` for the CI `install-wp-tests.sh` call. Use `localhost` only for local development where a socket is available. |
-| PHP 7.x in integration test matrix | WP Sudo requires PHP 8.0+. Testing on 7.x wastes CI minutes and tests code paths that can't exist in production. | Matrix against PHP 8.1, 8.2, 8.3 (8.0 is EOL; 8.4 optional stretch goal). |
+| Test environment | `@wordpress/env` (Docker) | Docker Compose (custom) | Custom Docker Compose requires maintaining `docker-compose.yml`, WordPress image versions, volume mounts, database setup, and wp-config management. wp-env encapsulates all of this. WordPress core itself uses custom Docker Compose, but core is the reference implementation — plugins should use the higher-level tool. |
+| Test environment | `@wordpress/env` (Docker) | `@wordpress/env --runtime=playground` | Playground runtime uses SQLite, not MySQL. WP Sudo's rate-limiting and session transients depend on MySQL semantics. Playground is experimental and lacks `wp-env run`. Use Docker. |
+| Visual regression | Built-in `toHaveScreenshot()` | Argos CI / Percy | Both are SaaS tools with external billing and account management. Built-in `toHaveScreenshot()` stores baseline PNGs in the repo alongside the tests — no external service, no network dependency in CI, no API keys. Sufficient for WP 7.0 admin UI regression tracking. |
+| Browser coverage | Chromium only | Chromium + Firefox + WebKit | WordPress admin works in all modern browsers but the test scenarios (cookie flags, admin bar timer, challenge form) are not browser-specific. Full install adds ~500MB download and ~3 minutes CI time for no material coverage gain. Add Firefox/WebKit only if browser-specific bugs are found. |
+| Test runner | `@playwright/test` | Cypress | Cypress uses a different architecture (Electron wrapper, iFrame-based) with known issues testing cookie attributes and multi-tab flows. Playwright is the emerging standard for WordPress plugin testing (WordPress core migrated from Puppeteer to Playwright in WP 6.3). Playwright has better TypeScript support and first-class CI docs. |
+| Test runner | `@playwright/test` | Puppeteer | Puppeteer is a browser automation library, not a full test framework. Requires Jest or Mocha as an additional test runner. Playwright includes the test runner, fixtures, assertions, and screenshot comparison in one package. WordPress core migrated away from Puppeteer. |
+| `webServer` configuration | No (separate wp-env lifecycle) | Playwright `webServer:` block | Playwright's `webServer` block manages simple dev servers (`npm start`, `vite`, etc.). wp-env is a multi-container Docker environment that cannot be started with a simple command and health-checked as a URL in under 5 seconds. Start wp-env as a separate CI step before Playwright runs. |
 
 ---
 
 ## Version Compatibility
 
-| Package | Version in use | Compatible with | Notes |
-|---------|---------------|----------------|-------|
-| `phpunit/phpunit` | `^9.6` (9.6.34 latest, still maintained) | PHP 7.3–8.5 | Do not upgrade to 10 or 11 — WordPress core test harness targets 9.x schema. |
-| `yoast/phpunit-polyfills` | `^2.0` (2.0.5 latest as of Aug 2025) | PHPUnit 5.7–10.x | WordPress core bootstrap enforces minimum 1.1.0. 2.x satisfies this. |
-| WordPress test suite | trunk or version-tagged | WordPress 6.2–7.0 | Use `trunk` for nightly/7.0 testing. Use `latest` for stable 6.9 testing. |
-| MySQL service | 8.0 | WordPress 6.2–7.0 | WordPress 7.0 still supports MySQL 5.7+. Use 8.0 because it is what most managed hosts have standardized on. |
-| `shivammathur/setup-php` | `@v2` | All major PHP 8.x | Current version; `v2` is a floating tag tracking latest stable. Verify `svn` is in `tools:` — it is needed by `install-wp-tests.sh`. |
+| Package | Version | Compatible With | Notes |
+|---------|---------|----------------|-------|
+| `@playwright/test` | `1.58.2` (latest stable 2026-03-08) | Node >=18 | Next alpha: `1.59.0-alpha-2026-03-08`. Lock exact version (`1.58.2`) to prevent snapshot hash drift when Playwright updates its internal comparison algorithm. |
+| `@wordpress/env` | `11.1.0` (2026-03-04) | Node >=18.12.0, Docker required for default runtime | WordPress 6.7 tagged as `wp-6.7: 10.8.1`. Latest `11.1.0` supports WP trunk/7.0. |
+| Node.js (runtime) | 20.20.0 (pre-installed on ubuntu-24.04) | Playwright >=18, wp-env >=18.12.0 | No `actions/setup-node` step needed. |
+| Docker | 28.0.4 (pre-installed) | `@wordpress/env` 11.x | Docker Compose v2 2.38.2 also pre-installed. |
+| PHP (in wp-env container) | 8.2 (pinned in `.wp-env.json`) | WordPress 6.7–7.0 | Pin `phpVersion` explicitly. wp-env `null` default tracks the WordPress-bundled default, which can change without notice. |
+
+**Snapshot baseline stability:** Pin `@playwright/test` to an exact version (not `^`) in `package.json`. Playwright's internal screenshot comparison algorithm changes between minor versions, which invalidates all stored baselines. Lock the version and update it intentionally with a corresponding `--update-snapshots` run.
 
 ---
 
-## Stack Patterns by Variant
+## Stack Patterns by Scenario
 
-**If testing against WP 7.0 nightly (WP_ENV_CORE = trunk):**
-- Set `wp` matrix value to `trunk` in `install-wp-tests.sh` call
-- Pin a separate CI job that fails non-blocking (`continue-on-error: true`) so trunk regressions surface without blocking releases
-- `install-wp-tests.sh wordpress_test root root 127.0.0.1 trunk`
+**For visual regression against WP 7.0 admin refresh (April 9, 2026 GA):**
+- Capture baselines on WP 6.9 (current) first: `npx playwright test --update-snapshots`
+- Add `wp: "https://wordpress.org/wordpress-7.0.zip"` to matrix after GA
+- Run `--update-snapshots` on the 7.0 run to establish new 7.0 baselines
+- The two sets of snapshots coexist in the repo under different snapshot subdirectories (configured via `snapshotPathTemplate` in `playwright.config.js`)
 
-**If testing multisite session isolation:**
-- Add `WP_TESTS_MULTISITE=1` to the step's `env:` block
-- No separate configuration file needed — `WP_UnitTestCase` reads this env var automatically
-- Use the same `phpunit-integration.xml.dist`
+**For cookie attribute verification:**
+- Use `context.cookies()` to inspect cookie flags: `secure`, `httpOnly`, `sameSite`
+- No screenshot needed — assert programmatically: `expect(cookie.httpOnly).toBe(true)`
+- This is the primary reason integration tests cannot cover this scenario
 
-**If testing with the real Two Factor plugin present:**
-- Add a step before `install-wp-tests.sh` to download the Two Factor plugin into the test WordPress install's plugins directory
-- Use `tests_add_filter( 'muplugins_loaded', ... )` in the integration bootstrap to activate it alongside WP Sudo
+**For admin bar JS countdown timer:**
+- Wait for selector: `await page.waitForSelector('#wp-admin-bar-wp-sudo-timer')`
+- Assert text changes: `await expect(page.locator('#wp-admin-bar-wp-sudo-timer')).not.toHaveText('--:--')`
+- Use `page.evaluate()` for timing assertions
+
+**For keyboard navigation:**
+- Use `page.keyboard.press('Tab')` to traverse focus order
+- Assert: `await expect(page.locator(':focus')).toHaveAttribute('id', 'expected-id')`
+
+**For running locally without Docker:**
+- Use `wp-env start --runtime=playground` for quick iteration on non-session tests
+- For session/cookie/transient tests, Docker is required — do not use Playground
+
+---
+
+## CI Runner Requirements
+
+| Requirement | Status on ubuntu-24.04 | Notes |
+|-------------|----------------------|-------|
+| Docker | Pre-installed (28.0.4) | Required by `@wordpress/env`. No setup step needed. |
+| Docker Compose v2 | Pre-installed (2.38.2) | Used internally by `@wordpress/env`. No setup step needed. |
+| Node.js >=18 | Pre-installed (20.20.0) | Satisfies both Playwright and wp-env requirements. |
+| Chromium deps (libnss3, etc.) | Installed by `--with-deps` flag | `npx playwright install --with-deps chromium` handles OS-level dependencies. |
+| SVN | Already in existing CI (installed manually) | Not needed for Playwright E2E jobs. |
+
+**Estimated CI time addition:** 3–5 minutes per E2E job (wp-env start: ~60s, browser install: ~90s, test run: 60–120s depending on test count).
+
+---
+
+## What This Does NOT Change
+
+- `composer.json` — no changes
+- `phpunit.xml.dist` — no changes
+- `phpunit-integration.xml.dist` — no changes
+- `tests/Unit/` — no changes
+- `tests/Integration/` — no changes
+- Any existing `phpunit.yml` jobs — not modified, E2E is a new sibling job
+- Production plugin code — no JavaScript assets, no build step, no new PHP dependencies
 
 ---
 
 ## Sources
 
-- **WordPress core test bootstrap** — `https://github.com/WordPress/wordpress-develop/blob/trunk/tests/phpunit/includes/bootstrap.php` — Verified: phpunit-polyfills is a mandatory requirement; minimum version 1.1.0 enforced; loads `Yoast\PHPUnitPolyfills\Autoload`. (HIGH confidence)
-- **WordPress core phpunit-adapter-testcase** — `https://github.com/WordPress/wordpress-develop/blob/trunk/tests/phpunit/includes/phpunit-adapter-testcase.php` — Verified: extends `Yoast\PHPUnitPolyfills\TestCase`; bridges PHPUnit 4.8–9.6 to WordPress abstractions. (HIGH confidence)
-- **WordPress core phpunit.xml.dist** — Schema references PHPUnit 9.2; updated 2025-09-13. WordPress core still uses PHPUnit 9.x as of Feb 2026. (HIGH confidence)
-- **phpunit-polyfills README** — `https://github.com/yoast/phpunit-polyfills/blob/main/README.md` — Verified: 1.x supports PHPUnit 4.8–9.x; 2.x supports PHPUnit 5.7–10.x; latest stable 2.0.5 (Aug 2025). (HIGH confidence)
-- **PHPUnit 9.6 ChangeLog** — `https://github.com/sebastianbergmann/phpunit/blob/9.6/ChangeLog-9.6.md` — Verified: 9.6.34 released Jan 2026; actively maintained, PHP 8.4/8.5 compatible. (HIGH confidence)
-- **PHPUnit 11.5 composer.json** — Requires PHP `>=8.2`. Confirms upgrading from 9.6 to 11.x is blocked by WP Sudo's PHP 8.0 minimum. (HIGH confidence)
-- **WP_UnitTestCase_Base source** — `https://github.com/WordPress/wordpress-develop/blob/trunk/tests/phpunit/includes/abstract-testcase.php` — Verified: transaction rollback on teardown, factory pattern, key helper methods. (HIGH confidence)
-- **WP_UnitTest_Factory source** — `https://github.com/WordPress/wordpress-develop/blob/trunk/tests/phpunit/includes/factory/class-wp-unittest-factory.php` — Verified: `$user`, `$post`, `$comment`, `$term`, `$blog`, `$network` factories. (HIGH confidence)
-- **WordPress/two-factor CI workflow** — `https://github.com/WordPress/two-factor/blob/master/.github/workflows/test.yml` — Uses `@wordpress/env` via Docker; PHP 7.2–8.5 matrix. Confirms Docker-based approach is viable but adds Node.js dependency. (HIGH confidence — inspected raw YAML via GitHub API)
-- **wp-cli/scaffold-command** — `https://github.com/wp-cli/scaffold-command` — Confirmed `install-wp-tests.sh` is still actively maintained, uses SVN from `develop.svn.wordpress.org`. (MEDIUM confidence — README inspected, exact script implementation verified via description)
-- **GitHub Actions MySQL service pattern** — Official GHA docs + wordpress-develop CI — Standard `services:` block with health check. (HIGH confidence)
-- **WP_Test_REST_TestCase** — `https://github.com/WordPress/wordpress-develop/blob/trunk/tests/phpunit/includes/testcase-rest-api.php` — Provides `assertErrorResponse()` for REST integration tests. (HIGH confidence)
+- **npm registry: `@playwright/test`** — `npm view @playwright/test version` → `1.58.2` (2026-03-08). Dist-tags confirm latest stable. Next alpha `1.59.0-alpha-2026-03-08` active. (HIGH confidence)
+- **npm registry: `@wordpress/env`** — `npm view @wordpress/env version` → `11.1.0` (2026-03-04). Requires Node >=18.12.0, depends on `docker-compose` and `@wp-playground/cli`. (HIGH confidence)
+- **wp-env README** — `https://raw.githubusercontent.com/WordPress/gutenberg/trunk/packages/env/README.md` — Verified: Docker required for default runtime; Playground runtime is experimental, uses SQLite (not MySQL), lacks `wp-env run` command. Confirmed `.wp-env.json` schema fields: `core`, `plugins`, `phpVersion`, `port`, `config`, `mappings`. (HIGH confidence)
+- **GitHub Actions ubuntu-24.04 runner image** — `https://raw.githubusercontent.com/actions/runner-images/main/images/ubuntu/Ubuntu2404-Readme.md` — Verified: Docker 28.0.4, Docker Compose v2 2.38.2, Node.js 20.20.0 pre-installed. (HIGH confidence)
+- **Playwright CI docs** — `https://raw.githubusercontent.com/microsoft/playwright/main/docs/src/ci.md` — Verified: "Caching browser binaries is not recommended, since the amount of time it takes to restore the cache is comparable to the time it takes to download the binaries." (HIGH confidence — official documentation)
+- **WordPress core E2E workflow** — `https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/.github/workflows/reusable-end-to-end-tests.yml` — Verified: uses `npx playwright install --with-deps chromium` (Chromium only), Docker Compose for WP environment. Confirmed `@playwright/test` 1.56.1 in WordPress core `package.json` as of March 2026. (HIGH confidence)
+- **Two Factor plugin `package.json`** — `https://raw.githubusercontent.com/WordPress/two-factor/master/package.json` — Verified: uses `@wordpress/env: ^10.30.0` for test environment. Confirms wp-env is the standard plugin test environment. (HIGH confidence)
+- **`@wordpress/e2e-test-utils-playwright` npm** — `npm view @wordpress/e2e-test-utils-playwright` → `1.41.0`, peerDeps `@playwright/test>=1, @types/node@^20`. Confirmed it is Gutenberg-specific. (HIGH confidence)
+- **`@argos-ci/playwright` npm** — `npm view @argos-ci/playwright` → `6.4.2` (2026-02-20). SaaS service confirmed. (HIGH confidence)
+- **`pixelmatch` npm** — `npm view pixelmatch version` → `7.1.0`. Confirmed not needed given Playwright's built-in comparison. (HIGH confidence)
 
 ---
 
-*Stack research for: WordPress plugin integration testing (WP_UnitTestCase + Brain\Monkey coexistence)*
-*Researched: 2026-02-19*
+*Stack research for: Playwright E2E browser testing — WordPress plugin (zero Node.js baseline)*
+*Researched: 2026-03-08*

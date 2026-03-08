@@ -1,9 +1,9 @@
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 6 (E2E Infrastructure Scaffold) — not yet planned
 Plan: --
-Status: Defining requirements
-Last activity: 2026-03-08 -- Milestone v2.14 started
+Status: Roadmap defined, ready for `/gsd:plan-phase 6`
+Last activity: 2026-03-08 -- Milestone v2.14 roadmap created
 
 ## Project Reference
 
@@ -18,4 +18,6 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 - 496 unit tests, 1293 assertions; 132 integration tests in CI
 - PHPStan level 6 + Psalm clean
 - WP 7.0 GA ships April 9, 2026 -- visual regression baselines needed before then
-- 5 PHPUnit-uncoverable scenarios identified in ROADMAP.md section 1
+- 5 PHPUnit-uncoverable scenarios identified and scoped into 32 requirements
+- 3-phase roadmap: scaffold (Phase 6) → core tests (Phase 7) → keyboard/a11y (Phase 8)
+- Research complete: STACK.md, FEATURES.md, ARCHITECTURE.md, PITFALLS.md synthesized

@@ -1,15 +1,15 @@
 # Feature Research
 
-**Domain:** WordPress security plugin — integration test suite + WP 7.0 compatibility
-**Researched:** 2026-02-19
-**Confidence:** MEDIUM-HIGH
+**Domain:** Playwright E2E browser testing for a WordPress admin security plugin
+**Researched:** 2026-03-08
+**Confidence:** HIGH (codebase, JS source files, manual testing guide, existing docs — all verified against live files)
 
 > Note on sources: WebSearch and WebFetch were unavailable during this research session.
-> Findings draw from the project's own codebase (HIGH confidence), the existing roadmap
-> assessment in `docs/roadmap-2026-02.md` (HIGH confidence — authored by the project
-> maintainer), and the codebase mapping in `.planning/codebase/` (HIGH confidence).
-> Claims about WordPress ecosystem norms are based on training data (MEDIUM confidence)
-> and are flagged where verification against official sources is recommended.
+> All findings draw from the project's own codebase (HIGH confidence): JavaScript files in
+> `admin/js/`, CSS in `admin/css/`, `docs/ui-ux-testing-prompts.md`, `tests/MANUAL-TESTING.md`,
+> `.planning/codebase/`, and the existing `.planning/research/` files. Playwright-specific
+> patterns are based on training data (MEDIUM confidence) and are flagged where verification
+> against official docs is recommended before implementation.
 
 ---
 
@@ -17,201 +17,258 @@
 
 ### Table Stakes (Users Expect These)
 
-For an integration test suite on a security plugin, "users" are the plugin's maintainers
-and contributors. These are the features without which the test suite is not credible —
-i.e., the gaps it was built to fill have not been closed.
+For a Playwright E2E suite on a security plugin, "users" are the maintainers who need to
+verify browser-level behavior that PHPUnit cannot reach. These are the tests without which
+the E2E milestone fails to close the gaps it was created to address.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Full reauth flow (end-to-end)** | Core user journey — Gate intercepts → stashes → Challenge verifies → Session activates → Stash replays. Currently never tested as a whole; Mockery stubs hide interface mismatches across the five classes involved. | HIGH | Requires real WP DB, real transients, real user meta. This is the single highest-value integration test. |
-| **Real `wp_check_password()` with bcrypt** | WP 6.8+ defaults to bcrypt; every existing test mocks this. An unverified password hash path is an untested security control. | MEDIUM | PHP's `password_verify()` is exercised under the hood. No test environment setup needed beyond a real WordPress install. WP 6.8 fact confirmed via CLAUDE.md context. |
-| **Session token binding (real cookie + real meta)** | Token is stored in two places (user meta SHA-256 hash + httponly cookie). A mismatch that doesn't surface in unit tests could break all session validation silently. | MEDIUM | Requires a real HTTP response cycle or at minimum real `setcookie()` behavior — not the Patchwork stub. |
-| **Transient TTL enforcement** | Stash TTL is 300s (5 min); 2FA pending TTL is configurable (default 10 min). The current unit tests mock `Request_Stash` entirely — expiry is never exercised. | MEDIUM | Can use WP's built-in transient infrastructure. Test pattern: set transient, advance time (or use a past timestamp), verify retrieval returns false. |
-| **Upgrader migration chain against real DB** | `Upgrader::maybe_upgrade()` runs sequential routines (2.0.0 → 2.1.0 → 2.2.0). Logic is unit-tested but actual `update_option()` / `delete_option()` mutations are mocked. A regression in the migration that corrupts options would only surface in integration. | MEDIUM | Scaffold: insert "old version" options, run upgrader, assert final DB state. |
-| **Test harness setup (WP_UnitTestCase)** | All integration tests depend on a real WordPress + database environment. Without the harness, no integration tests can run. This is the prerequisite infrastructure for the entire suite. | HIGH | Requires `wp scaffold plugin-tests` or equivalent (yoast/wp-test-utils as an alternative). Adds `lucatume/wp-browser` or the official `wordpress-develop` test scaffolding. **Must be first.** |
-| **WP 7.0 functional verification (manual test guide)** | WP 7.0 Beta 1 shipped today (2026-02-19); GA is April 9. The manual testing guide (`tests/MANUAL-TESTING.md`) needs to be executed against 7.0-beta/RC to confirm no regressions before the "Tested up to" bump. | LOW | Not a new test to write — execution of the existing guide. Regression would be caught here before automated tests exist for it. |
-| **"Tested up to" version bump** | WordPress.org plugin directory requires an accurate "Tested up to" value. Shipping a plugin that hasn't declared WP 7.0 compatibility creates unnecessary user friction. | LOW | Must happen by April 9, 2026. Requires successful manual test run first. |
+| **Playwright toolchain setup (Node.js + config)** | Every other E2E feature depends on this. Without it, no browser-level test can run. | HIGH | Requires `npm init`, `@playwright/test`, `playwright.config.ts`, Chromium browser install, CI job. No build step currently exists in this project. This is the prerequisite for everything else. |
+| **WordPress login helper (session fixture)** | Every test needs to start authenticated as an admin. Without a reusable login fixture, each test file reimplements authentication — brittle and slow. | MEDIUM | Playwright supports `storageState` to persist browser auth across tests. Login once, save session to file, load in subsequent tests. Eliminates WordPress login form from every test. |
+| **Cookie attribute verification (HttpOnly, SameSite, Secure)** | The `wp_sudo_token` cookie uses `HttpOnly: true`, `SameSite: Strict`, and `Secure` (when HTTPS). These attributes are unreachable by PHPUnit (no real browser). Verifying them is one of the 5 core motivators for this milestone. | MEDIUM | Playwright exposes cookies via `context.cookies()`. Assert `httpOnly: true`, `sameSite: 'Strict'`, and `secure: true` after session activation. This directly closes a known test gap documented in `PITFALLS.md` Pitfall 3. |
+| **Admin bar countdown timer JS behavior** | `wp-sudo-admin-bar.js` implements a `setInterval` countdown, ARIA milestone announcements, `wp-sudo-expiring` CSS class toggle at 60s, and page reload at 0s. All of this is JavaScript-level behavior unreachable by PHPUnit. | MEDIUM | Playwright can manipulate `Date` and `setTimeout` via `page.clock.install()` / `page.clock.tick()`. Assert timer text updates, CSS class addition at 60s, and reload behavior at 0s. The JS file is 102 lines and well-structured — high test confidence. |
+| **MU-plugin install/uninstall AJAX flow** | `wp-sudo-admin.js` handles the MU-plugin AJAX flow: spinner shows, button disables, fetch fires, on success the page reloads after 1s, on error the message area is populated and button re-enables. The PHP side is integration-tested; the JS interaction chain is not. | MEDIUM | Playwright intercepts and mocks `fetch` responses to test both success and error states without requiring actual filesystem writes. Or use a real test WP environment for the full flow including page reload. |
+| **Challenge page stash-challenge-replay full flow** | The complete flow (trigger gated action → land on challenge page → enter password → AJAX auth → stash replay → land on destination) has never been exercised in a real browser. PHPUnit integration tests simulate it but cannot verify the JavaScript POST-replay form submission or the loading overlay behavior. | HIGH | This is the core user journey of the entire plugin. Playwright navigates to Plugins, clicks Activate, enters password in challenge form, and asserts the plugin is now active. The JS in `wp-sudo-challenge.js` drives this flow; it is 400+ lines of AJAX, ARIA, and form logic. |
+| **Visual regression baseline screenshots** | WP 7.0 GA ships April 9, 2026 with an admin visual refresh. Without snapshot baselines captured now (before GA), there is no reference to diff against. Screenshots taken after the admin refresh contain the new styles and cannot serve as regression baselines for the refresh itself. | MEDIUM | Playwright's built-in `expect(page).toHaveScreenshot()` API captures PNG snapshots and pixel-diffs on subsequent runs with configurable tolerance thresholds. Baselines must be committed to the repo. This is time-sensitive: capture baselines against WP 7.0 before any CSS changes to the plugin. |
+| **Gate UI: disabled buttons when no sudo session** | `wp-sudo-gate-ui.js` disables Install, Activate, Update, and Delete buttons via `aria-disabled`, `pointer-events: none`, and a capture-phase `blockClick` handler. A MutationObserver watches for dynamically added cards. These DOM mutations cannot be verified by PHPUnit. | MEDIUM | Playwright navigates to the Plugins page with no active session, asserts buttons have `aria-disabled="true"` and `class="wp-sudo-disabled"`, then attempts a click and asserts no navigation occurred. |
 
 ### Differentiators (Competitive Advantage)
 
-Features beyond what typical WordPress security plugins test. These represent higher-quality
-coverage that demonstrates the test suite takes security properties seriously, not just
-happy-path behavior.
+Features beyond the 5 PHPUnit-uncoverable scenarios. These raise the test suite quality
+from "closes the gap" to "sets the standard" for WordPress security plugin E2E testing.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **REST API gating with real auth (cookie + app passwords)** | REST gating is a live security boundary. Cookie auth (browser-initiated REST) and application password auth have different code paths through the Gate. Testing both with real auth — not mocked — verifies the actual security boundary, not a simulation of it. | HIGH | App password tests require a real WordPress REST stack. The Studio dev environment strips Authorization headers (PHP built-in server limitation); use Local (nginx) for app password tests. Confirmed via `tests/MANUAL-TESTING.md`. |
-| **Two Factor plugin interaction (real plugin installed)** | WP Sudo's 2FA integration uses `class_exists('Two_Factor_Core')` detection. The current unit tests use a minimal stub. Installing the real Two Factor plugin in the test harness and exercising `is_user_using_two_factor()`, `get_primary_provider_for_user()`, and the 2FA pending transient flow validates the real integration contract. | HIGH | Requires Two Factor plugin in the test harness (installable via Composer test fixtures or manual setup). Confirms method signatures haven't drifted from the stub. MEDIUM confidence on exact method names — must verify against live source before implementing. |
-| **Multisite session isolation** | WP Sudo sessions are per-user, per-browser. The INTEGRATIONS.md note states sessions are "network-wide" (authenticating on one site covers all network sites) — but the `_wp_sudo_expires` and `_wp_sudo_token` meta are stored per-user. A cross-site session leak would be a security defect invisible to unit tests. | HIGH | Requires multisite test harness configuration. Test pattern: activate session on site A, attempt gated action on site B as same user. |
-| **Audit hook firing verification** | The plugin fires 9 action hooks (`wp_sudo_activated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_replayed`, etc.). These hooks are the public API for audit logging integrations. Integration tests can verify the hooks fire with correct arguments in real workflows — not just that `add_action()` was called. | MEDIUM | Extend the full reauth flow test with `did_action()` assertions. This verifies the audit surface is intact, not just that hooks were registered. |
-| **Capability tamper detection (canary test)** | `Plugin::enforce_editor_unfiltered_html()` runs at `init` priority 1 and strips `unfiltered_html` if it reappears on the Editor role. This is a tamper-detection canary. Integration testing can grant the capability directly via `$role->add_cap()`, trigger the hook, and assert the capability was removed and `wp_sudo_capability_tampered` fired. | MEDIUM | Tests the tamper detection actually works in a real WP environment, not just that `get_role()` was called correctly. |
-| **Rate limiting with real meta persistence** | Rate limiting (5 attempts → lockout) stores `_wp_sudo_failed_attempts` and `_wp_sudo_lockout_until` in user meta. Unit tests verify the logic but mock `update_user_meta()`. An integration test exercises the full attempt counter across multiple calls with real DB reads/writes. | MEDIUM | Tests that the counter persists correctly across calls within the same request simulation, and that lockout state is durable. |
-| **WP 7.0 Abilities API surface assessment** | WP 7.0 adds an Abilities API with a new REST surface. Current state: only 3 read-only abilities exist. The roadmap assessment recommends monitoring for destructive abilities. A documented assessment (not code yet) that evaluates whether any WP 7.0 abilities trigger existing REST gating rules is a differentiating quality signal. | LOW | Can be a doc deliverable rather than a test. Feeds future gate surface additions. The roadmap assessment in `docs/roadmap-2026-02.md` is a strong starting point. |
-| **Hook timing / priority verification** | The Gate registers at `admin_init` priority 1. The expected invariant is that WP Sudo runs before other plugin hooks at the default priority 10. An integration test can register a competing hook and verify the Gate fires first. | MEDIUM | Verifies the priority assumption holds in a real WP boot sequence, not just in isolation. |
+| **Keyboard navigation and focus management** | `docs/ui-ux-testing-prompts.md` section 4c documents 8 keyboard-only scenarios: Tab order, `Enter` to submit, `Escape` to leave challenge, focus after failed attempt, focus after lockout expiry, 2FA step transition focus. Playwright can drive these natively via `page.keyboard`. | MEDIUM | Verifies WCAG focus management that cannot be tested in PHPUnit. Playwright's `page.getByRole()` + `locator.focus()` + `page.keyboard.press()` drive the flow. Assert `document.activeElement` via `page.evaluate()` after each transition. |
+| **Keyboard shortcut (Ctrl+Shift+S) behavior** | `wp-sudo-admin-bar.js` and `wp-sudo-shortcut.js` handle `Ctrl+Shift+S` / `Cmd+Shift+S`. When no session is active: navigate to challenge. When session is active: flash the admin bar node (green, 300ms). Tests verify both states and that `prefers-reduced-motion` suppresses the flash animation. | MEDIUM | Playwright's `page.keyboard.press('Control+Shift+S')` fires the shortcut. Assert redirect (no-session state) or CSS property check (active-session state). `prefers-reduced-motion` is set via `page.emulateMedia({ reducedMotion: 'reduce' })`. |
+| **ARIA live region announcements** | `wp-sudo-challenge.js` calls `wp.a11y.speak()` throughout the flow. The admin bar timer fires milestone announcements at 60s, 30s, 10s, and 0s via an `aria-live="assertive"` span. Screen reader announcement correctness is not testable by PHPUnit. Playwright can assert on live region DOM mutations. | HIGH | Assert the `aria-live` span text content changes at correct timer milestones. Assert `wp.a11y.speak()` call side effects by checking the WordPress `div#wp-a11y-speak-assertive` element content. High value for WCAG compliance signal. High complexity because timer manipulation is needed. |
+| **Rate limiting UI feedback: throttle and lockout** | `wp-sudo-challenge.js` shows a throttle countdown (2s, 5s) and hard lockout countdown with live timer. PHPUnit integration tests verify the PHP-side locking; Playwright verifies the JS disables the button, shows the correct countdown text, re-enables after expiry, and announces lockout expiry via `wp.a11y.speak()`. | HIGH | Requires 5 incorrect password submissions to trigger lockout. Playwright must wait for the 5-minute lockout or clock-fast-forward it. `page.clock.install()` + `page.clock.tick(300_000)` is the clean approach. Verifies the complete lockout UX documented in `ui-ux-testing-prompts.md` H1 and 2g. |
+| **Visual regression: WP 7.0 admin refresh** | WordPress 7.0 GA (April 9, 2026) ships a new admin color scheme and UI. WP Sudo's challenge page, settings page, and admin bar must not regress under the new styles. Playwright snapshot tests capture baselines and diff on re-run. | MEDIUM | Three surfaces, three viewports (desktop, tablet, mobile) = 9 baseline screenshots minimum. Threshold tuning is needed: WordPress admin UI has minor cross-browser pixel rendering differences. Start with `threshold: 0.01` (1% pixel diff tolerance) and adjust. Use `fullPage: false` to exclude dynamic header content. |
+| **Responsive layout verification** | `docs/ui-ux-testing-prompts.md` section 3 documents 6 viewport sizes (1920x1080, 1366x768, 768x1024, 1024x768, 375x667, 390x844). Touch targets (44x44 px minimum), no horizontal overflow, stacked/collapsed layouts. | MEDIUM | `page.setViewportSize()` + visual snapshot per surface per viewport. Or assert `getBoundingClientRect()` for critical touch targets. 18 screenshots (3 surfaces × 6 viewports) covers the full responsive spec. |
+| **Color contrast verification (expiring state)** | `docs/ui-ux-testing-prompts.md` section 4d calls out specific color contrast requirements: admin bar in `wp-sudo-expiring` state (red on white), lockout notice (yellow background), error notice (red border). PHPUnit cannot measure rendered color contrast. | HIGH | Playwright can extract computed styles via `page.evaluate()` and `getComputedStyle()`, but automated WCAG AA ratio checking requires axe-core integration or manual color extraction. Consider `@axe-core/playwright` as a focused add-on for this test specifically. Complexity is high because the expiring state requires timer manipulation to reach. |
+| **Session-only mode via admin notice link** | When a gated AJAX request fires (e.g., plugin install button), the plugin blocks the AJAX and sets a short-lived transient. On the next page load, an admin notice appears with a link to the challenge page. Playwright can click this link and verify the session-only mode flow (no stash key, action label "Activate sudo session"). | MEDIUM | Two-page interaction: (1) trigger AJAX block, (2) observe admin notice on page reload, (3) click notice link, (4) complete challenge in session-only mode. Tests the full AJAX-gating user journey documented in `MANUAL-TESTING.md` section 3. |
+| **Admin bar deactivation: click and keyboard** | `tests/MANUAL-TESTING.md` section `2h` and `ui-ux-testing-prompts.md` section 2h test admin bar timer click-to-deactivate and assert no page redirect. Playwright can click the admin bar node, assert session is deactivated (timer disappears), and assert the URL has not changed. | LOW | Simple DOM assertion after click. Deactivation URL includes nonce; Playwright handles this transparently via the logged-in session. Lower complexity because no timer manipulation is needed — only click-and-assert. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem like reasonable test additions but should be explicitly rejected for this
+Features that seem like reasonable E2E additions but should be explicitly rejected for this
 milestone.
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Admin UI rendering tests** | "Let's make sure the settings page renders correctly" is a natural impulse after visual changes like WP 7.0's admin refresh. | HTML output testing in PHPUnit is brittle, prone to false failures on whitespace/markup changes, and provides low security value. The settings page output is already exercised more effectively by the manual testing guide. | Execute `tests/MANUAL-TESTING.md` against WP 7.0-beta. Flag visual regressions in the manual checklist. If automated visual testing is desired, create a separate Playwright milestone. |
-| **JavaScript / admin bar countdown timer tests** | The admin bar countdown timer is user-visible and important. It would seem natural to test it. | JS unit testing requires a separate toolchain (Jest, Playwright). Adding it to this milestone dilutes focus and creates a build step that doesn't currently exist. The PHP side (time_remaining() output) is already unit tested. | Unit test the PHP API that feeds the timer. Create a separate E2E milestone for JS behavior. |
-| **CSS / asset loading tests** | "Can I assert that assets are enqueued on the right pages?" is a common PHPUnit question. | Enqueue logic (`wp_enqueue_style()`, `wp_enqueue_script()`) is already covered by `AdminTest.php` and `ChallengeTest.php` unit tests using Brain\Monkey. Adding integration tests for this provides no additional safety — the hook registration is tested, and asset delivery is a server configuration concern, not a plugin logic concern. | Keep asset enqueuing in unit tests where it belongs. |
-| **E2E browser tests (Playwright / Cypress)** | Full browser tests would cover the entire user flow including JavaScript interactions, accessibility checks, and visual states. | Playwright/Cypress tests require a separate toolchain, a running WordPress server, and significantly more setup time. This is valuable but is a separate milestone. Starting E2E testing while the integration harness doesn't exist yet is putting the cart before the horse. | Explicit out-of-scope in PROJECT.md. Create a dedicated E2E milestone after integration tests are stable. |
-| **Performance / load testing** | "How does the Gate hold up under 1000 concurrent requests?" is a valid production concern. | Performance testing requires specialized tooling (k6, Locust) and representative infrastructure. It is entirely disconnected from the current milestone goals of closing security test gaps. | Not a WordPress plugin testing concern at this scale. If hosting providers raise concerns, address with infrastructure configuration guides. |
-| **Negative WP 7.0 compatibility tests** | "Write a test that verifies the plugin fails gracefully on WP 6.9" (or below). | Backward compatibility is verified by the minimum version declaration in plugin metadata and by CI running against the declared minimum. Testing failure scenarios for unsupported versions does not add coverage value; it adds maintenance burden. | Rely on the declared `Requires at least: 6.2` in `readme.txt` and manual testing on the minimum supported version. |
-| **Direct database SQL tests** | "Test that the right SQL runs for transient operations." | Transients use `set_transient()` / `get_transient()` — the plugin never writes raw SQL. Testing at the SQL level couples tests to WordPress's internal transient implementation, which can change. Testing behavior (does the stash expire?) is correct; testing implementation (what SQL ran?) is not. | Test transient behavior through the WordPress API as integration tests naturally do. |
+| **Full visual regression across all WP versions** | "Catch CSS regressions on WP 6.9 and 7.0 simultaneously" seems thorough. | Snapshot baselines are tied to a specific WP admin theme. A snapshot taken on WP 6.9 will pixel-diff fail against WP 7.0 by design. Maintaining two baseline sets doubles the snapshot count and the CI time, for a scenario already covered by the integration test matrix (PHP × WP version). | Take baselines against WP 7.0 only (the target). The WP 6.x visual appearance is already known from manual testing history. Snapshot regressions catch changes _within_ a WP version, not _between_ versions. |
+| **Testing REST API endpoints via Playwright** | "Let's verify the REST API returns `sudo_required` in the browser" sounds comprehensive. | REST API behavior is PHP-layer logic already covered by PHPUnit integration tests. Playwright tests it through the browser fetch layer with no additional insight over `curl` tests in the manual guide. Adds authentication setup complexity (nonce extraction from DOM) for zero new coverage signal. | Keep REST API behavioral tests in PHPUnit integration tests (`RestGatingTest.php` already exists with 132 integration tests). Use `curl` tests in `MANUAL-TESTING.md` for REST verification. |
+| **WP-CLI behavior via Playwright** | CLI policy behavior visible from a browser is appealing. | WP-CLI does not run in a browser. Playwright cannot exec shell commands without Playwright's `spawn` workaround that is fragile and platform-specific. CLI behavior is already covered by manual testing section 7 and the policy architecture is integration-tested. | Leave WP-CLI tests in `MANUAL-TESTING.md` sections 7–8. CLI testing is a better fit for a shell-based CI step (phpunit integration tests simulate CLI context via `defined('WP_CLI')` mocking). |
+| **Screenshot comparison for every admin page** | "Let's capture the full WordPress admin at 10 viewports × 5 pages × 2 WP versions = 100 snapshots" sounds complete. | Visual snapshot suites that grow beyond ~20 baselines become a maintenance burden. False positive diffs from WordPress's dynamic content (menu highlight, time-sensitive notifications, user avatar rendering) require constant baseline updates that erode developer trust in the suite. | Limit snapshots to the 3 WP Sudo surfaces (challenge page, settings page, admin bar) at 2–3 viewports. Keep snapshot count under 15. Never snapshot dynamic page content (plugin list, user list). |
+| **Two-Factor Authentication full flow E2E** | "Test the TOTP entry step in a real browser" is appealing. | TOTP codes are time-based and require either a real 2FA-configured account or TOTP seed manipulation in the test environment. Setting up a real TOTP seed in a local WordPress + Playwright test is high complexity with fragile time synchronization. The PHP-level 2FA pending state machine is already covered by `TwoFactorTest.php` integration tests (132 total). | Test the 2FA UI elements (2FA step visibility, timer display, focus management) by mocking the AJAX response to return `requires_two_factor: true` via Playwright's `page.route()` interception, without requiring a real TOTP calculation. |
+| **Performance testing via Playwright** | "Let's measure page load time in the browser" seems like a useful E2E add-on. | Performance benchmarks from local Playwright runs are not reproducible or meaningful — they depend on local machine resources, WordPress caching state, and database query time. They produce false confidence that fluctuates across developer machines. | If performance is a concern, use Lighthouse CI via `lhci autorun` as a separate pipeline step. Do not combine with E2E correctness tests. |
+| **Headless-only test suite** | "We don't need headed mode, ship headless-only for speed." | WP 7.0's admin refresh includes visual changes that require headed browser rendering to validate. Headless Chromium and headed Chrome can render CSS properties differently. Visual regression tests must be run in a consistent headed context for reliable pixel diffs. | Run visual regression tests in headed Chromium (still headless in CI via xvfb or Linux runners). Use `--headed` locally for debugging. Keep functional tests headless for speed. |
+| **Cypress as an alternative to Playwright** | "Cypress is more mature for WordPress" is sometimes asserted. | Cypress has no native support for multi-page flows in some contexts, uses iframes for its test runner UI (WordPress admin uses `wp_iframe()` which the challenge JS breaks out of — see `wp-sudo-challenge.js` line 22), and its network interception API is less flexible than Playwright's `page.route()`. Playwright's clock manipulation (`page.clock.install()`) is essential for the rate limiting tests. | Use Playwright. It is the better choice for this specific plugin's test requirements. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[Test harness setup (WP_UnitTestCase)]
-    └──required by──> [Full reauth flow test]
-    └──required by──> [Real bcrypt verification]
-    └──required by──> [Session token binding]
-    └──required by──> [Transient TTL enforcement]
-    └──required by──> [Upgrader migration chain]
-    └──required by──> [REST API gating tests]
-    └──required by──> [Two Factor plugin interaction]
-    └──required by──> [Multisite session isolation]
-    └──required by──> [Audit hook firing verification]
-    └──required by──> [Capability tamper detection]
-    └──required by──> [Rate limiting with real meta]
-    └──required by──> [Hook timing / priority]
+[Playwright toolchain setup]
+    └──required by──> [WordPress login helper]
+    └──required by──> [Cookie attribute verification]
+    └──required by──> [Admin bar countdown timer tests]
+    └──required by──> [MU-plugin AJAX flow tests]
+    └──required by──> [Challenge page stash-challenge-replay]
+    └──required by──> [Visual regression baselines]
+    └──required by──> [Gate UI: disabled buttons]
+    └──required by──> [All differentiators]
 
-[Full reauth flow test]
-    └──enhances──> [Audit hook firing verification]
-        (add did_action() assertions to existing flow test)
-    └──prerequisite for──> [REST API gating tests]
-        (must understand the base flow before testing surface variants)
+[WordPress login helper]
+    └──required by──> [Cookie attribute verification]
+        (need to be logged in to activate a session and inspect cookies)
+    └──required by──> [Admin bar countdown timer tests]
+        (admin bar only renders for authenticated users)
+    └──required by──> [Challenge page stash-challenge-replay]
+        (must be logged in to trigger a gated action)
+    └──required by──> [Gate UI: disabled buttons]
+        (gate UI only appears in authenticated WP admin)
+    └──required by──> [Visual regression baselines]
+        (WP admin requires authentication)
 
-[WP 7.0 functional verification (manual)]
-    └──gate for──> ["Tested up to" version bump]
-        (cannot bump until manual verification passes)
+[Challenge page stash-challenge-replay]
+    └──enables──> [Rate limiting UI feedback]
+        (need the challenge page working before testing failure states)
+    └──enables──> [ARIA live region announcements]
+        (announce flow is driven by the challenge JS)
 
-[Multisite test harness]
-    └──required by──> [Multisite session isolation]
-        (harness must be configured for multisite before isolation test can run)
+[Admin bar countdown timer tests]
+    └──enables──> [Visual regression: WP 7.0 admin bar state]
+        (need active session to capture timer snapshot)
+    └──enables──> [Color contrast: expiring state]
+        (expiring class only added by timer JS at <=60s)
+    └──enables──> [Keyboard shortcut: active session flash]
+        (shortcut behavior differs based on session state)
 
-[Two Factor plugin installed in harness]
-    └──required by──> [Two Factor plugin interaction]
+[Playwright clock manipulation — page.clock.install()]
+    └──required by──> [Admin bar timer: 60s expiring state test]
+    └──required by──> [Admin bar timer: reload at 0s test]
+    └──required by──> [Rate limiting UI: lockout countdown test]
+    └──required by──> [ARIA milestone announcements at 60s/30s/10s]
+
+[Visual regression baselines]
+    └──gate for──> [Future WP version CSS regression detection]
+        (cannot detect a regression without a baseline)
+    └──time-sensitive──> [Capture before WP 7.0 CSS changes to plugin]
+        (baselines captured after a CSS change contain the change)
 ```
 
 ### Dependency Notes
 
-- **Test harness is the absolute prerequisite:** Every integration test depends on it. The harness setup is the entire first phase of integration test work. No other integration feature can start until it exists.
-- **Full reauth flow unlocks audit hook verification:** Rather than writing audit hook tests in isolation, extend the reauth flow test with `did_action()` / `do_action()` assertions. This approach tests both the workflow and the audit surface together.
-- **Multisite requires a separate harness configuration:** A single-site harness cannot test multisite behavior. Either the harness supports both modes (e.g., via test groups), or a separate multisite-configured harness is needed. This is the highest-setup-cost differentiator.
-- **Two Factor method names must be verified before implementation:** The unit test bootstrap stubs `Two_Factor_Core::is_user_using_two_factor()` and `Two_Factor_Core::get_primary_provider_for_user()`. Before writing integration tests against the real plugin, verify these method signatures against the live Two Factor plugin source (`https://raw.githubusercontent.com/WordPress/two-factor/master/class-two-factor-core.php`). Documented in `CLAUDE.md` verification requirements.
-- **"Tested up to" bump depends on WP 7.0 GA date:** GA is April 9, 2026. The bump cannot ship before GA; functional verification should run against RC builds.
+- **Playwright toolchain is the absolute prerequisite:** Nothing else can run without it. The first phase of this milestone is entirely toolchain: `npm init`, install, `playwright.config.ts`, first passing smoke test. This matches the integration test harness pattern from the previous milestone.
+- **Login helper unlocks everything:** Every test that touches WP admin needs authentication. Build it first with `storageState` persistence. Tests that reuse the saved state skip the login flow entirely, keeping the suite fast.
+- **Clock manipulation is a cross-cutting concern:** The admin bar timer and rate-limiting tests both depend on `page.clock.install()`. This is a Playwright-native feature (not a hack). It intercepts `Date`, `setTimeout`, `setInterval`, and `requestAnimationFrame`. Verify this API is available in the installed Playwright version before building dependent tests.
+- **Visual regression baseline timing is critical:** WP 7.0 GA is April 9, 2026. Baselines must be captured on the current WP 7.0 build before any CSS changes are made to the plugin for WP 7.0 compatibility. If plugin CSS changes come first, the baseline contains the change and cannot detect future regressions to it. Capture baselines as the first deliverable of the visual regression phase.
+- **Challenge page stash-challenge-replay is the highest-risk test:** It involves 3 pages (triggering page, challenge page, destination), 2 AJAX requests (password auth, optional 2FA), and a JavaScript POST-replay form submission. Build this incrementally: first test that challenge page loads, then that password form submits, then that stash replay works.
 
 ---
 
 ## MVP Definition
 
-This is a subsequent milestone (v2.4), not a greenfield MVP. "MVP" here means: what is the minimum viable integration test suite that closes the most critical security test gaps?
+This is a subsequent milestone (v2.14), not a greenfield MVP. "MVP" here means: what is the
+minimum E2E suite that closes the 5 PHPUnit-uncoverable scenarios and enables WP 7.0 regression
+detection?
 
-### Launch With (v2.4.0 — Integration Core)
+### Launch With (Phase 1 — Core E2E Infrastructure)
 
-The test harness plus the tests that cover real security boundaries not reachable by mocks:
+The toolchain plus the tests that directly close the 5 documented PHPUnit gaps:
 
-- [ ] **Test harness setup** — WP_UnitTestCase scaffold, PHPUnit configuration, `tests/Integration/` directory structure, integration-specific bootstrap — *everything else requires this*
-- [ ] **Full reauth flow test** — Gate intercept → stash → Challenge verify → Session activate → Stash replay, with real WordPress functions throughout — *the core user journey, highest risk if broken*
-- [ ] **Real bcrypt verification test** — `wp_check_password()` with an actual bcrypt hash, correct and incorrect password paths — *WP 6.8+ default behavior, never exercised*
-- [ ] **Session token binding test** — activate session, read cookie + meta, verify match; expire session, verify `is_active()` returns false — *cryptographic binding, the key security property*
-- [ ] **Transient TTL enforcement test** — stash a request, advance time past TTL, verify retrieval returns false — *security property: stale stashes must not be replayable*
-- [ ] **WP 7.0 functional verification** — execute `tests/MANUAL-TESTING.md` against WP 7.0 Beta 1 (today) through RC — *required for compatibility declaration*
+- [ ] **Playwright toolchain setup** — `npm init`, `@playwright/test`, `playwright.config.ts`, Chromium install, `composer test:e2e` / `npm test` script, CI job skeleton — *everything else requires this*
+- [ ] **WordPress login helper** — `storageState` session fixture, reusable across all test files — *required by every other test*
+- [ ] **Cookie attribute verification** — activate sudo session, call `context.cookies()`, assert `httpOnly: true`, `sameSite: 'Strict'`, `secure: true` on `wp_sudo_token` — *closes PHPUnit gap 1*
+- [ ] **Admin bar countdown timer tests** — verify timer text updates, `wp-sudo-expiring` class at 60s, page reload at 0s, using `page.clock.install()` — *closes PHPUnit gap 2*
+- [ ] **MU-plugin AJAX flow** — install via Settings page, assert spinner appears, success message, page reload; uninstall equivalent — *closes PHPUnit gap 3*
+- [ ] **Gate UI: disabled buttons** — Plugins page with no session, assert `aria-disabled` and `wp-sudo-disabled` class on action links — *directly testable, low risk*
+- [ ] **Visual regression baselines** — challenge page, settings page, admin bar (active session) at desktop + mobile; captured against WP 7.0 before any plugin CSS changes — *time-sensitive: must happen before April 9 changes*
 
-### Add After Core Is Stable (v2.4.x)
+### Add After Core Is Stable (Phase 2 — Full Flow + Keyboard)
 
-- [ ] **Upgrader migration chain** — *Important but lower risk than the five security boundaries above; migration logic is already unit-tested*
-- [ ] **REST API gating (cookie auth + app passwords)** — *High value but requires careful harness setup for app password auth; add once the core harness is solid*
-- [ ] **Audit hook firing verification** — *Extend the reauth flow test; add when that test exists*
-- [ ] **"Tested up to" version bump** — *Trigger: WP 7.0 GA (April 9, 2026) + successful manual verification*
-- [ ] **Rate limiting with real meta persistence** — *Medium priority; unit tests cover the logic*
+- [ ] **Challenge page stash-challenge-replay** — full Plugins → challenge → auth → replay flow — *highest-complexity test; add once toolchain and simpler tests are stable*
+- [ ] **Keyboard navigation: challenge page Tab order and Escape key** — Tab through form, Escape announces and navigates — *closes PHPUnit gap 5 (keyboard navigation)*
+- [ ] **Keyboard shortcut (Ctrl+Shift+S)** — no-session state redirects to challenge; active-session state flashes admin bar — *medium complexity, high UX value*
+- [ ] **Admin bar click-to-deactivate** — click timer node, assert timer disappears, assert URL unchanged — *low complexity, good regression coverage*
 
-### Future Consideration (v2.5+)
+### Future Consideration (Phase 3 — Accessibility + Advanced UX)
 
-- [ ] **Two Factor plugin interaction** — *High value but requires Two Factor plugin in the harness; higher setup cost; defer until core harness is proven*
-- [ ] **Multisite session isolation** — *Critical security property but highest setup cost; needs multisite harness config*
-- [ ] **Capability tamper detection** — *Niche but interesting; defer until higher-value tests are complete*
-- [ ] **Hook timing / priority verification** — *Nice to have; defer*
-- [ ] **WP 7.0 Abilities API assessment document** — *Valuable for future planning but no code required; write when Abilities API stabilizes post-GA*
+- [ ] **ARIA live region announcements** — timer milestone announcements, challenge flow announcements — *high value but requires clock manipulation + DOM observation; defer until Phase 1/2 are stable*
+- [ ] **Rate limiting UI: lockout countdown and re-enable** — 5 failed attempts, clock-fast-forward 5 min, assert form re-enables — *high complexity; needs `page.clock` for the 5-minute wait*
+- [ ] **Responsive layout verification** — 6 viewports × 3 surfaces snapshots — *add after baseline snapshot tooling is proven*
+- [ ] **Color contrast via axe-core** — `@axe-core/playwright` for expiring-state contrast — *add as a focused accessibility gate, not part of core E2E*
+- [ ] **Session-only mode via admin notice** — AJAX block → notice on reload → session-only challenge — *medium complexity, tests a distinct user journey worth adding eventually*
 
 ---
 
 ## Feature Prioritization Matrix
 
-| Feature | Security Value | Implementation Cost | Priority |
-|---------|----------------|---------------------|----------|
-| Test harness setup | HIGH (enabler) | HIGH | P1 |
-| Full reauth flow | HIGH | HIGH | P1 |
-| Real bcrypt verification | HIGH | LOW | P1 |
-| Session token binding | HIGH | MEDIUM | P1 |
-| Transient TTL enforcement | HIGH | MEDIUM | P1 |
-| WP 7.0 functional verification | HIGH (compat) | LOW | P1 |
-| Upgrader migration chain | MEDIUM | MEDIUM | P2 |
-| REST API gating | HIGH | HIGH | P2 |
-| Audit hook firing | MEDIUM | LOW | P2 |
-| "Tested up to" bump | MEDIUM (compat) | LOW | P2 |
-| Rate limiting (real meta) | MEDIUM | MEDIUM | P2 |
-| Two Factor interaction | HIGH | HIGH | P3 |
-| Multisite session isolation | HIGH | HIGH | P3 |
-| Capability tamper detection | MEDIUM | MEDIUM | P3 |
-| Hook timing / priority | LOW | MEDIUM | P3 |
-| Abilities API assessment doc | LOW | LOW | P3 |
+| Feature | PHPUnit Gap Closed | Implementation Cost | Priority |
+|---------|--------------------|---------------------|----------|
+| Playwright toolchain setup | Enabler | HIGH | P1 |
+| WordPress login helper | Enabler | MEDIUM | P1 |
+| Cookie attribute verification | Gap 1 (httponly/SameSite/Secure) | MEDIUM | P1 |
+| Admin bar countdown timer JS | Gap 2 (admin bar JS) | MEDIUM | P1 |
+| MU-plugin AJAX flow | Gap 3 (MU-plugin AJAX) | MEDIUM | P1 |
+| Visual regression baselines | Gap 5 (WP 7.0 regression) | MEDIUM | P1 (time-sensitive) |
+| Gate UI: disabled buttons | Adjacent gap | LOW | P1 |
+| Challenge page stash-challenge-replay | Full flow never browser-tested | HIGH | P2 |
+| Keyboard navigation: Tab + Escape | Gap 5 (keyboard/focus) | MEDIUM | P2 |
+| Keyboard shortcut Ctrl+Shift+S | Gap 5 (keyboard) | MEDIUM | P2 |
+| Admin bar click-to-deactivate | Gap 2 (admin bar) | LOW | P2 |
+| ARIA live region announcements | WCAG verification | HIGH | P3 |
+| Rate limiting UI: lockout countdown | UX verification | HIGH | P3 |
+| Responsive layout snapshots | Visual coverage | MEDIUM | P3 |
+| Color contrast via axe-core | WCAG verification | HIGH | P3 |
+| Session-only mode via AJAX notice | Flow coverage | MEDIUM | P3 |
 
 **Priority key:**
-- P1: Must have for v2.4.0 launch — closes the most critical security test gaps
-- P2: Should have, add in v2.4.x — important but less urgent than P1
-- P3: Nice to have, future milestone (v2.5+) — valuable but high setup cost or lower risk
+- P1: Must have for v2.14.0 launch — closes the documented 5 PHPUnit-uncoverable gaps
+- P2: Should have, add in v2.14.x — completes the user journey and keyboard coverage
+- P3: Nice to have, future consideration — accessibility depth, edge-case UX coverage
 
 ---
 
-## Competitor / Reference Analysis
+## PHPUnit Infrastructure Context
 
-Integration test patterns from mature WordPress security plugins (MEDIUM confidence —
-based on training data; WebFetch unavailable to verify against live sources):
+This milestone builds on an existing, stable test infrastructure:
 
-| Coverage Area | Typical Security Plugins | WP Sudo Today | WP Sudo v2.4 Target |
-|---------------|--------------------------|---------------|---------------------|
-| Password verification | Real `wp_check_password()` | Mocked (Patchwork) | Real bcrypt via WP_UnitTestCase |
-| Transient expiry | Real TTL with time manipulation | Mocked | Real transient TTL enforcement |
-| REST auth | Real application passwords | Mocked via `rest_get_authenticated_app_password()` | Real cookie + app password flows |
-| Database state | Real `update_option()` / `get_user_meta()` | Mocked via Brain\Monkey | Real DB reads/writes |
-| Hook firing | `did_action()` assertions | Not tested in integration | Extend reauth flow test |
-| 2FA plugin | Real plugin installed in harness | Custom stub class | Real Two Factor plugin (v2.5) |
-| Multisite | Separate multisite test matrix | Not tested | v2.5 scope |
+| Layer | Status | Notes |
+|-------|--------|-------|
+| PHPUnit unit tests | 496 tests, all passing | Brain\Monkey, Mockery, Patchwork — no changes needed |
+| PHPUnit integration tests | 132 tests, CI matrix (PHP 8.1×8.3, WP latest×trunk, single+multisite) | WP_UnitTestCase, real MySQL — no changes needed |
+| PHPStan level 6 | Passing | No changes needed |
+| PHPCS (VIP WPCS) | Passing | No changes needed |
 
-**Key observation:** The gap between WP Sudo's current test suite and mature security
-plugin test suites is not in unit test breadth (where WP Sudo is strong at ~220 methods)
-but in the use of real WordPress infrastructure for security-critical code paths. The
-Brain\Monkey approach is excellent for logic isolation but systematically prevents testing
-the actual security boundaries (real password hashing, real cookie attributes, real transient
-expiry). That is the gap this milestone closes.
+**Playwright adds a third, fully separate layer.** It does not touch `composer.json`, `phpunit.xml.dist`, `phpunit-integration.xml.dist`, or any PHP test infrastructure. It is a parallel Node.js toolchain. The two ecosystems are completely independent.
+
+**Practical implication:** Playwright requires a running WordPress instance. Unlike integration tests (which spin up WP via `install-wp-tests.sh` in CI), Playwright needs a full HTTP server with a real browser. This means:
+- Local: Use one of the existing dev sites (single-site-studio, single-site-local) documented in MEMORY.md
+- CI: Requires either `@wordpress/env` (Docker + Node) or a pre-built WordPress Docker image with the plugin installed
+- This is the highest CI complexity decision of this milestone and should be decided in Phase 1
+
+**`@wordpress/env` vs pre-built image:** `@wordpress/env` (wp-env) is the official WordPress tool for E2E testing and is used by WordPress core, Gutenberg, and the Two Factor plugin. It requires Docker and Node.js. It starts a fresh WordPress with predictable state on each CI run. For this plugin with no block editor code, wp-env is heavier than needed — but it is the ecosystem standard and provides the cleanest CI setup. The alternative (running tests against a manually configured dev site) is faster locally but fragile in CI. **Use `@wordpress/env` for CI; use local dev sites for local development.**
+
+---
+
+## Visual Regression Testing: How It Works In Practice
+
+Based on Playwright's built-in `toHaveScreenshot` API (MEDIUM confidence — training data,
+verify against official Playwright docs before implementing):
+
+### Baseline Management
+
+1. First run: `npx playwright test --update-snapshots` — Playwright captures PNG baselines and saves them to `e2e/__snapshots__/` alongside the test file.
+2. Subsequent runs: `npx playwright test` — Playwright diffs current screenshot against baseline pixel-by-pixel. Test fails if diff exceeds threshold.
+3. When baselines need updating (intentional UI change): `npx playwright test --update-snapshots` — replaces baselines. Review the diff in CI before merging.
+4. Baselines are committed to the repository. This is the standard pattern.
+
+### Threshold Tuning
+
+WordPress admin renders with minor pixel differences across:
+- Font anti-aliasing (macOS vs Linux)
+- Scrollbar rendering (macOS overlaid vs Linux fixed-width)
+- Image rendering (DPI differences between headed and headless Chromium)
+
+**Recommended approach:**
+- Start with `threshold: 0.01` (1% pixel diff tolerance per pixel) for functional areas
+- Use `maxDiffPixels: 100` (absolute cap on differing pixels) as a secondary gate
+- Use `clip` option to isolate the specific UI element (e.g., just the admin bar node, not the full page with dynamic WordPress header content)
+- Never snapshot the plugin list, user list, or any page with dynamic row content — those change between runs
+
+### What to Snapshot (and What Not To)
+
+**Snapshot these:**
+- `#wp-sudo-challenge-card` — the challenge page card element only
+- `#wp-sudo-settings-form` — the settings page form only
+- `#wp-admin-bar-wp-sudo-active` — the admin bar timer node only
+- Same elements in `wp-sudo-expiring` state (requires clock manipulation to reach)
+
+**Do not snapshot these:**
+- Full-page screenshots (dynamic WP admin header, sidebar, footer)
+- Plugin/theme list tables (row counts and activation states change)
+- Any element containing a nonce, timestamp, or user-specific string
 
 ---
 
 ## Sources
 
-- `docs/roadmap-2026-02.md` — Maintainer's integration test gap analysis (HIGH confidence); authored 2026-02-19
-- `tests/MANUAL-TESTING.md` — Current manual testing scope (HIGH confidence)
-- `.planning/codebase/TESTING.md` — Codebase testing pattern analysis (HIGH confidence)
-- `.planning/codebase/INTEGRATIONS.md` — Data storage and auth integration audit (HIGH confidence)
-- `.planning/PROJECT.md` — Active milestone scope and out-of-scope declarations (HIGH confidence)
-- `tests/bootstrap.php` — Current unit test stubs, revealing what is and isn't mocked (HIGH confidence)
-- `patchwork.json` — Patchwork-redefined PHP internals (`setcookie`, `header`, `hash_equals`) (HIGH confidence)
-- `composer.json` — Current dev dependencies (no WP_UnitTestCase scaffolding present) (HIGH confidence)
-- WordPress core password hashing (bcrypt default since WP 6.8) — confirmed via CLAUDE.md project context
-- WP 7.0 Beta 1 release date (2026-02-19) — confirmed via `docs/roadmap-2026-02.md`
-- WP 7.0 GA date (April 9, 2026) — confirmed via `docs/roadmap-2026-02.md`
-- WordPress plugin integration testing norms (WP_UnitTestCase, `wp scaffold plugin-tests`) — MEDIUM confidence, training data; verify official docs before implementing harness
+- `admin/js/wp-sudo-admin-bar.js` — 102-line countdown timer with milestone announcements, `prefers-reduced-motion` support, keyboard shortcut flash (HIGH confidence — live file)
+- `admin/js/wp-sudo-challenge.js` — challenge page controller: AJAX password auth, 2FA step, throttle countdown, lockout countdown, replay logic, `wp.a11y.speak()` calls (HIGH confidence — live file)
+- `admin/js/wp-sudo-admin.js` — MU-plugin AJAX install/uninstall, spinner, message area, page reload on success (HIGH confidence — live file)
+- `admin/js/wp-sudo-gate-ui.js` — button disabling, `MutationObserver` for dynamic cards, `aria-disabled`, capture-phase click blocking (HIGH confidence — live file)
+- `docs/ui-ux-testing-prompts.md` — structured manual UI/UX test scenarios for all 3 surfaces across heuristics, navigation flows, responsive viewports, and accessibility (HIGH confidence — live file)
+- `tests/MANUAL-TESTING.md` — 19-section manual testing guide documenting every testable scenario with expected outcomes (HIGH confidence — live file)
+- `.planning/codebase/TESTING.md` (2026-03-04) — existing test infrastructure details; E2E section confirms "Not automated" and "No Playwright/Cypress/WebDriver tests planned" — this milestone changes that (HIGH confidence)
+- `.planning/codebase/CONCERNS.md` (2026-02-19) — documents cookie attribute testing gap (Pitfall 3) and JS behavior not reachable by PHPUnit (HIGH confidence)
+- `.planning/research/PITFALLS.md` (2026-02-19) — Pitfall 3: "WP_UnitTestCase Cannot Test Real HTTP Headers or Cookies" — explicitly calls out Playwright as the resolution layer (HIGH confidence)
+- `ROADMAP.md` — "Playwright E2E test infrastructure" listed as short-term milestone with the 5 PHPUnit-uncoverable scenarios explicitly named (HIGH confidence)
+- WordPress MEMORY.md dev environment — local dev sites available for E2E test target (HIGH confidence)
+- Playwright clock API, visual regression API, `storageState` — MEDIUM confidence (training data, August 2025 cutoff; verify current Playwright version docs before implementing)
 
 ---
-
-*Feature research for: WP Sudo v2.4 — Integration Tests & WP 7.0 Readiness*
-*Researched: 2026-02-19*
+*Feature research for: Playwright E2E browser testing for WP Sudo*
+*Researched: 2026-03-08*

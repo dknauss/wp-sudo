@@ -1,8 +1,8 @@
 # Architecture Research
 
-**Domain:** WordPress plugin integration test suite alongside Brain\Monkey unit tests
-**Researched:** 2026-02-19
-**Confidence:** HIGH — All patterns verified against wordpress-develop trunk, Two Factor plugin source, yoast/phpunit-polyfills, and wp-cli/scaffold-command source.
+**Domain:** Playwright E2E testing integration with a PHP-only WordPress plugin
+**Researched:** 2026-03-08
+**Confidence:** HIGH (all critical claims verified against Gutenberg source, npm registry, @wordpress/env README, GitHub Actions runner image manifest)
 
 ---
 
@@ -10,602 +10,698 @@
 
 ### System Overview
 
-The target architecture separates the two test suites at every layer: bootstrap, base class, PHPUnit configuration, CI job, and directory. Unit tests continue to run in milliseconds without WordPress. Integration tests spin up a real WordPress + MySQL environment.
-
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          DEVELOPER / CI TRIGGER                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  composer test:unit              composer test:integration               │
-│  ./vendor/bin/phpunit            ./vendor/bin/phpunit                    │
-│      --config phpunit.xml.dist       --config phpunit.integration.xml   │
-│                                                                          │
-├───────────────────────────┬─────────────────────────────────────────────┤
-│  UNIT SUITE               │  INTEGRATION SUITE                          │
-│  (no WordPress loaded)    │  (real WordPress + MySQL)                   │
-│                           │                                             │
-│  tests/bootstrap.php      │  tests/integration/bootstrap.php           │
-│   └── defines ABSPATH     │   └── reads WP_TESTS_DIR env var           │
-│   └── stubs WP classes    │   └── loads tests_add_filter()             │
-│   └── stubs Two_Factor    │   └── registers plugin via                 │
-│   └── Composer autoload   │        muplugins_loaded hook               │
-│                           │   └── requires WP bootstrap.php            │
-│  tests/TestCase.php       │        (boots real WP + DB)                │
-│   └── PHPUnit\TestCase    │                                             │
-│   └── Brain\Monkey setUp  │  tests/integration/TestCase.php            │
-│   └── Brain\Monkey tearDn │   └── WP_UnitTestCase (real DB rollback)   │
-│                           │   └── factory() for user/meta fixtures     │
-│  tests/Unit/*.php         │   └── plugin activate helper               │
-│   └── mocked WP fns       │                                             │
-│   └── mocked objects      │  tests/integration/                        │
-│   └── fast (<1s each)     │   └── SudoSessionIntegrationTest.php       │
-│                           │   └── GateIntegrationTest.php              │
-│                           │   └── ReauthFlowTest.php                   │
-│                           │   └── RestGatingTest.php                   │
-│                           │   └── UpgraderIntegrationTest.php          │
-│                           │   └── MultisiteIsolationTest.php           │
-│                           │   └── TwoFactorIntegrationTest.php         │
-│                           │                                             │
-├───────────────────────────┴─────────────────────────────────────────────┤
-│                          SHARED INFRASTRUCTURE                          │
-│                                                                          │
-│  vendor/phpunit/phpunit 9.6   (same binary for both suites)            │
-│  includes/                    (production code under test)              │
-│  bin/install-wp-tests.sh      (one-time local DB + WP test lib setup)  │
-│  WP_TESTS_DIR=/tmp/wordpress-tests-lib  (env var, CI sets this)        │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    Test Execution Layer                          │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
+│  │ Playwright   │  │ global-setup │  │  CI Workflow           │ │
+│  │ test runner  │  │ (auth/state) │  │  (.github/workflows/)  │ │
+│  └──────┬───────┘  └──────┬───────┘  └────────────────────────┘ │
+│         │                 │                                      │
+├─────────┴─────────────────┴──────────────────────────────────────┤
+│                  Test Infrastructure Layer                        │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  tests/e2e/                                             │    │
+│  │  ├── playwright.config.ts   (project config)            │    │
+│  │  ├── global-setup.ts        (login → storage state)     │    │
+│  │  ├── fixtures/              (extended test + helpers)   │    │
+│  │  │   └── test.ts            (WordPress admin fixture)   │    │
+│  │  └── specs/                 (test files)                │    │
+│  │      ├── challenge/         (reauth flow tests)         │    │
+│  │      ├── session/           (session lifecycle tests)   │    │
+│  │      └── settings/          (admin settings tests)      │    │
+│  └─────────────────────────────────────────────────────────┘    │
+├─────────────────────────────────────────────────────────────────┤
+│                WordPress Environment Layer                        │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  @wordpress/env (wp-env) — Docker container              │   │
+│  │  Port 8889  |  admin:password  |  plugin: "."            │   │
+│  │  .wp-env.json controls: plugin, PHP version, WP version  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────────┤
+│                  Existing PHP Toolchain (unchanged)              │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌─────────────┐  ┌──────────┐  ┌────────────┐   │
+│  │ composer │  │ tests/Unit/ │  │tests/Int/│  │  bin/      │   │
+│  │ phpunit  │  │ Brain\Monkey│  │ WP_Unit  │  │  install-  │   │
+│  │ phpstan  │  │ (no WP)     │  │ TestCase │  │  wp-tests  │   │
+│  └──────────┘  └─────────────┘  └──────────┘  └────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | Communicates With |
-|-----------|----------------|-------------------|
-| `phpunit.xml.dist` | Unit suite configuration (existing) | `tests/bootstrap.php`, `tests/Unit/` |
-| `phpunit.integration.xml` | Integration suite configuration (new) | `tests/integration/bootstrap.php`, `tests/integration/` |
-| `tests/bootstrap.php` | Unit bootstrap: constants, stubs, Brain\Monkey | PHPUnit runner, Brain\Monkey |
-| `tests/integration/bootstrap.php` | Integration bootstrap: loads real WP via WP_TESTS_DIR | PHPUnit runner, WordPress test library |
-| `tests/TestCase.php` | Unit base class: Brain\Monkey setup/teardown | Brain\Monkey, Mockery, PHPUnit |
-| `tests/integration/TestCase.php` | Integration base class: WP_UnitTestCase + plugin activate | WP_UnitTestCase, real DB |
-| `WP_UnitTestCase` | Real database, transaction rollback, factory, REST helpers | MySQL, WordPress core |
-| `bin/install-wp-tests.sh` | One-time setup: downloads WP test lib, creates test DB | MySQL, SVN/wget, WordPress.org |
-| `WP_TESTS_DIR` env var | Points both bootstrap and install script to test library | Integration bootstrap, shell |
+| Component | Responsibility | Implementation |
+|-----------|---------------|----------------|
+| `tests/e2e/playwright.config.ts` | All Playwright project config: baseURL, timeouts, workers, artifact paths, storage state path, webServer block | TypeScript, self-contained |
+| `tests/e2e/global-setup.ts` | Runs once before any test: logs in via `wp-login.php` POST, saves cookie + nonce to `artifacts/storage-states/admin.json` | Uses `@playwright/test` `request` API directly |
+| `tests/e2e/fixtures/test.ts` | Extends Playwright's `base` test with WordPress-specific fixtures: `visitAdminPage` navigation helper | `test.extend()` pattern — each test gets fresh fixture instances |
+| `tests/e2e/specs/` | Actual test files, organized by feature area (challenge, session, settings) | One spec file per logical feature area |
+| `.wp-env.json` | Declares what wp-env spins up: plugin path, PHP version, WP version, wp-config constants | JSON — consumed by `@wordpress/env` |
+| `.github/workflows/e2e.yml` | Standalone CI job: sets up Node.js, installs npm deps, installs Playwright browsers, starts wp-env, runs Playwright | Separate workflow file — does not modify `phpunit.yml` |
+| `package.json` | Node.js project manifest: declares `@playwright/test`, `@wordpress/env` as devDependencies, defines `test:e2e` and `wp-env` npm scripts | New file — does not touch `composer.json` |
 
 ---
 
 ## Recommended Project Structure
 
-The integration test directory lives beside `Unit/` under `tests/`. Both are siblings — same parent, separate namespaces, separate bootstraps.
-
 ```
-wp-sudo/
-├── bin/
-│   └── install-wp-tests.sh        # One-time dev+CI setup script
-├── tests/
-│   ├── bootstrap.php              # EXISTING — unit bootstrap (stubs, Brain\Monkey)
-│   ├── TestCase.php               # EXISTING — unit base class (Brain\Monkey)
-│   ├── MANUAL-TESTING.md          # EXISTING — UI checklist
-│   ├── Unit/                      # EXISTING — 10 test files, no change
-│   │   ├── ActionRegistryTest.php
-│   │   ├── AdminTest.php
-│   │   ├── AdminBarTest.php
-│   │   ├── ChallengeTest.php
-│   │   ├── GateTest.php
-│   │   ├── PluginTest.php
-│   │   ├── RequestStashTest.php
-│   │   ├── SiteHealthTest.php
-│   │   ├── SudoSessionTest.php
-│   │   └── UpgraderTest.php
-│   └── integration/               # NEW — real WP environment
-│       ├── bootstrap.php          # Loads WP test lib, registers plugin
-│       ├── TestCase.php           # Extends WP_UnitTestCase, adds helpers
-│       ├── ReauthFlowTest.php     # Full stash→challenge→verify→replay
-│       ├── SudoSessionTest.php    # Real token, real meta, real cookie header
-│       ├── GateTest.php           # Real admin_init hook priority order
-│       ├── RestGatingTest.php     # Real REST with cookie/app-password auth
-│       ├── UpgraderTest.php       # Real DB option/meta mutations
-│       ├── MultisiteTest.php      # Blog switching, session isolation
-│       └── TwoFactorTest.php      # Real Two Factor plugin loaded
-├── phpunit.xml.dist               # EXISTING — unit suite only
-├── phpunit.integration.xml        # NEW — integration suite only
-├── composer.json                  # Needs test:unit / test:integration scripts
-└── ...
+wp-sudo/                          ← existing repo root (unchanged except additions below)
+├── .wp-env.json                  ← NEW: wp-env plugin configuration
+├── package.json                  ← NEW: Node.js project manifest (devDependencies only)
+├── package-lock.json             ← NEW: generated by npm install
+├── .nvmrc                        ← NEW: pin Node.js version ("20")
+│
+├── tests/                        ← EXISTING: untouched
+│   ├── Unit/                     ← EXISTING: Brain\Monkey tests (18 files)
+│   ├── Integration/              ← EXISTING: WP_UnitTestCase tests (17 files)
+│   ├── bootstrap.php             ← EXISTING: unit bootstrap
+│   └── TestCase.php              ← EXISTING: unit base class
+│
+├── tests/e2e/                    ← NEW: entire directory
+│   ├── playwright.config.ts      ← Playwright project config
+│   ├── global-setup.ts           ← One-time login → saves storage state
+│   ├── fixtures/
+│   │   └── test.ts               ← Extended test with WP-specific fixtures
+│   ├── specs/
+│   │   ├── challenge/
+│   │   │   ├── reauth-flow.spec.ts       ← Core challenge page flow
+│   │   │   ├── session-expiry.spec.ts    ← Session timeout behavior
+│   │   │   └── rate-limiting.spec.ts     ← Lockout after failed attempts
+│   │   ├── session/
+│   │   │   └── session-lifecycle.spec.ts ← Grant, countdown, expiry
+│   │   └── settings/
+│   │       └── admin-settings.spec.ts    ← Settings page smoke test
+│   └── artifacts/                ← gitignored: screenshots, traces, storage-states
+│       ├── storage-states/
+│       │   └── admin.json        ← Auth cookies + nonce (created by global-setup)
+│       └── test-results/         ← Screenshots and traces on failure
+│
+└── .github/workflows/
+    ├── phpunit.yml               ← EXISTING: untouched
+    └── e2e.yml                   ← NEW: separate Playwright CI job
 ```
 
 ### Structure Rationale
 
-- **`tests/integration/` as sibling to `tests/Unit/`:** Keeps both suites visually discoverable under `tests/`. Avoids deep nesting. Mirrors the pattern used by wordpress-importer and Two Factor plugin.
-- **Separate bootstrap per suite:** The unit bootstrap defines `ABSPATH = '/tmp/fake-wordpress/'` and stubs WP classes. If that file runs before the WP test library loads, it will conflict. Each suite needs its own entry point. Source: inspection of `tests/bootstrap.php` and Two Factor's `tests/bootstrap.php` pattern.
-- **Separate `phpunit.*.xml`:** PHPUnit 9.6 does not support per-directory bootstraps in a single config. Two configs is the standard solution. Brain\Monkey cannot coexist in the same process as real WordPress (both attempt to define the same function names). Source: Brain\Monkey 2.x documentation and architecture.
-- **`bin/install-wp-tests.sh` at root level:** Standard location per `wp scaffold plugin-tests` output. CI runs this script before running the integration suite. Not needed by the unit suite.
-- **Same `vendor/bin/phpunit` binary:** Both suites use the project's locked PHPUnit 9.6. This resolves the PHPUnit version conflict: the WP test library does not bundle its own PHPUnit — it bridges via `yoast/phpunit-polyfills`, which explicitly supports `^7.5 || ^8.0 || ^9.0 || ^11.0 || ^12.0`. Source: `yoast/phpunit-polyfills` `composer.json`.
-- **`tests/integration/TestCase.php` extends `WP_UnitTestCase`:** Not `PHPUnit\Framework\TestCase`. `WP_UnitTestCase` provides `START TRANSACTION` / `ROLLBACK` per test, the `factory()` fixture builder, and `assertErrorResponse()` for REST. Source: `wordpress-develop/tests/phpunit/includes/abstract-testcase.php`.
+- **`tests/e2e/` not `e2e/`:** Keeps all test concerns under `tests/`, consistent with the existing structure. The E2E tests are a third tier alongside Unit and Integration.
+- **`specs/` subdirectory by feature:** Mirrors Gutenberg's `test/e2e/specs/` organization. Each feature area gets its own directory, making it easy to run a subset during development: `npx playwright test tests/e2e/specs/challenge/`.
+- **`fixtures/test.ts` as single re-export:** All tests import from `../fixtures/test` instead of `@playwright/test`. Adding a new fixture requires changing one file, not every spec file.
+- **`artifacts/` gitignored:** Screenshots, traces, and storage state files are ephemeral CI artifacts. They are never committed. The `.gitignore` entry is `tests/e2e/artifacts/`.
+- **`package.json` at repo root:** Playwright must be at the repo root so npm scripts work without path gymnastics. This is a new Node.js root, separate from and non-conflicting with the PHP Composer toolchain.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Dual PHPUnit Configuration Files
+### Pattern 1: Storage State Authentication (Gutenberg's approach)
 
-**What:** Two `phpunit.*.xml` files — one per suite. The existing `phpunit.xml.dist` runs unit tests only. A new `phpunit.integration.xml` runs integration tests only. Each points to its own bootstrap file.
+**What:** Login once in `globalSetup`, serialize cookies + nonce to a JSON file (`artifacts/storage-states/admin.json`). Every test worker loads this file as its browser context's `storageState`, bypassing the login flow.
 
-**When to use:** Required when unit and integration test bootstraps are mutually exclusive. Brain\Monkey and real WordPress cannot coexist in the same PHP process.
+**When to use:** Always. WordPress admin login takes 2–4 seconds per test if done per-test. Storage state reduces this to a file read.
 
-**Trade-offs:** Two config files to maintain. Offset by the fact that the integration config is smaller (fewer strictness flags needed because WP core itself produces notices that would fail strict mode).
+**Trade-offs:** If the storage state file is stale (expired cookie), all tests fail with "not logged in." The global-setup must run fresh every time. This is handled by the `globalSetup` config key — Playwright always runs it before starting any worker. Never commit `admin.json` to version control: the cookies contain HMAC tokens derived from WordPress's `AUTH_KEY` constant, which changes when wp-env is rebuilt.
 
-**Example — `phpunit.integration.xml`:**
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<phpunit
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
-    bootstrap="tests/integration/bootstrap.php"
-    colors="true"
-    beStrictAboutTestsThatDoNotTestAnything="true"
->
-    <testsuites>
-        <testsuite name="Integration">
-            <directory suffix="Test.php">tests/integration</directory>
-        </testsuite>
-    </testsuites>
+**Implementation:**
 
-    <coverage>
-        <include>
-            <directory suffix=".php">includes</directory>
-        </include>
-    </coverage>
-</phpunit>
-```
+```typescript
+// tests/e2e/global-setup.ts
+import { request } from '@playwright/test';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
-Note: `failOnWarning` and `beStrictAboutOutputDuringTests` are intentionally omitted. WordPress core produces deprecation notices and occasional output during bootstrap that would fail strict mode. The unit suite keeps these flags; the integration suite does not.
-
-### Pattern 2: Integration Bootstrap via WP_TESTS_DIR
-
-**What:** The integration bootstrap reads the `WP_TESTS_DIR` environment variable to locate the WordPress test library. It uses `tests_add_filter()` on `muplugins_loaded` to load the plugin before WordPress initializes. Then it calls the WP bootstrap to start the real environment.
-
-**When to use:** Standard pattern for all WordPress plugin integration tests. Verified in: `wordpress-importer/phpunit/bootstrap.php`, `two-factor/tests/bootstrap.php`, `wp-cli/scaffold-command` template.
-
-**Trade-offs:** Requires `install-wp-tests.sh` to be run once (or in CI) to place the test library at `WP_TESTS_DIR`. Adds one setup step. In return, you get a fully functional WordPress with a real database.
-
-**Example — `tests/integration/bootstrap.php`:**
-```php
-<?php
-/**
- * PHPUnit bootstrap for WP Sudo integration tests.
- *
- * Requires a real WordPress test environment. Run bin/install-wp-tests.sh first.
- * Set WP_TESTS_DIR env var to override the default location.
- *
- * @package WP_Sudo\Tests\Integration
- */
-
-$_tests_dir = getenv( 'WP_TESTS_DIR' );
-
-if ( ! $_tests_dir ) {
-    $_tests_dir = rtrim( sys_get_temp_dir(), '/\\' ) . '/wordpress-tests-lib';
-}
-
-if ( ! file_exists( $_tests_dir . '/includes/functions.php' ) ) {
-    echo "Could not find {$_tests_dir}/includes/functions.php\n";
-    echo "Run: bash bin/install-wp-tests.sh wordpress_test root '' localhost latest\n";
-    exit( 1 );
-}
-
-// Give access to tests_add_filter() before WP boots.
-require_once $_tests_dir . '/includes/functions.php';
-
-// Load the plugin under test at muplugins_loaded (earliest safe hook).
-tests_add_filter(
-    'muplugins_loaded',
-    static function () {
-        require_once dirname( __DIR__, 2 ) . '/wp-sudo.php';
-    }
+const STORAGE_STATE_PATH = path.join(
+    process.cwd(),
+    'tests/e2e/artifacts/storage-states/admin.json'
 );
 
-// Composer autoloader for test classes.
-require_once dirname( __DIR__, 2 ) . '/vendor/autoload.php';
+async function globalSetup() {
+    const requestContext = await request.newContext( {
+        baseURL: process.env.WP_BASE_URL ?? 'http://localhost:8889',
+    } );
 
-// Boot the real WordPress environment (loads DB, fires all init hooks).
-require $_tests_dir . '/includes/bootstrap.php';
-```
+    // Log in via the WordPress login form.
+    await requestContext.post( 'wp-login.php', {
+        form: {
+            log: process.env.WP_USERNAME ?? 'admin',
+            pwd: process.env.WP_PASSWORD ?? 'password',
+            rememberme: 'forever',
+            redirect_to: '/wp-admin/',
+            testcookie: '1',
+        },
+    } );
 
-### Pattern 3: WP_UnitTestCase Integration Base Class
+    // Grab a REST nonce for any API calls tests need.
+    const nonceResponse = await requestContext.get(
+        'wp-admin/admin-ajax.php?action=rest-nonce'
+    );
+    const nonce = await nonceResponse.text();
 
-**What:** Integration test base class extends `WP_UnitTestCase` instead of `PHPUnit\Framework\TestCase`. Provides per-test database transaction rollback (no manual cleanup needed), the `factory()` fixture builder for users/posts/meta, and hook state backup/restore.
+    // Persist cookies + nonce so test workers can reuse them.
+    const storageState = await requestContext.storageState();
+    await fs.mkdir( path.dirname( STORAGE_STATE_PATH ), { recursive: true } );
+    await fs.writeFile(
+        STORAGE_STATE_PATH,
+        JSON.stringify( { ...storageState, nonce } )
+    );
 
-**When to use:** Every integration test file. Not the unit test files — those extend `WP_Sudo\Tests\TestCase` which extends `PHPUnit\Framework\TestCase`.
-
-**Trade-offs:** Tests are slower (5–50ms each vs <1ms for unit tests) because of real DB transactions. This is the expected trade-off for integration coverage.
-
-**Example — `tests/integration/TestCase.php`:**
-```php
-<?php
-/**
- * Base integration test case for WP Sudo.
- *
- * Extends WP_UnitTestCase for real database + WordPress environment.
- * Each test runs in a database transaction that is rolled back in tearDown.
- *
- * @package WP_Sudo\Tests\Integration
- */
-
-namespace WP_Sudo\Tests\Integration;
-
-class TestCase extends \WP_UnitTestCase {
-
-    /**
-     * Create an administrator user with a real password in the database.
-     *
-     * @param string $password Plain-text password (will be bcrypt-hashed by wp_create_user).
-     * @return \WP_User
-     */
-    protected function make_admin( string $password = 'test-password' ): \WP_User {
-        $user_id = self::factory()->user->create(
-            array(
-                'role'      => 'administrator',
-                'user_pass' => $password,
-            )
-        );
-        return get_user_by( 'id', $user_id );
-    }
-
-    /**
-     * Activate the plugin explicitly (activation hook was not fired during bootstrap).
-     *
-     * Tests that verify activation side effects (unfiltered_html removal, etc.) should call this.
-     */
-    protected function activate_plugin(): void {
-        do_action( 'activate_wp-sudo/wp-sudo.php' );
-    }
+    await requestContext.dispose();
 }
+
+export default globalSetup;
 ```
 
-Note: `WP_UnitTestCase` uses `setUp()` / `tearDown()` with snake_case names (not camelCase). PHPUnit 9.6 calls these via the polyfill layer. Source: `wordpress-develop/tests/phpunit/includes/abstract-testcase.php`.
+**Source:** Gutenberg `packages/scripts/config/playwright/global-setup.js` and `test/e2e/config/global-setup.ts`. HIGH confidence — verified against raw GitHub URLs.
 
-### Pattern 4: PHPUnit 9.6 + WP Test Library Compatibility via Yoast Polyfills
+---
 
-**What:** The `wordpress-develop` test library does not bundle PHPUnit. It bridges to any supported PHPUnit version via `yoast/phpunit-polyfills`. WP Sudo already has PHPUnit 9.6 in `vendor/`. Adding `yoast/phpunit-polyfills` as a dev dependency allows the WP test library to use the project's existing PHPUnit binary.
+### Pattern 2: Fixture Extension (WordPress admin helper)
 
-**When to use:** Required for any plugin that wants to run integration tests without using WP's own PHPUnit. Verified: `yoast/phpunit-polyfills` `composer.json` declares `"phpunit/phpunit": "^7.5 || ^8.0 || ^9.0 || ^11.0 || ^12.0"`.
+**What:** Extend Playwright's base `test` with WordPress-specific helper objects. Tests import the extended `test`, not Playwright's built-in one. Helpers become typed properties on the test function.
 
-**Trade-offs:** One additional dev dependency. The alternative — using a separate system-installed PHPUnit — creates version conflicts and complicates CI.
+**When to use:** Any test that navigates the WordPress admin. Without this pattern, every spec file repeats `await page.goto('/wp-admin/...')` with no shared error handling.
 
-**Installation:**
-```bash
-composer require --dev yoast/phpunit-polyfills:"^1.1"
+**Trade-offs:** The fixture file is an indirection layer. It requires understanding Playwright's `test.extend()` API. The payoff is immediate — a `visitAdminPage` fixture that handles upgrade screens and login redirects is a significant quality-of-life improvement across all specs.
+
+**Implementation:**
+
+```typescript
+// tests/e2e/fixtures/test.ts
+import { test as base, expect } from '@playwright/test';
+
+type WpAdminFixture = {
+    visitAdminPage: ( path: string, query?: string ) => Promise<void>;
+};
+
+export const test = base.extend<WpAdminFixture>( {
+    visitAdminPage: async ( { page }, use ) => {
+        const visitAdminPage = async ( adminPath: string, query?: string ) => {
+            const url = '/wp-admin/' + adminPath + ( query ? '?' + query : '' );
+            await page.goto( url );
+
+            // Handle WordPress upgrade screen (can appear with trunk WP).
+            if ( page.url().includes( 'upgrade.php' ) ) {
+                await page.click( 'input[type="submit"]' );
+                await page.click( 'a.button' );
+            }
+
+            // Fail fast if WordPress redirected us to login (storage state stale).
+            if ( page.url().includes( 'wp-login.php' ) ) {
+                throw new Error( 'Not authenticated — storage state may be stale' );
+            }
+        };
+        await use( visitAdminPage );
+    },
+} );
+
+export { expect };
 ```
 
-The integration bootstrap must include the polyfills autoloader before loading the WP test library bootstrap:
-```php
-// After tests_add_filter() calls, before WP bootstrap:
-require dirname( __DIR__, 2 ) . '/vendor/yoast/phpunit-polyfills/phpunitpolyfills-autoload.php';
-require $_tests_dir . '/includes/bootstrap.php';
+**Usage in a spec file:**
+
+```typescript
+// tests/e2e/specs/settings/admin-settings.spec.ts
+import { test, expect } from '../../fixtures/test';
+
+test( 'settings page renders', async ( { visitAdminPage, page } ) => {
+    await visitAdminPage( 'options-general.php', 'page=wp-sudo-settings' );
+    await expect( page.locator( 'h1' ) ).toContainText( 'Sudo' );
+} );
 ```
 
-### Pattern 5: Plugin Loading via muplugins_loaded Hook
+**Source:** Gutenberg `packages/e2e-test-utils-playwright/src/admin/index.ts` and `visit-admin-page.ts`. HIGH confidence — verified against raw GitHub URLs.
 
-**What:** The plugin is loaded by `tests_add_filter( 'muplugins_loaded', ... )` in the integration bootstrap, not by `require` at bootstrap time. This ensures the plugin sees real WP functions (not stubs) when it initializes, and fires in the correct hook order: `muplugins_loaded` → `plugins_loaded` → `init` → `admin_init`.
+---
 
-**When to use:** Required. Calling `require wp-sudo.php` directly in bootstrap would run before WordPress is initialized — plugin constants would be set but `add_action()` would fail.
+### Pattern 3: wp-env for Environment Provisioning
 
-**Trade-offs:** Slight indirection (the plugin loads during WP's boot sequence, not at bootstrap time), but this is the correct pattern verified across Two Factor and wordpress-importer.
+**What:** `@wordpress/env` (`wp-env`) spins up a Docker container with WordPress pre-installed, the plugin mounted, and an admin user created. The Playwright config's `webServer` block starts wp-env before any test runs and confirms the port is listening.
 
-### Pattern 6: Composer Scripts for Dual Test Runner
+**When to use:** Always, for CI and local development. The alternative (a real dev site) is not reproducible across machines. The integration tests use `install-wp-tests.sh` + raw MySQL, but E2E tests need a real browser-accessible WordPress HTTP server — only wp-env provides that without extra infrastructure.
 
-**What:** Extend `composer.json` scripts to support running each suite independently. Keep `composer test` pointing to the unit suite (no DB required, runs in any environment). Add `composer test:unit` and `composer test:integration` as named aliases.
+**Trade-offs:** Requires Docker. Docker is pre-installed on GitHub Actions ubuntu-24.04 runners (Docker 28.0.4 as of March 2026). First run downloads WordPress and plugin files (~1–2 minutes). Subsequent runs reuse containers (`reuseExistingServer: true`).
 
-**When to use:** Always. Developers without a configured test database can still run the unit suite. CI runs both in separate jobs.
+**Note on Playground runtime:** `wp-env start --runtime=playground` does not require Docker and uses SQLite instead of MySQL. This is documented as experimental. Do not use it for WP Sudo: rate-limit transients depend on real MySQL, and session cookie behavior with SQLite is not representative of production.
 
-**Example — `composer.json` scripts section:**
+**`.wp-env.json` (minimal for a pure-PHP plugin):**
+
 ```json
-"scripts": {
-    "test": "phpunit",
-    "test:unit": "phpunit --configuration phpunit.xml.dist",
-    "test:integration": "phpunit --configuration phpunit.integration.xml",
-    "lint": "phpcs",
-    "lint:fix": "phpcbf",
-    "analyse": "phpstan analyse",
-    "sbom": "composer CycloneDX:make-sbom ..."
+{
+    "core": null,
+    "plugins": [ "." ],
+    "phpVersion": "8.3",
+    "port": 8889,
+    "config": {
+        "WP_DEBUG": true,
+        "WP_DEBUG_LOG": true,
+        "SCRIPT_DEBUG": false
+    }
 }
 ```
 
-`composer test` (no argument) continues to run the unit suite only, preserving backward compatibility with CLAUDE.md instructions and pre-commit habits.
+`"core": null` means latest stable WordPress. `"plugins": ["."]` mounts the current directory as the plugin and activates it. `"phpVersion": "8.3"` overrides the container default. Port 8889 avoids collision with any local development wp-env on 8888.
+
+**Source:** `@wordpress/env` README (packages/env/README.md, trunk). HIGH confidence — verified against raw GitHub URL.
+
+---
+
+### Pattern 4: WP Sudo-Specific — Challenge Page Flow Testing
+
+**What:** WP Sudo intercepts admin requests and redirects to `wp-admin/?page=wp-sudo-challenge&stash_key=<key>`. E2E tests must trigger a gated action, be redirected, complete the challenge, and verify the original action was replayed.
+
+**When to use:** This is the core of WP Sudo's contract. Every major gated action (plugin activation, user deletion, settings changes) should have at least one E2E test that walks the full intercept → challenge → replay path.
+
+**Data flow:**
+
+```
+Test navigates to gated action
+    ↓
+WordPress admin intercept (Gate class via admin_init)
+    ↓
+Browser redirects to /wp-admin/?page=wp-sudo-challenge&stash_key=<key>
+    ↓
+Test fills password field in challenge modal (AJAX via admin-ajax.php)
+    ↓
+Gate grants sudo session (sets cookie + user meta)
+    ↓
+Challenge replays stashed request (POST form or GET redirect)
+    ↓
+Test asserts original action completed successfully
+```
+
+**Implementation sketch:**
+
+```typescript
+// tests/e2e/specs/challenge/reauth-flow.spec.ts
+import { test, expect } from '../../fixtures/test';
+
+test( 'gated plugin activation triggers challenge and replays on success', async ( { visitAdminPage, page } ) => {
+    // Navigate to plugins list — activating a plugin is gated by default.
+    await visitAdminPage( 'plugins.php' );
+
+    // Click Activate on any inactive plugin.
+    const activateLink = page.locator( 'tr.inactive .activate a' ).first();
+    await activateLink.click();
+
+    // Gate intercepts and redirects to challenge page.
+    await expect( page ).toHaveURL( /wp-sudo-challenge/ );
+
+    // Fill in the correct password.
+    await page.locator( '#wp-sudo-password' ).fill( 'password' );
+    await page.locator( '#wp-sudo-submit' ).click();
+
+    // Challenge replays the activation request. Verify we land back on plugins.
+    await expect( page ).toHaveURL( /plugins\.php/ );
+    await expect( page.locator( '.notice-success' ) ).toBeVisible();
+} );
+```
 
 ---
 
 ## Data Flow
 
-### Integration Test Execution Flow
+### Request Flow: E2E Test → WordPress → Response
 
 ```
-Developer runs: composer test:integration
+Playwright test code
+    ↓ (page.click, page.goto, page.fill)
+Chromium browser (headless)
+    ↓ (HTTP request to localhost:8889)
+wp-env Docker container
     ↓
-PHPUnit 9.6 reads phpunit.integration.xml
+WordPress (PHP-FPM in container)
     ↓
-Loads tests/integration/bootstrap.php
-    ↓
-    ├── Reads WP_TESTS_DIR env var → /tmp/wordpress-tests-lib
-    ├── Requires functions.php (tests_add_filter available)
-    ├── Registers muplugins_loaded → load wp-sudo.php
-    ├── Requires phpunitpolyfills-autoload.php
-    └── Requires wordpress-tests-lib/includes/bootstrap.php
-            ↓
-            Connects to test MySQL database
-            Installs WordPress tables (first run)
-            Fires: muplugins_loaded → wp-sudo.php loads
-            Fires: plugins_loaded → Plugin::init()
-            Fires: init → Gate registers at priority 1
-            Fires: admin_init → Gate::intercept() wired
-    ↓
-PHPUnit discovers tests/integration/*Test.php
-    ↓
-For each test method:
-    ├── WP_UnitTestCase::set_up() runs
-    │       START TRANSACTION (DB rollback isolation)
-    │       Backup hooks
-    ├── test_*() runs against real WP + real DB
-    └── WP_UnitTestCase::tear_down() runs
-            ROLLBACK (undo all DB changes)
-            Restore hooks
-            Reset WP_Query, $wp globals
+WP Sudo plugin (Gate, Challenge, Sudo_Session)
+    ↓ (HTTP response)
+Chromium browser
+    ↓ (DOM update)
+Playwright assertion (expect)
 ```
 
-### Real Authentication Flow (Integration Target)
+### Authentication Data Flow (global-setup → workers)
 
 ```
-test creates admin user via factory()
-    ↓
-test sets $_REQUEST['action'] = 'activate-plugin'
-    ↓
-Gate::intercept() fires at admin_init priority 1
-    ↓
-Gate calls Action_Registry::get_rules() → real rules (not mocked)
-    ↓
-Gate matches rule → calls Request_Stash::store()
-    → real set_transient() with real TTL
-    ↓
-Gate calls wp_safe_redirect() → intercepted / asserted
-    ↓
-test loads Challenge page directly
-    ↓
-Challenge::verify_password() calls real wp_check_password()
-    → real bcrypt (cost=5 in test env, per WP_UnitTestCase::wp_hash_password_options)
-    ↓
-Challenge calls Sudo_Session::activate()
-    → real update_user_meta(), real setcookie() header
-    ↓
-Challenge calls Request_Stash::replay()
-    → real get_transient() + delete_transient()
-    ↓
-test asserts session is active, meta exists, transient deleted
+globalSetup (runs once before any worker starts)
+    ↓ POST /wp-login.php
+    ↓ GET  /wp-admin/admin-ajax.php?action=rest-nonce
+    → writes: tests/e2e/artifacts/storage-states/admin.json
+                { cookies: [...], origins: [...], nonce: "..." }
+
+Test workers (run serially, workers: 1)
+    ← reads: storageState path from playwright.config.ts use.storageState
+    → each test gets pre-authenticated browser context
+    → no login screen seen in any test
 ```
 
-### Key Data Flows
+### Artifact Data Flow (CI)
 
-1. **Session token flow:** `Sudo_Session::activate()` writes a hash to `_wp_sudo_session_token` user meta and sets a cookie header. Integration tests verify both the meta value (via `get_user_meta()`) and that the cookie was emitted (via output buffer capture or `headers_list()`).
+```
+Playwright test run
+    → on failure: screenshot saved to tests/e2e/artifacts/test-results/
+    → on failure: trace saved to tests/e2e/artifacts/test-results/
 
-2. **Request stash flow:** `Request_Stash::store()` writes a transient with a 10-minute TTL. Integration tests verify the transient exists (via `get_transient()`), that replay retrieves and deletes it (transient gone after replay), and that expired transients are not replayed (requires `sleep()` or mock time — flag this as needing investigation).
-
-3. **Multisite isolation flow:** `switch_to_blog( $site_b_id )` → assert `Sudo_Session::is_active()` returns false for a session activated on site A. Restore with `restore_current_blog()`. WP_UnitTestCase handles blog switching cleanup in `tear_down()`.
+GitHub Actions workflow
+    → uploads tests/e2e/artifacts/test-results/ as workflow artifact
+    → artifact name: e2e-artifacts (accessible from Actions UI)
+```
 
 ---
 
-## Scaling Considerations
+## Configuration Files (Complete Reference)
 
-Integration tests don't scale to users — they scale to test count and test time.
+### `package.json` (new, repo root)
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 0–20 integration tests | Single integration job in CI, no parallelism needed |
-| 20–100 tests | Consider splitting by feature group (session, gate, REST, multisite) using PHPUnit `--group` annotations |
-| 100+ tests | PHPUnit parallel runner (`--process-isolation`) or split into multiple CI jobs by group |
+```json
+{
+    "name": "wp-sudo-e2e",
+    "private": true,
+    "scripts": {
+        "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+        "test:e2e:ui": "playwright test --config tests/e2e/playwright.config.ts --ui",
+        "test:e2e:debug": "playwright test --config tests/e2e/playwright.config.ts --debug",
+        "wp-env": "wp-env",
+        "wp-env:start": "wp-env start",
+        "wp-env:stop": "wp-env stop"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.58.2",
+        "@wordpress/env": "^11.1.0"
+    }
+}
+```
 
-### Scaling Priorities
+`"private": true` signals this package is never published to npm. Using `^` for both versions allows patch/minor updates while locking the major. The `--config` flag is explicit so Playwright does not search for config at the repo root (which would find nothing and fall back to defaults).
 
-1. **First bottleneck — test DB setup time:** `install-wp-tests.sh` downloads WordPress and creates the database. In CI, cache the downloaded WordPress core (not the database). The test DB is recreated per job run. GitHub Actions cache key: `${{ runner.os }}-wp-tests-${{ env.WP_VERSION }}`.
+### `playwright.config.ts` (new, `tests/e2e/`)
 
-2. **Second bottleneck — slow transient TTL tests:** Tests that need transients to expire cannot use `sleep()` in CI (too slow). Use `WP_Temporary_Tables` or mock the transient expiry differently. Flag: the Request_Stash expiry test likely needs a different approach. See PITFALLS.md.
+```typescript
+import { defineConfig, devices } from '@playwright/test';
+
+const baseURL = process.env.WP_BASE_URL ?? 'http://localhost:8889';
+const artifactsPath = 'tests/e2e/artifacts';
+
+export default defineConfig( {
+    testDir: './specs',
+    outputDir: `${ artifactsPath }/test-results`,
+    snapshotPathTemplate: '{testDir}/{testFileDir}/__snapshots__/{arg}-{projectName}{ext}',
+    fullyParallel: false,  // WordPress has shared global state; serial is safer
+    workers: 1,
+    retries: process.env.CI ? 2 : 0,
+    timeout: 60_000,       // 60 seconds per test — WordPress admin loads slowly
+    reportSlowTests: null,
+    forbidOnly: !! process.env.CI,
+    reporter: process.env.CI
+        ? [ [ 'github' ], [ 'blob' ] ]
+        : [ [ 'list' ] ],
+    globalSetup: './global-setup.ts',
+    use: {
+        baseURL,
+        headless: true,
+        viewport: { width: 1280, height: 900 },
+        ignoreHTTPSErrors: true,
+        locale: 'en-US',
+        storageState: `${ artifactsPath }/storage-states/admin.json`,
+        actionTimeout: 15_000,
+        trace: 'retain-on-failure',
+        screenshot: 'only-on-failure',
+        video: 'on-first-retry',
+    },
+    webServer: {
+        command: 'npm run wp-env:start',
+        url: baseURL,
+        reuseExistingServer: ! process.env.CI,
+        timeout: 120_000,
+    },
+    projects: [
+        {
+            name: 'chromium',
+            use: { ...devices[ 'Desktop Chrome' ] },
+        },
+    ],
+} );
+```
+
+Key decisions:
+- `workers: 1` — WordPress admin has global state (active plugins, option values, session state). Parallel workers will race on shared database records. WP Sudo's rate-limit counters are stored in transients per user — concurrent tests on the same admin user will interfere.
+- `reuseExistingServer: !process.env.CI` — CI always starts a fresh wp-env; local dev reuses running containers to avoid 60–90 second startup overhead.
+- `timeout: 60_000` — WordPress admin page loads can take 5–10 seconds inside a Docker container, especially on first request after container start.
+- Chromium only for initial implementation. Firefox and WebKit can be added in a later phase.
+
+### `.wp-env.json` (new, repo root)
+
+```json
+{
+    "core": null,
+    "plugins": [ "." ],
+    "phpVersion": "8.3",
+    "port": 8889,
+    "config": {
+        "WP_DEBUG": true,
+        "WP_DEBUG_LOG": true,
+        "SCRIPT_DEBUG": false
+    }
+}
+```
+
+### `.github/workflows/e2e.yml` (new)
+
+```yaml
+name: E2E Tests
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    e2e:
+        name: "Playwright E2E"
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: '.nvmrc'
+                  cache: 'npm'
+
+            - name: Install npm dependencies
+              run: npm ci
+
+            - name: Install Playwright browsers
+              run: npx playwright install chromium --with-deps
+
+            - name: Run E2E tests
+              run: npm run test:e2e
+              env:
+                  WP_BASE_URL: http://localhost:8889
+
+            - name: Upload test artifacts on failure
+              uses: actions/upload-artifact@v7
+              if: ${{ !cancelled() }}
+              with:
+                  name: e2e-artifacts
+                  path: tests/e2e/artifacts/test-results
+                  if-no-files-found: ignore
+```
+
+Key decisions:
+- Separate workflow file — `phpunit.yml` is untouched. The E2E job never runs PHP tests; the PHP jobs never run Node.
+- `timeout-minutes: 30` — wp-env startup (~90s) + test run should complete well within this limit.
+- `npx playwright install chromium --with-deps` — installs only Chromium and its system dependencies. Reduces download from ~300 MB to ~100 MB.
+- Docker is pre-installed on ubuntu-24.04 (Docker 28.0.4 as of March 2026, verified from runner image manifest). No `setup-docker` step is needed.
+- No PHP setup in this job — wp-env manages PHP inside the container.
+
+### `.nvmrc` (new, repo root)
+
+```
+20
+```
+
+Pins Node.js 20 LTS. The `setup-node` action reads this file. Node.js 20 is pre-installed on ubuntu-24.04 runners (Node 20.20.0 as of March 2026). `@playwright/test` 1.58.2 requires `>=18`.
+
+---
+
+## Integration Points: New vs. Existing
+
+### New Files
+
+| File | Type | Purpose |
+|------|------|---------|
+| `package.json` | New | Node.js project manifest; devDependencies; npm scripts |
+| `package-lock.json` | New | Generated lockfile; committed to repo |
+| `.nvmrc` | New | Node.js version pin for local dev and CI |
+| `.wp-env.json` | New | wp-env config: plugin mount, PHP version, WP version, port |
+| `tests/e2e/playwright.config.ts` | New | All Playwright configuration |
+| `tests/e2e/global-setup.ts` | New | One-time auth: login → save storage state |
+| `tests/e2e/fixtures/test.ts` | New | Extended test with WP admin helpers |
+| `tests/e2e/specs/` | New | Test spec files (organized by feature) |
+| `.github/workflows/e2e.yml` | New | CI job: Node setup + wp-env + Playwright |
+
+### Modified Files
+
+| File | Change | Why |
+|------|--------|-----|
+| `.gitignore` | Add `tests/e2e/artifacts/` and `node_modules/` | Artifact files and Node deps are ephemeral |
+| `composer.json` | No change | PHP toolchain is unchanged |
+| `.github/workflows/phpunit.yml` | No change | PHPUnit CI runs independently |
+
+### No Changes Needed
+
+| File | Reason |
+|------|--------|
+| `wp-sudo.php` | E2E tests exercise the plugin through the browser, not by requiring it |
+| Any PHP class in `includes/` | E2E tests are black-box; they do not import PHP |
+| `phpunit.xml.dist` | PHPUnit config is PHP-only |
+| `phpunit-integration.xml.dist` | PHPUnit config is PHP-only |
+| `composer.json` | No PHP dev dependencies are added for E2E |
+| `tests/Unit/` | Untouched |
+| `tests/Integration/` | Untouched |
+
+---
+
+## Three-Tier Test Comparison
+
+| Concern | PHPUnit Unit | PHPUnit Integration | Playwright E2E |
+|---------|-------------|--------------------|--------------------|
+| WordPress loaded | No (Brain\Monkey stubs) | Yes (WP_UnitTestCase) | Yes (full HTTP server) |
+| Browser required | No | No | Yes |
+| Database | No | MySQL (via install-wp-tests.sh) | MySQL (via wp-env Docker) |
+| Test user | No | Factory ($this->factory->user) | admin:password (wp-env default) |
+| Test execution time | ~0.3s total | ~30–60s total | ~2–5 min total |
+| What it proves | Logic correctness | PHP integration correctness | UX behavior correctness |
+| WP Sudo coverage | Session state machine, rate limiting math, hook registration | Full reauth flows, transient TTL, bcrypt verify | Browser interaction, redirect flows, challenge UI, cookie visibility |
+| CI job | `phpunit.yml` (unit-tests) | `phpunit.yml` (integration-tests) | `e2e.yml` (new) |
+
+The three suites are additive, not overlapping. A bug catchable by a unit test should not require an E2E test to catch it. E2E tests exist to catch failures at the seam between PHP behavior and browser behavior: form submissions, redirects, JavaScript-driven UI state, cookie visibility in the browser.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Shared Bootstrap Between Unit and Integration Suites
+### Anti-Pattern 1: Putting `playwright.config.ts` at the Repo Root
 
-**What people do:** Add integration tests to `tests/Unit/` and extend the existing `tests/bootstrap.php`.
+**What people do:** Follow the Playwright "getting started" guide literally — `npm init playwright` puts `playwright.config.ts` at the repo root.
 
-**Why it's wrong:** The unit bootstrap defines `ABSPATH = '/tmp/fake-wordpress/'` and stubs `WP_User`, `WP_REST_Request`, and `Two_Factor_Core`. If the real WordPress loads in the same process, PHP throws "class already defined" fatal errors. Brain\Monkey's function registry also conflicts with real WordPress functions. The two environments are mutually exclusive.
+**Why it's wrong:** For a PHP plugin repo, the repo root is owned by Composer. A root-level `playwright.config.ts` implies `testDir: './tests'`, which will discover the existing PHP `tests/` directory and fail trying to parse `.php` files as TypeScript.
 
-**Do this instead:** Separate directories, separate bootstraps, separate PHPUnit config files. Unit tests stay in `tests/Unit/`. Integration tests go in `tests/integration/`. Never merge their bootstraps.
+**Do this instead:** Put `playwright.config.ts` inside `tests/e2e/`. Pass `--config tests/e2e/playwright.config.ts` in all npm scripts. The `testDir` inside the config can then be the relative `'./specs'` path.
 
-### Anti-Pattern 2: Using `require tests/bootstrap.php` in the Integration Bootstrap
+### Anti-Pattern 2: Mixing WP_BASE_URL Between Integration and E2E Jobs
 
-**What people do:** Call `require_once __DIR__ . '/../bootstrap.php'` at the top of the integration bootstrap to get the Composer autoloader.
+**What people do:** Set environment variables like `WP_BASE_URL` in a shared job or a `.env` file, then run both PHPUnit integration tests and Playwright E2E in the same CI job.
 
-**Why it's wrong:** The unit bootstrap also defines `ABSPATH`, `WP_CONTENT_DIR`, and WP class stubs. The WP test library's own bootstrap will then try to define the same constants → PHP notices or fatal errors depending on whether `define()` is used with `defined()` guards.
+**Why it's wrong:** Integration tests connect to a raw MySQL database via `WP_TESTS_DIR`. E2E tests connect to a Docker container via HTTP. These are different systems with different credentials and URLs. Running both in one job creates ordering dependencies and environment pollution.
 
-**Do this instead:** Require `vendor/autoload.php` directly in the integration bootstrap. The Composer autoloader is independent of the unit bootstrap stubs.
+**Do this instead:** Keep the jobs entirely separate. `phpunit.yml` never references `WP_BASE_URL`. `e2e.yml` never references `WP_TESTS_DIR`. The two CI jobs have zero shared environment variables.
 
-```php
-// Correct: require autoloader directly
-require_once dirname( __DIR__, 2 ) . '/vendor/autoload.php';
+### Anti-Pattern 3: Parallel Workers With Shared WordPress State
 
-// Wrong: pulls in unit-test stubs
-require_once dirname( __DIR__ ) . '/bootstrap.php';
-```
+**What people do:** Set `workers: 4` to make tests faster.
 
-### Anti-Pattern 3: Strict Output Mode in Integration Config
+**Why it's wrong:** WordPress has a single shared database. Two workers activating and deactivating the same plugin concurrently corrupt test state. For WP Sudo specifically, rate-limit counts are stored in transients keyed by user ID — concurrent tests on the same admin user will interfere with each other's rate limit counters and produce false lockouts.
 
-**What people do:** Copy `phpunit.xml.dist` verbatim and add it as `phpunit.integration.xml`, keeping `beStrictAboutOutputDuringTests="true"`.
+**Do this instead:** `workers: 1` always, unless tests are designed with isolated user accounts per worker. Creating isolated users per worker requires a `workerInfo`-scoped REST API fixture — viable, but a non-trivial addition. For phase 1, serialize.
 
-**Why it's wrong:** WordPress core, and the WP test library bootstrap itself, emit output (deprecation notices, debug info) during initialization. This output causes the entire test run to fail before a single test method executes.
+### Anti-Pattern 4: Using wp-env Playground Runtime for E2E Tests
 
-**Do this instead:** Omit `beStrictAboutOutputDuringTests` from the integration config. Keep `beStrictAboutTestsThatDoNotTestAnything="true"` to ensure tests still assert something.
+**What people do:** Use `wp-env start --runtime=playground` to avoid Docker.
 
-### Anti-Pattern 4: Loading the Plugin with direct `require` Before WordPress Boots
+**Why it's wrong:** The Playground runtime uses SQLite, not MySQL. WP Sudo's rate-limiting uses WordPress transients backed by MySQL. The Playground runtime is documented as experimental. Using it for WP Sudo E2E tests would not represent production behavior and would cause flaky failures on session-related assertions.
 
-**What people do:** `require_once '/path/to/wp-sudo.php'` at the top of the integration bootstrap, before calling the WP bootstrap.
+**Do this instead:** Docker runtime. Docker 28.0.4 is pre-installed on GitHub Actions ubuntu-24.04 — no extra setup step is needed.
 
-**Why it's wrong:** `wp-sudo.php` calls `add_action()`, `register_activation_hook()`, and `plugins_loaded`. None of these WordPress functions exist yet — PHP fatal error.
+### Anti-Pattern 5: Committing `admin.json` Storage State
 
-**Do this instead:** Use `tests_add_filter( 'muplugins_loaded', function() { require ...; } )`. The WP bootstrap fires `muplugins_loaded` after setting up the core function library but before `plugins_loaded`, which is the correct insertion point.
+**What people do:** Commit the storage state file to version control so CI does not log in on every run.
 
-### Anti-Pattern 5: One Composer Script Named `test` That Runs Both Suites
+**Why it's wrong:** The storage state contains WordPress auth cookies. These cookies contain HMAC tokens derived from the `AUTH_KEY` constant. When wp-env destroys and rebuilds its Docker container, the salts change, and the committed storage state becomes a stale auth token — every test fails with a cryptic redirect to the login page.
 
-**What people do:** Change `"test": "phpunit"` to `"test": "phpunit --config phpunit.xml.dist && phpunit --config phpunit.integration.xml"`.
-
-**Why it's wrong:** Developers without a configured test database (most contributors) will have every `composer test` invocation fail on the integration suite, blocking their unit test feedback loop.
-
-**Do this instead:** Keep `composer test` running unit tests only. Name the combined run `composer test:all` and document that it requires `WP_TESTS_DIR` and a MySQL database.
+**Do this instead:** Always generate the storage state in `globalSetup`. It takes under 2 seconds. The entire `tests/e2e/artifacts/` directory is gitignored.
 
 ---
 
-## Integration Points
+## Build Order (Dependency Graph)
 
-### External Services
+The following order must be respected because each layer depends on the previous:
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| MySQL test database | `install-wp-tests.sh` creates `wordpress_test` DB | Credentials passed as env vars in CI |
-| WordPress test library (SVN) | `install-wp-tests.sh` fetches via SVN or wget | Cached by WP version in CI |
-| Two Factor plugin | Loaded in `TwoFactorTest.php` bootstrap via separate config or `tests_add_filter` | Requires Two Factor plugin files in test WP install |
-| GitHub Actions MySQL | `services: mysql:` block in workflow YAML | Standard Actions pattern, documented below |
+```
+Phase 1: Environment Setup
+    package.json + .wp-env.json + .nvmrc
+    → npm install
+    → npx playwright install chromium
+    → npm run wp-env:start
+    VALIDATE: curl http://localhost:8889/wp-admin/ returns 200
 
-### Internal Boundaries
+Phase 2: Authentication Infrastructure
+    tests/e2e/global-setup.ts
+    → produces: tests/e2e/artifacts/storage-states/admin.json
+    VALIDATE: storage state file exists and contains WordPress auth cookies
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Unit tests ↔ Integration tests | None — fully isolated by separate bootstraps | No shared test base classes |
-| Integration tests ↔ WP test library | `WP_UnitTestCase` inheritance | WP test library must be at `WP_TESTS_DIR` |
-| Integration tests ↔ WP Sudo production code | `require wp-sudo.php` via `muplugins_loaded` | Same code path as real plugin activation |
-| Integration bootstrap ↔ PHPUnit 9.6 | `yoast/phpunit-polyfills` bridge | Polyfills adapt WP_UnitTestCase to PHPUnit 9.x API |
-| `bin/install-wp-tests.sh` ↔ CI | Environment variables: `WP_TESTS_DIR`, `DB_NAME`, `DB_USER`, `DB_PASS`, `WP_VERSION` | CI sets these; script reads them |
+Phase 3: Playwright Configuration
+    tests/e2e/playwright.config.ts
+    → references: global-setup.ts (must exist), storageState path (populated in Phase 2)
+    VALIDATE: npx playwright test --config tests/e2e/playwright.config.ts --list
+              shows 0 tests (no specs yet) without errors
+
+Phase 4: Fixture Layer
+    tests/e2e/fixtures/test.ts
+    → wraps @playwright/test, no runtime dependencies beyond Phase 3
+    VALIDATE: TypeScript compiles without errors
+
+Phase 5: First Spec File
+    tests/e2e/specs/settings/admin-settings.spec.ts
+    → depends on: fixture (Phase 4), wp-env running (Phase 1), auth (Phase 2)
+    VALIDATE: npm run test:e2e runs and passes
+
+Phase 6: CI Workflow
+    .github/workflows/e2e.yml
+    → orchestrates all phases in CI
+    → depends on all previous phases being committed
+    VALIDATE: CI job passes on a PR
+```
 
 ---
 
-## CI Pipeline Structure
+## Scaling Considerations
 
-The integration suite requires MySQL. Unit tests do not. Use two separate GitHub Actions jobs.
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| 1–20 tests | Current design: 1 worker, serial, Chromium only, single admin user |
+| 20–100 tests | Consider multiple storage states (admin + editor + subscriber) to test role-specific gating without per-test user creation. Still 1 worker. |
+| 100+ tests | Worker-scoped user fixture (REST API creates isolated user per worker, deletes after). Enable `workers: 2` or `3`. Add test sharding in CI if total runtime exceeds 10 minutes. |
 
-```yaml
-# .github/workflows/phpunit.yml
+### Scaling Priorities
 
-name: PHPUnit
-
-on: [push, pull_request]
-
-jobs:
-  unit-tests:
-    name: Unit Tests (PHP ${{ matrix.php }})
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        php: ['8.1', '8.2', '8.3', '8.4']
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          tools: composer:v2
-          coverage: none
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Run unit tests
-        run: composer test:unit
-
-  integration-tests:
-    name: Integration Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }})
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        php: ['8.1', '8.3']       # Subset — integration tests are slower
-        wp: ['latest', 'trunk']
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: wordpress_test
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-timeout=10s --health-retries=5
-    env:
-      WP_TESTS_DIR: /tmp/wordpress-tests-lib
-      WP_VERSION: ${{ matrix.wp }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          tools: composer:v2
-          coverage: none
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
-
-      - name: Cache WP test library
-        uses: actions/cache@v4
-        with:
-          path: /tmp/wordpress-tests-lib
-          key: ${{ runner.os }}-wp-tests-${{ matrix.wp }}-${{ hashFiles('bin/install-wp-tests.sh') }}
-
-      - name: Install WP test library
-        run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wp }}
-
-      - name: Run integration tests
-        run: composer test:integration
-```
-
-### CI Build Order Implications
-
-1. `unit-tests` job has no dependencies — runs immediately.
-2. `integration-tests` job has no dependency on `unit-tests` — runs in parallel.
-3. Both jobs must pass for the PR check to pass.
-4. `install-wp-tests.sh` must be scaffolded before the workflow can run. **This is the first build artifact to create.**
-5. `phpunit.integration.xml` and `tests/integration/bootstrap.php` and `tests/integration/TestCase.php` must exist before any integration test files can be added.
-6. Integration test files are written after the scaffold exists — following TDD, each test file is written before the production code that makes it pass.
-
-### Scaffold Build Order (for roadmap phase planning)
-
-```
-Phase scaffold work:
-  1. Add yoast/phpunit-polyfills to composer.json require-dev
-  2. Create bin/install-wp-tests.sh (from wp-cli scaffold template)
-  3. Create phpunit.integration.xml
-  4. Create tests/integration/bootstrap.php
-  5. Create tests/integration/TestCase.php
-  6. Add composer scripts (test:unit, test:integration)
-  7. Create .github/workflows/phpunit.yml
-
-Then per test file (TDD cycle):
-  8. Write failing integration test (e.g., ReauthFlowTest.php)
-  9. Verify it fails for the right reason against real WP
-  10. Confirm production code makes it pass (no production changes needed initially — the tests cover existing behavior)
-```
+1. **First bottleneck:** wp-env startup time (~60–90 seconds). Mitigated by `reuseExistingServer: true` locally. In CI, cache `~/.wp-env` using `actions/cache` on a key that includes the WordPress version.
+2. **Second bottleneck:** Serial execution. Moving from 1 to 2 workers requires per-worker user isolation via a REST API fixture. This is a non-trivial refactor deferred to a later phase.
 
 ---
 
 ## Sources
 
-- `wordpress-develop` `composer.json` (trunk, fetched 2026-02-19): confirms WP 7.0.0, `yoast/phpunit-polyfills ^1.1.0` as dev dependency, no bundled PHPUnit — https://github.com/WordPress/wordpress-develop
-- `wordpress-develop` `phpunit.xml.dist` (trunk, fetched 2026-02-19): PHPUnit schema `http://schema.phpunit.de/9.2/phpunit.xsd` — confirms PHPUnit 9.x is the current WP test suite target
-- `wordpress-develop` `tests/phpunit/includes/abstract-testcase.php` (trunk, fetched 2026-02-19): `start_transaction()` / `ROLLBACK` pattern, `factory()`, `setUp()` snake_case — HIGH confidence
-- `wordpress-develop` `tests/phpunit/includes/bootstrap.php` (trunk, fetched 2026-02-19): `WP_TESTS_DIR` env var pattern, polyfills inclusion — HIGH confidence
-- `WordPress/two-factor` `tests/bootstrap.php` (master, fetched 2026-02-19): `tests_add_filter( 'muplugins_loaded', ... )` plugin loading pattern — HIGH confidence
-- `WordPress/two-factor` `class-two-factor-core.php` (master, fetched 2026-02-19): verified method signatures (`is_user_using_two_factor`, `get_primary_provider_for_user`) — HIGH confidence
-- `WordPress/wordpress-importer` `phpunit/bootstrap.php` (master, fetched 2026-02-19): `WP_TESTS_DIR` fallback chain, `tests_add_filter( 'plugins_loaded', ... )` pattern — HIGH confidence
-- `yoast/phpunit-polyfills` `composer.json` (main, fetched 2026-02-19): `"phpunit/phpunit": "^7.5 || ^8.0 || ^9.0 || ^11.0 || ^12.0"` — HIGH confidence, resolves PHPUnit 9.6 compatibility question
-- `wp-cli/scaffold-command` `templates/install-wp-tests.sh` (fetched 2026-02-19): database setup, WP_TESTS_TAG derivation, SVN checkout pattern — HIGH confidence
-- WP Sudo `tests/bootstrap.php` and `tests/TestCase.php` (local, 2026-02-19): unit bootstrap uses `ABSPATH = '/tmp/fake-wordpress/'` and class stubs — these must not run in integration context
-- WP Sudo `.planning/codebase/TESTING.md` and `STACK.md` (local, 2026-02-19): PHPUnit 9.6 locked, Brain\Monkey 2.7, static cache `reset_cache()` pattern
+- **Gutenberg `test/e2e/playwright.config.ts`** — Verified via `raw.githubusercontent.com/WordPress/gutenberg/trunk/test/e2e/playwright.config.ts`. Extends `@wordpress/scripts` base config; `workers: 1`; `retries: 2` in CI; chromium default project. (HIGH confidence)
+- **Gutenberg `packages/scripts/config/playwright.config.js`** — Verified via raw GitHub URL. Canonical base config used by WordPress plugins using `@wordpress/scripts`. Defines `testDir: './specs'`, `storageState`, `webServer: npm run wp-env start`, `timeout: 100_000`. (HIGH confidence)
+- **Gutenberg `packages/e2e-test-utils-playwright/src/test.ts`** — Verified via raw GitHub URL. Shows `test.extend()` fixture pattern; `admin`, `editor`, `pageUtils`, `requestUtils` fixtures; storage state path from env var. (HIGH confidence)
+- **Gutenberg `packages/e2e-test-utils-playwright/src/admin/visit-admin-page.ts`** — Verified via raw GitHub URL. Shows exact `visitAdminPage` implementation with upgrade screen and login redirect handling. (HIGH confidence)
+- **Gutenberg `packages/e2e-test-utils-playwright/src/request-utils/login.ts`** — Verified via raw GitHub URL. `wp-login.php` POST + `admin-ajax.php?action=rest-nonce` GET pattern. (HIGH confidence)
+- **Gutenberg `packages/e2e-test-utils-playwright/src/config.ts`** — Verified via raw GitHub URL. `WP_USERNAME`, `WP_PASSWORD`, `WP_BASE_URL` env vars with defaults `admin`, `password`, `http://localhost:8889`. (HIGH confidence)
+- **Gutenberg `test/e2e/config/global-setup.ts`** — Verified via raw GitHub URL. `requestUtils.setupRest()` for auth; resets environment state before tests. (HIGH confidence)
+- **`@wordpress/scripts` `playwright/global-setup.js`** — Verified via raw GitHub URL. Minimal global setup: `RequestUtils.setup()`, `setupRest()`. (HIGH confidence)
+- **`@wordpress/env` README** — Verified via raw GitHub URL (trunk). Full `.wp-env.json` schema documented. Playground runtime uses SQLite, not MySQL. Docker runtime requires Docker. (HIGH confidence)
+- **npm registry `@playwright/test`** — Queried `registry.npmjs.org/@playwright/test/latest`. Latest stable: 1.58.2. Requires Node.js `>=18`. (HIGH confidence, queried 2026-03-08)
+- **npm registry `@wordpress/env`** — Queried `registry.npmjs.org/@wordpress/env/latest`. Latest: 11.1.0. (HIGH confidence, queried 2026-03-08)
+- **GitHub Actions ubuntu-24.04 runner manifest** — Queried `raw.githubusercontent.com/actions/runner-images/main/images/ubuntu/Ubuntu2404-Readme.md`. Confirmed: Docker 28.0.4 pre-installed, Node.js 20.20.0 pre-installed, npm 10.8.2. Manifest dated 2026-03-02. (HIGH confidence)
 
 ---
 
-*Architecture research for: WP Sudo integration test suite alongside Brain\Monkey unit tests*
-*Researched: 2026-02-19*
+*Architecture research for: Playwright E2E testing integration with WP Sudo WordPress plugin*
+*Researched: 2026-03-08*

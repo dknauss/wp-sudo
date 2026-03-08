@@ -1,260 +1,278 @@
 # Pitfalls Research
 
-**Domain:** WordPress security plugin — integration test suite + WP 7.0 compatibility
-**Researched:** 2026-02-19
-**Confidence:** HIGH (codebase), MEDIUM (WP ecosystem norms from official sources + training data)
+**Domain:** Adding Playwright E2E browser testing to an existing WordPress security plugin (zero Node.js baseline)
+**Researched:** 2026-03-08
+**Confidence:** HIGH (project codebase + Playwright architecture knowledge), MEDIUM (wp-env and CI specifics from training data — WebSearch/WebFetch unavailable; flag where external verification was not possible)
 
-> Note on sources: WebSearch was unavailable. WebFetch succeeded for a subset of official
-> sources. Findings draw from: (1) the project codebase at HIGH confidence, (2) official
-> `wordpress-develop` trunk files fetched directly at HIGH confidence, (3) the Yoast
-> PHPUnit Polyfills README at HIGH confidence, and (4) the existing
-> `docs/roadmap-2026-02.md` maintainer assessment at HIGH confidence. Training-data
-> claims are flagged LOW.
+> Note on sources: WebSearch and WebFetch were unavailable for this research session. Findings draw
+> from: (1) the WP Sudo codebase at HIGH confidence, (2) Playwright's documented architecture
+> (training data, flagged MEDIUM), (3) wp-env and @wordpress/env documented behavior (training data,
+> flagged MEDIUM), (4) the existing PHPUnit CI workflow in `.github/workflows/phpunit.yml` at HIGH
+> confidence, and (5) the existing `PITFALLS.md` research for the PHPUnit integration test milestone
+> at HIGH confidence. All LOW confidence findings are flagged explicitly.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: PHPUnit Version Collision Between Plugin and wordpress-develop
+### Pitfall 1: wp-env Silently Uses Stale WordPress State Between Test Runs
 
 **What goes wrong:**
-WP Sudo has `phpunit/phpunit: ^9.6` locked in its own `composer.json`. The wordpress-develop
-test harness references PHPUnit 9.2 in its `phpunit.xml.dist` schema but does **not** list
-PHPUnit directly in its `composer.json` `require-dev` — it instead depends on
-`yoast/phpunit-polyfills ^1.1.0`. If the integration test bootstrap loads both the
-plugin's Composer autoloader (PHPUnit 9.6) and the WordPress test suite functions, there
-are two possible conflicts:
-
-1. The `vendor/phpunit/phpunit` used to run tests is the plugin's `^9.6`, which must also
-   satisfy the polyfills. This is fine — PHPUnit 9.x is within the polyfills' supported
-   range (7.5–12.x per the 4.x series).
-2. The integration test suite cannot simply add `phpunit/phpunit: ^10` or higher to the
-   plugin without also updating the `WP_TESTS_PHPUNIT_POLYFILLS_PATH` constant and the
-   schema URI in `phpunit.xml.dist`. PHPUnit 10 removed many backward-compatible APIs
-   that both the WP test suite and Brain\Monkey rely on.
-
-The real trap: attempting to run integration tests from the same `phpunit.xml.dist` that
-currently runs Brain\Monkey unit tests. These two test types require different bootstrap
-files and different runtime contexts.
+`@wordpress/env` (wp-env) starts a Docker-based WordPress environment and persists the database between runs by default. If a test activates the MU-plugin, changes settings, or triggers a lockout, that state carries forward into subsequent test runs — even after the test suite finishes. The next run starts from a dirty state, and tests that assume a clean install fail intermittently.
 
 **Why it happens:**
-Developers assume a single `phpunit.xml.dist` can drive both unit tests (Brain\Monkey,
-no WP loaded) and integration tests (WP_UnitTestCase, full WP loaded). They are
-fundamentally incompatible — Brain\Monkey tears down after every test expecting WP is
-never bootstrapped; `WP_UnitTestCase` expects a fully running database.
+Developers assume wp-env behaves like a fresh install on every run because the `npx wp-env start` command output says "Starting" without clarifying whether it is resuming from the previous Docker volume or starting fresh. The volumes persist across `wp-env start`/`wp-env stop` cycles unless `wp-env destroy` or `wp-env clean` is called explicitly.
 
 **How to avoid:**
-Create a separate `phpunit-integration.xml.dist` that references a separate integration
-bootstrap (`tests/integration/bootstrap.php`). Never merge the two test suites into
-one configuration file. Keep Brain\Monkey unit tests running with the existing
-`phpunit.xml.dist`. Confirm both still pass before any commit.
+Add `npx wp-env clean all` before the test run in the CI step. Alternatively, configure tests to always reset state explicitly in `beforeEach` via the WordPress REST API or WP-CLI inside the container (`npx wp-env run tests-cli wp option update ...`). Do NOT rely on implicit clean state. Define a `global-setup.ts` in Playwright that calls `wpEnv.reset()` or equivalent WP-CLI commands to create a known-good initial state before any test runs.
 
 **Warning signs:**
-- `Brain\Monkey\setUp()` errors appearing in integration test runs
-- `WP_UnitTestCase` class-not-found errors during `composer test`
-- "Headers already sent" or "Cannot redeclare WP_User" errors when loading both
-  bootstraps in the same process
+- Tests pass on first CI run but fail on re-runs without code changes
+- `_wp_sudo_lockout_until` user meta persisting across test classes
+- MU-plugin status showing as "installed" when the test expects "not installed"
+- Rate-limiting triggering on the first test attempt because a previous test run's failed attempts were never cleaned up
 
 **Phase to address:**
-Integration test harness scaffolding phase (the first integration milestone). This is
-the highest-priority pitfall to resolve before writing a single integration test.
+Environment scaffolding phase (the first Playwright milestone). Before writing any behavioral tests, establish the wp-env reset protocol and verify it works with `npx wp-env clean all` in CI.
 
 ---
 
-### Pitfall 2: Brain\Monkey Contamination When Integration Harness Is Added
+### Pitfall 2: AJAX-Driven Challenge Page Makes Naive "Wait for Navigation" Patterns Wrong
 
 **What goes wrong:**
-The existing unit tests use `Brain\Monkey` to mock WordPress functions globally. If
-integration tests are added naively to the same test run or PHPUnit configuration,
-the Brain\Monkey teardown/setup cycle interferes with the live WordPress functions
-loaded by the WP test harness. Patchwork (used for `setcookie`, `header`,
-`hash_equals`) intercepts at the PHP level and persists across test processes if
-not properly isolated.
+The challenge page (`admin/js/wp-sudo-challenge.js`) uses `fetch()` calls to `admin-ajax.php`, then on success either calls `window.location.href = ...` (GET redirect) or programmatically calls `HTMLFormElement.prototype.submit.call(form)` (POST replay). Neither of these triggers Playwright's standard `page.waitForNavigation()` at the time the AJAX call starts — navigation only happens after the JavaScript completes its async chain.
 
-Specifically: `patchwork.json` redefines `setcookie` and `header` at the PHP
-extension level. When integration tests need real header behavior (to test actual
-cookie setting via `WP_UnitTestCase`), Patchwork may still intercept those calls
-if the integration bootstrap does not handle it correctly.
+The naive pattern `await page.click('#wp-sudo-challenge-submit'); await page.waitForNavigation()` creates a race condition: `waitForNavigation` starts listening after `click`, but navigation may have already begun (or not yet begun) by the time the listener is registered.
 
 **Why it happens:**
-Patchwork's redefinitions are declared in `patchwork.json` and activated at
-bootstrap time. If both unit and integration test bootstraps load the same
-Composer autoloader, Patchwork activates for both. Integration tests expecting
-real `setcookie()` behavior will silently get the Patchwork stub.
+Playwright's `waitForNavigation` works reliably when navigation is synchronous (form submit, anchor click). AJAX-triggered navigation breaks this assumption. The fetch completes asynchronously; the navigation fires in the `.then()` handler. Playwright has no way to know the AJAX call will eventually trigger a navigation.
 
 **How to avoid:**
-Do NOT reference `patchwork.json` from the integration test configuration. The
-integration test bootstrap should not require `vendor/antecedent/patchwork` and
-should not call `\Patchwork\redefine()` for core functions. Use separate
-Composer scripts: `composer test` for unit tests (with Patchwork), `composer
-test:integration` for integration tests (without Patchwork, with WP loaded).
+Use the recommended Playwright pattern: start the navigation promise BEFORE the click, then await both in parallel:
+
+```typescript
+const [response] = await Promise.all([
+  page.waitForNavigation({ waitUntil: 'networkidle' }),
+  page.click('#wp-sudo-challenge-submit'),
+]);
+```
+
+Or better, use `page.waitForURL()` with the expected post-challenge destination URL rather than waiting for any navigation. For POST replay, wait for the final destination URL after the self-submitting form fires. For session-only mode, wait for `cancelUrl`.
+
+For the specific WP Sudo flow: after submitting the challenge form, the AJAX chain can take 200–800ms on a local Docker environment (bcrypt verify + meta write + response parse + `window.location.href` assignment). Do NOT use fixed `page.waitForTimeout()` — use URL or element assertions.
 
 **Warning signs:**
-- Integration tests for `setcookie` behavior always pass regardless of code changes
-- `header()` calls in integration tests produce no real output
-- `hash_equals` returning unexpected values in integration tests
+- Tests pass locally but fail in CI (timing-sensitive)
+- `page.waitForNavigation()` timing out even though the redirect happened
+- Playwright capturing screenshots on the challenge page instead of the post-challenge destination
+- Tests that work with `--headed` but fail with `--headless` (timing differs between modes)
 
 **Phase to address:**
-Integration test harness scaffolding phase. Must be resolved before testing
-cookie/session behavior.
+First behavioral tests phase. Establish the AJAX-navigation pattern as the standard for all challenge page interactions before writing any challenge flow tests.
 
 ---
 
-### Pitfall 3: WP_UnitTestCase Cannot Test Real HTTP Headers or Cookies
+### Pitfall 3: IP-Based Rate Limiting Triggers on Shared CI Runner IPs
 
 **What goes wrong:**
-`WP_UnitTestCase` runs in a CLI process via PHPUnit. PHP's `setcookie()` function
-requires headers to be sent before any output — in a CLI context with PHPUnit's
-output buffering, calling `setcookie()` will either silently fail or throw
-"Cannot modify header information — headers already sent."
-
-The WP Sudo session system (`Sudo_Session::activate()`, `set_token()`,
-`clear_session_data()`) calls `setcookie()` extensively. These calls cannot be
-verified at the HTTP level in a CLI integration test.
+`Sudo_Session` implements per-IP rate limiting using transients keyed by `wp_sudo_ip_failure_event_{ip}` and `wp_sudo_ip_lockout_until_{ip}`. GitHub Actions runners share IP address space and NAT — multiple parallel jobs in the same workflow run may appear to WordPress as coming from the same IP address. If the test suite's lockout tests (which intentionally submit wrong passwords 5+ times) run in parallel with other tests, the IP lockout fires and blocks all subsequent authentication attempts across jobs.
 
 **Why it happens:**
-Developers try to write integration tests that assert `$_COOKIE` was populated
-after calling `Sudo_Session::activate()`, not realizing that the actual HTTP cookie
-is never set in the CLI context. The `$_COOKIE` superglobal mutation (which WP Sudo
-does explicitly with `$_COOKIE[self::TOKEN_COOKIE] = $token`) IS testable, but the
-actual browser-visible cookie attributes (httponly, samesite, secure, path) are not.
+The per-IP lockout was designed for real-world rate limiting of attacker IPs. In CI, all requests to the Docker-hosted wp-env come from the runner's loopback address (`127.0.0.1`) or the Docker bridge network. Every test job in the matrix appears as the same IP. After 5 failed attempts from that IP, all authentication tests fail for the rest of the matrix run.
 
 **How to avoid:**
-Integration tests for session behavior should verify user meta state (`_wp_sudo_token`,
-`_wp_sudo_expires`) and `$_COOKIE` superglobal mutations, NOT actual HTTP header
-emission. Accept this limitation by design and document it explicitly in the integration
-test bootstrap. Save full cookie attribute verification for manual testing against
-`tests/MANUAL-TESTING.md` or a future E2E layer (Playwright/Cypress).
+Design lockout tests to clean up after themselves: after triggering a lockout, explicitly clear the IP transient with a WP-CLI call (`wp transient delete wp_sudo_ip_lockout_until_{ip}`) before the next test. Alternatively, run lockout-triggering tests in a separate worker or browser context using Playwright's `project` configuration so they run serially, not in parallel with other auth tests. Do NOT use `test.only` or `--workers=1` globally — this eliminates parallelism for all tests.
+
+Consider using a custom X-Forwarded-For header in lockout tests to use a unique fake IP per test (verify wp-env configuration accepts this). Document this in the test file with a comment.
 
 **Warning signs:**
-- Test assertions checking `headers_list()` after a `Sudo_Session::activate()` call
-- Assertions about cookie `httponly` or `samesite` attributes in PHPUnit tests
-- "Cannot modify header information" failures during integration test runs
+- Auth tests pass in isolation but fail when run after lockout tests
+- `_wp_sudo_lockout_until` transients visible in the database when no lockout test ran
+- `locked_out` error code appearing in tests that submit the correct password
+- Matrix jobs where lockout tests ran before auth tests show 100% auth test failure
 
 **Phase to address:**
-Integration test harness scaffolding phase and the session binding integration test
-phase. Explicitly document the cookie testing boundary in the integration bootstrap.
+Rate limiting test phase. Before writing any lockout tests, document and implement the IP transient cleanup protocol.
 
 ---
 
-### Pitfall 4: Transient TTL Is Not Testable Without Time Manipulation
+### Pitfall 4: Admin Bar Countdown Timer Causes Page Content to Change Every Second
 
 **What goes wrong:**
-`Request_Stash` uses 5-minute transient TTL (`TTL = 300`). `Sudo_Session`'s 2FA
-pending state also uses a transient with TTL. In integration tests, `set_transient()`
-works against the real WordPress database, but the TTL is controlled by wall-clock
-time — tests cannot simply "advance time" without either sleeping (slow, brittle) or
-replacing the clock.
+`admin/js/wp-sudo-admin-bar.js` runs a `setInterval` that updates the admin bar countdown every second and triggers `window.location.reload()` when the timer reaches zero. Playwright visual snapshot tests taken during an active session will differ on every run — the countdown text changes each second, and the `wp-sudo-expiring` CSS class appears at the 60-second mark.
 
-If a test writes a transient and immediately reads it, TTL is irrelevant. But tests
-that need to verify expiry behavior (e.g., "stash expires after 5 minutes and returns
-null") will either require real sleep or a fake-clock mechanism.
+Additionally, the `window.location.reload()` at expiry can interrupt a test mid-flow if the session expires during a long test. Playwright will see an unexpected navigation event and tests using `waitForNavigation` will capture the reload instead of the intended navigation.
 
 **Why it happens:**
-Developers assume they can test TTL expiry in integration tests the same way they
-test it in unit tests (by mocking `time()`). In a real WP environment, `time()` is
-a PHP built-in — it cannot be mocked without Patchwork, which is intentionally
-excluded from integration tests (see Pitfall 2).
+The countdown timer runs as a side effect of the JavaScript loaded on any admin page where a session is active. Tests that authenticate successfully (activating a session) and then navigate to admin pages will see this timer. The test infrastructure has no way to freeze the timer unless the session is short-lived or the timer is explicitly bypassed.
 
 **How to avoid:**
-Split TTL-expiry tests into two categories:
-1. **Unit tests (Brain\Monkey):** Mock `time()` via Patchwork to test expiry logic.
-   These already exist and should remain unit tests.
-2. **Integration tests:** Only test the happy path (transient written, transient read
-   before expiry). Test the deletion path (explicit `delete_transient`) separately.
-   Do NOT write integration tests that assert on TTL expiry behavior unless you
-   accept using `sleep()`.
+For tests that need stable admin page assertions with an active session, either:
+1. Configure a maximum session duration of 1 minute (`session_duration = 1`) and run the relevant admin page assertions within the first 5 seconds after authentication — well before the `wp-sudo-expiring` class appears.
+2. Use `page.addStyleTag({ content: '#wp-admin-bar-wp-sudo-active { display: none; }' })` after navigation to hide the countdown from visual snapshot comparisons.
+3. Mask the admin bar element in Playwright's `toHaveScreenshot` mask configuration: `{ mask: [page.locator('#wp-admin-bar-wp-sudo-active')] }`.
 
-If future requirements demand expiry integration tests, introduce a `Clock` interface
-wrapper around `time()` that can be substituted in tests. This is a larger refactor
-that should be scoped as its own task, not assumed to be free.
+For the `window.location.reload()` at expiry: set session duration to 1 minute and ensure all test flows complete within 30 seconds of activation, giving a 30-second safety margin before the timer fires.
 
 **Warning signs:**
-- Integration tests using `sleep(301)` to test transient expiry
-- Flaky transient tests that pass locally but fail in CI due to timing
-- Attempts to Patchwork `time()` in the integration test bootstrap
+- Visual snapshot tests fail with a diff showing only the countdown text changed
+- Tests fail with "Unexpected navigation" error during assertions
+- The `wp-sudo-expiring` CSS class appearing inconsistently in test screenshots
+- Tests that pass when run immediately after authentication but fail in slow CI environments
 
 **Phase to address:**
-Integration test harness scaffolding (document the boundary). Session binding and
-stash integration test phases (enforce the pattern).
+Visual snapshot phase (if added). Admin bar assertions phase. Address in the test configuration from the start — not retroactively.
 
 ---
 
-### Pitfall 5: Two Factor Plugin Integration Test Requires Loading a Real Plugin
+### Pitfall 5: wp-env Docker Environment Has a Cold-Start Latency That Breaks waitForSelector
 
 **What goes wrong:**
-The unit tests use a custom `Two_Factor_Core` stub in `tests/bootstrap.php`. Integration
-tests that test the real 2FA flow need the actual Two Factor plugin loaded. Loading a
-second plugin during integration tests requires: (1) the plugin file to be present on
-disk in the test WordPress installation's `wp-content/plugins/` directory, (2) the plugin
-to be activated in the test database, or (3) manually `require_once`-ing the plugin
-file in the integration bootstrap.
+`@wordpress/env` starts a Docker container with WordPress. On the first page load after `wp-env start`, WordPress initializes its file system cache, loads plugins, and may run database checks. This first-load latency can be 3–8 seconds on a cold container, 1–3 seconds on a warm one. Playwright's default timeout for `waitForSelector` is 30 seconds, which appears generous, but WordPress's loading behavior is not uniform — WordPress admin pages make multiple sub-requests (for `admin-ajax.php`, inline scripts, etc.) and the `networkidle` state can be delayed if any asset fails to load.
 
-If the integration bootstrap naively does `require_once WP_PLUGIN_DIR . '/two-factor/two-factor.php'`
-with the stub `Two_Factor_Core` already defined from the unit test bootstrap, PHP will throw
-a fatal "Cannot redeclare class Two_Factor_Core" error.
+The specific risk for WP Sudo: the challenge page loads the `wp-sudo-challenge.js` script which reads `window.wpSudoChallenge` set by `wp_localize_script`. If the script loads before localization data is ready (which can happen when script caching plugins are active in the test environment), `config.ajaxUrl` will be undefined and the challenge form will silently fail without any error shown to the browser.
 
 **Why it happens:**
-The unit test bootstrap defines `Two_Factor_Core` and `Two_Factor_Provider` as global class
-stubs. If any part of the integration test environment loads those stubs before loading the
-real plugin, the fatal redeclaration occurs. The integration bootstrap must NOT load the
-unit test `bootstrap.php` — it is a completely separate entry point.
+Developers test against a local environment with a warm Docker cache. CI starts with a cold container on every run. The timing difference exposes race conditions that are invisible locally.
 
 **How to avoid:**
-The integration test bootstrap must be written from scratch — it cannot include or
-`require_once` the unit test `tests/bootstrap.php`. The integration bootstrap should:
-1. Define `WP_TESTS_PHPUNIT_POLYFILLS_PATH` constant pointing to the plugin's
-   `vendor/yoast/phpunit-polyfills` directory.
-2. Load the WP test suite's `bootstrap.php` (not the plugin's unit test bootstrap).
-3. Activate WP Sudo and Two Factor plugins using WordPress's `activate_plugin()` or
-   by adding them to the `$active_plugins` option before tests run.
-4. Never define the stub `Two_Factor_Core` class — the real class must be used.
+In the global setup, add a "warm-up" step: after `wp-env start`, make a WP-CLI call (`npx wp-env run tests-cli wp core is-installed`) to verify WordPress is ready, then make a test HTTP request to `wp-admin/` before the test suite starts. Add a Playwright `globalSetup.ts` that navigates to the WordPress admin login page and waits for it to load before any tests run.
+
+For the localization data race: write a test assertion that verifies `window.wpSudoChallenge.ajaxUrl` is defined before filling the password field. Use `page.waitForFunction(() => typeof window.wpSudoChallenge !== 'undefined')` at the top of challenge page tests.
 
 **Warning signs:**
-- "Cannot redeclare class Two_Factor_Core" fatal errors
-- Two Factor plugin features silently returning stub behavior during integration tests
-- `Two_Factor_Core::is_user_using_two_factor()` always returning the stub's value
+- Tests pass locally but fail on first CI run of a fresh wp-env container
+- "Timeout waiting for selector" on elements that clearly exist in the DOM
+- Challenge form submits but AJAX call goes to `undefined` instead of `admin-ajax.php`
+- Tests pass on retry without code changes
 
 **Phase to address:**
-Two Factor integration test phase. This should be the last integration test written,
-after simpler session/stash tests are working, because the plugin loading complexity
-is the highest risk item.
+Environment scaffolding phase. The warm-up protocol belongs in `global-setup.ts` before the first test runs.
 
 ---
 
-### Pitfall 6: Multisite Integration Tests Require a Separate WordPress Installation Configuration
+### Pitfall 6: WordPress Login Cookies Are Not Automatically Preserved Between Tests Without storageState
 
 **What goes wrong:**
-Multisite integration tests require WordPress to be installed in network mode — a different
-database state and different `wp-config.php` constants (`MULTISITE`, `SUBDOMAIN_INSTALL`,
-etc.) than single-site. You cannot test both single-site and multisite behavior in the same
-PHPUnit run with a single WP installation.
-
-The WP test harness supports a `WP_TESTS_MULTISITE` environment variable that switches the
-installation mode. However, single-site tests and multisite tests cannot share the same
-database state — the multisite mode adds `wp_blogs`, `wp_sitemeta`, and network-level tables
-that don't exist in single-site.
+Each Playwright test runs in an isolated browser context by default. WordPress authentication relies on `wordpress_logged_in_{hash}`, `wordpress_sec_{hash}`, and `wordpress_{hash}` cookies. Without explicitly saving and restoring these cookies, every test must perform a full browser-based login through `wp-login.php`, adding 2–4 seconds per test. More critically, WP Sudo adds its own `wp_sudo_token` cookie for session binding — this cookie must be present AND match the `_wp_sudo_token` user meta for the session to be valid. If tests reuse saved `storageState` that includes a stale or expired WP Sudo token, session verification will fail even though the WordPress auth cookies are valid.
 
 **Why it happens:**
-Developers set up a single test database, write both single-site and multisite tests, and
-run them together. Multisite tests that rely on `is_multisite()` returning `true` fail because
-the installation is single-site, or worse, silently pass because `Request_Stash` falls back
-to single-site transients when `is_multisite()` returns false.
+Playwright's recommended pattern is to use `storageState` to persist auth cookies across tests. This works well for simple session cookies but breaks for WP Sudo because the plugin's session has its own time-bounded token. A `storageState` saved at T=0 with a 10-minute sudo session may be reloaded at T=600 when the sudo session has expired — the WordPress auth cookie is still valid, but `wp_sudo_token` is stale.
 
 **How to avoid:**
-Define multisite integration tests in a separate PHPUnit test suite (`phpunit-integration.xml.dist`
-with a `multisite` suite group) and document that they require running with
-`WP_TESTS_MULTISITE=1` in the environment. CI should run two matrix jobs: one for single-site
-and one for multisite. Locally, the multisite tests should be opt-in (`composer test:integration:ms`).
+Separate authentication concerns clearly:
+1. **WordPress login state** (`wordpress_logged_in_*`): Save with `storageState` once in `global-setup.ts`. This should be stable for a wp-env test session lasting hours. Use separate state files per role (admin, editor, subscriber).
+2. **Sudo session state** (`wp_sudo_token`): Never save in `storageState`. Each test that needs an active sudo session must acquire it by completing the challenge flow, or by setting it directly via WP-CLI before the test.
+
+Explicitly exclude `wp_sudo_token` and `wp_sudo_challenge` from `storageState` by not writing those cookies to storage, or by clearing them in `beforeEach`.
 
 **Warning signs:**
-- `get_site_transient()` returning false in multisite integration tests
-- `is_multisite()` returning `false` in tests tagged `@group ms-required`
-- `network_admin_url()` resolving to the wrong path during multisite tests
+- Tests that previously worked start failing with "gate intercepting" unexpectedly
+- Sudo session active but `is_active()` returns false (token mismatch)
+- Tests depending on having NO active session fail because a stale token cookie is present
+- `wp_sudo_token` appearing in saved storageState files in the repository
 
 **Phase to address:**
-Multisite integration test phase. Do not attempt multisite tests until single-site
-integration tests are passing and stable.
+Authentication scaffolding phase (early). Define the storageState boundary before writing any authenticated tests.
+
+---
+
+### Pitfall 7: The Challenge Page iframe-Break Causes Playwright to Lose the Page Reference
+
+**What goes wrong:**
+`admin/js/wp-sudo-challenge.js` contains an iframe-break at the top:
+
+```javascript
+if (window.top !== window.self) {
+    window.top.location.href = window.location.href;
+    return;
+}
+```
+
+This fires if WordPress loads the challenge page inside an iframe (e.g., during plugin/theme update flows that use `wp_iframe()`). If a Playwright test navigates to a challenge page URL while another frame context is active, this script fires and navigates the top-level frame to the challenge URL — which may cause Playwright to lose its reference to the page it was tracking and throw `Frame was detached`.
+
+**Why it happens:**
+Playwright tests that navigate to the plugin update page, then expect to be redirected to the challenge page, may find themselves inside the iframe context that WordPress uses for the plugin update UI. The challenge page's iframe-break then navigates the top-level frame, and Playwright's tracked page reference becomes invalid.
+
+**How to avoid:**
+Always interact with the challenge page from the top-level frame context. In tests that trigger gated actions through the plugin update flow, use `page.mainFrame()` to ensure actions are directed at the top-level document. Before asserting elements on the challenge page, verify the page URL is at the expected challenge URL using `page.waitForURL(/wp-sudo-challenge/)`. If `Frame was detached` errors appear, use `page.on('framenavigated', ...)` to track the final navigation destination.
+
+**Warning signs:**
+- `Frame was detached` errors when asserting challenge page elements
+- Playwright's page.url() showing an iframe sub-URL instead of the challenge page URL
+- Tests that trigger plugin activation gating fail inconsistently
+
+**Phase to address:**
+Plugin activation gating test phase. Document the iframe-break in test comments and the `waitForURL` pattern.
+
+---
+
+### Pitfall 8: POST Request Replay Via Hidden Form Cannot Be Intercepted by Playwright's `route`
+
+**What goes wrong:**
+After successful authentication, `handleReplay()` in `wp-sudo-challenge.js` dynamically creates a hidden form and calls `HTMLFormElement.prototype.submit.call(form)`. Playwright's `page.route()` interception hooks intercept HTTP requests, but a programmatically submitted form's navigation does not fire network interception events in the same way that `fetch()` does — the form submit triggers a full page navigation (not an XHR/fetch). Tests that use `page.route()` to intercept and inspect the replayed POST request may miss it.
+
+Additionally, the stashed POST data is reconstructed by the client-side script from `data.post_data` returned by the AJAX auth handler. If the test needs to verify what fields were replayed, there is no way to do this from the browser side — the form is created and submitted in the same JavaScript tick, and Playwright cannot inspect it before submission.
+
+**How to avoid:**
+To verify POST replay behavior in E2E tests, assert on the destination URL and the resulting page state (e.g., did the plugin actually activate? did the user actually get deleted?) rather than on the form fields. For detailed POST data verification, use Playwright's `page.on('request', handler)` listener attached BEFORE triggering the replay, which catches all network requests including form submissions. Alternatively, test the replay mechanism at the integration test level (PHPUnit + `WP_UnitTestCase`) where the `Request_Stash` data can be inspected directly.
+
+**Warning signs:**
+- Tests that try to use `page.route('/wp-admin/*', ...)` to catch the replayed POST receiving zero matching calls
+- Assertions on the replayed form's fields that always pass vacuously
+- `page.waitForRequest()` timing out when waiting for the replayed POST
+
+**Phase to address:**
+POST replay test phase. Define the "assert on destination state, not form content" pattern in the test style guide.
+
+---
+
+### Pitfall 9: wp-env WordPress Version Drift Causes Test Environment to Diverge from Production
+
+**What goes wrong:**
+`@wordpress/env` downloads WordPress from wordpress.org on each `wp-env start` when using `"core": null` or `"core": "trunk"`. If the `wp-env` configuration file does not pin a specific WordPress version, the test environment will silently upgrade WordPress when a new release ships. A breaking change in WordPress admin HTML structure (e.g., the WP 7.0 admin refresh that changed CSS class names) will cause all CSS selector-based Playwright tests to fail overnight without any change to the plugin code.
+
+This project is already tracking WP 7.0 prep (the admin refresh). The challenge page CSS selectors, admin bar selectors, and settings page selectors are all at risk of changing between WP versions.
+
+**Why it happens:**
+The Playwright test file uses CSS selectors derived from the current WordPress admin HTML. When WordPress updates its admin HTML (as it does on major releases), selectors that worked against WP 6.x fail against WP 7.x. With an unpinned `"core"` in `.wp-env.json`, this happens automatically and silently.
+
+**How to avoid:**
+Pin the WordPress version in `.wp-env.json`: `"core": "WordPress/WordPress#6.9"` for the stable matrix. Add a separate test profile (or matrix job) for the current trunk version. Update the pinned version deliberately when running WP compatibility checks, not automatically.
+
+Use Playwright's `data-testid` attributes or role-based selectors (`page.getByRole('button', { name: 'Submit' })`) for WP Sudo's own UI elements rather than WordPress admin CSS classes. WP Sudo controls its own HTML and can add stable `data-testid` attributes. WordPress admin chrome selectors should be treated as fragile and avoided where possible.
+
+**Warning signs:**
+- Tests start failing overnight without any commit
+- Selector `#wp-admin-bar-wp-sudo-active` still exists but `.ab-label` child is gone or renamed
+- The challenge page's `.wp-sudo-challenge-card` exists but the WordPress admin page wrapper changed structure
+
+**Phase to address:**
+Environment scaffolding phase. Pin WordPress version on day one. Add the selector stability rule to the test authoring guide.
+
+---
+
+### Pitfall 10: Node.js and npm Version Incompatibilities with the PHP-Centric Project
+
+**What goes wrong:**
+This project has no `package.json` today. When Playwright is added, the project acquires Node.js, npm, and a `node_modules` directory. The existing CI workflow (`phpunit.yml`) uses `ubuntu-24.04` runners with PHP but does NOT set up Node.js. Adding a new `playwright.yml` workflow that installs Node.js independently can create version inconsistencies: GitHub Actions runners ship with a system Node.js (typically the LTS version at runner build time, which may lag behind what Playwright requires).
+
+Playwright's minimum Node.js version changes with each Playwright release. Playwright 1.x requires Node.js 18+. Using the system Node.js on an older runner can fail silently by installing a broken Playwright binary rather than reporting an explicit version error.
+
+**Why it happens:**
+PHP developers adding Playwright for the first time often write `npm install playwright` without specifying a Playwright version constraint in `package.json`, and without explicitly specifying the Node.js version in the CI workflow. The runner's system Node.js may be 16.x (too old for current Playwright) or the npm cache from a previous run may have cached an incompatible version.
+
+**How to avoid:**
+Add `package.json` with a pinned Playwright version (`"@playwright/test": "^1.41.0"` or later). Add a `.nvmrc` or `engines` field in `package.json` specifying the minimum Node.js version. In the Playwright CI workflow, use `actions/setup-node@v4` with an explicit `node-version` rather than relying on the runner's system Node.js. Add `playwright.config.ts` with a `webServer` block or explicit `baseURL` so configuration is self-documenting and portable.
+
+**Warning signs:**
+- `npx playwright install` failing with "GLIBC" or Node.js version errors
+- CI failing on `npm install` with peer dependency errors
+- Playwright tests running but browser binary not found (install step silently skipped)
+- Different Playwright behavior between local development and CI due to version mismatch
+
+**Phase to address:**
+Environment scaffolding phase. `package.json`, `.nvmrc`, and `playwright.config.ts` must be established as part of the initial scaffolding, not added piecemeal.
 
 ---
 
@@ -264,67 +282,72 @@ Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Putting integration tests in same PHPUnit config as unit tests | Single `composer test` command | Brain\Monkey and WP_UnitTestCase are mutually incompatible; one or both will fail | Never |
-| Copying unit test stubs (Two_Factor_Core, WP_User) into integration bootstrap | Faster initial setup | Fatal redeclaration errors when real plugins are loaded | Never |
-| Using `sleep()` to test transient TTL expiry | Tests expiry behavior end-to-end | Slow test suite; flaky in CI under load | Only as a last resort for a single documented test, with a `@group slow` tag |
-| Omitting `WP_TESTS_PHPUNIT_POLYFILLS_PATH` from integration bootstrap | One less constant to define | WP core bootstrap cannot find polyfills; fatal error in CI | Never |
-| Running integration tests against production database | No separate DB setup needed | Destroys production data; unacceptable | Never |
-| Testing WP 7.0 compatibility only against the live trunk | Exercises real WP code | Trunk is unstable; test failures from WP bugs, not plugin bugs | Only in a separate CI matrix job that is allowed to fail |
+| Using `page.waitForTimeout(2000)` instead of proper wait conditions | Simple to write; hides timing issues | Slow test suite; still flaky on slow CI; masks the real synchronization problem | Never — use `waitForSelector`, `waitForURL`, or `waitForFunction` instead |
+| Logging in on every test via the browser login form | No setup complexity | 2–4 seconds per test; suite becomes slow as tests grow | Only for the very first test verifying login itself works |
+| Storing sudo token in `storageState` | Authentication state reused | Token expires during long test runs; causes mid-suite auth failures | Never — sudo token must be fresh per test session |
+| Testing selector-based UI without `data-testid` anchors | No code changes needed in the plugin | Fragile across WordPress major versions; WP 7.0 admin refresh is a known risk | Only for WordPress core elements that WP Sudo does not control |
+| Leaving `headless: false` in `playwright.config.ts` | Easier debugging | CI runner has no display; tests fail if config is committed headed | Local override only via `--headed` flag; config must stay headless |
+| Using a single wp-env state for all tests | Simple setup | Rate-limiting state, MU-plugin state, and session state bleed between test files | Never — establish reset protocol from day one |
+| Running E2E tests in the same CI job as unit/integration tests | One workflow file | E2E tests are slow (minutes); they should not block fast PHP feedback cycles | Never — E2E tests belong in a separate workflow |
 
 ---
 
 ## Integration Gotchas
 
-Common mistakes when connecting to external services or test infrastructure.
+Common mistakes when connecting Playwright to the WordPress environment.
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| wordpress-develop test suite | Loading WP bootstrap before defining `WP_TESTS_PHPUNIT_POLYFILLS_PATH` | Define the constant in your integration `bootstrap.php` BEFORE calling the WP bootstrap file |
-| wordpress-develop test suite | Using `wp scaffold plugin-tests` output verbatim — it generates an outdated `install-wp-tests.sh` that assumes PHPUnit 5–7 | Scaffold as a starting point, but update for PHPUnit polyfills and your PHPUnit 9.6 constraint |
-| Two Factor plugin | Loading the plugin by path without first checking whether the unit test stub class is already declared | Write the integration bootstrap from scratch; never include unit test bootstrap |
-| MySQL test database | Using the same DB name for unit tests and integration tests | Use a distinct DB (`wordpress_test` vs `wordpress_integration`) and document in README |
-| WP 7.0 beta | Running tests against trunk without a fallback plan | Pin a specific WP version for the stable CI matrix; let trunk be a separate allowed-failure job |
-| LLM-generated test code | Accepting fabricated method names for WP_UnitTestCase assertions without verification | Every assertion method must be verified against the phpunit-polyfills docs or PHPUnit 9.6 docs before committing |
+| wp-env + Docker | Assuming `wp-env start` means WordPress is ready for requests | Add a warm-up check: `npx wp-env run tests-cli wp core is-installed` before the test suite starts |
+| wp-env port | Hardcoding `http://localhost:8888` in test URLs | Read port from wp-env or define `baseURL` in `playwright.config.ts` from `process.env.WP_ENV_PORT`; default is 8888 but can conflict |
+| wp-env HTTPS | Assuming HTTPS is available | wp-env uses HTTP only by default; tests using `https://` will fail; use `http://localhost:8888` |
+| WordPress nonces | Extracting and reusing nonces between tests | Nonces are tied to sessions and expire; extract fresh nonces in each test that needs them from the loaded page |
+| AJAX admin-ajax.php | Calling `admin-ajax.php` directly via `page.request.post()` without cookies | Must include WordPress auth cookies; use `page.context().request` to inherit cookies from the authenticated browser context |
+| Docker-in-Docker | Running wp-env Docker from within a GitHub Actions job that already uses Docker | GitHub Actions `ubuntu-24.04` supports Docker natively without DinD; do NOT use the `docker` service container for wp-env — wp-env manages its own Docker |
+| Two Factor plugin in wp-env | Manually installing via SFTP | Use `.wp-env.json` `plugins` array to include the Two Factor plugin by WP.org slug or GitHub URL; this is idempotent and reproducible |
+| Rate limiting in parallel tests | Two Playwright workers both failing authentication simultaneously | They share the same IP (loopback); one worker's lockout blocks the other; run lockout tests in `project: { workers: 1 }` context |
 
 ---
 
 ## Performance Traps
 
-Patterns that work at small scale but fail as usage grows.
+Patterns that work with a small test suite but fail as the suite grows.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Integration tests that hit the real DB for every assertion | Tests pass but take 30+ seconds | Use transactions: `WP_UnitTestCase` wraps each test in a DB transaction and rolls back — rely on this | When test suite grows to 50+ integration tests |
-| Integration tests that create real users with `wp_insert_user()` without cleanup | User table grows; tests pollute each other | Use `$this->factory->user->create()` from WP_UnitTestCase's factory — it auto-cleans | After 20+ test runs |
-| Loading all plugin files in integration bootstrap including admin pages | Admin page hooks fire during CLI bootstrap; wp_die() may be called | Activate plugin via `activate_plugins()` in bootstrap; individual test classes load admin dependencies as needed | Immediately on first CI run |
-| Progressive delay `sleep()` in `Sudo_Session::record_failed_attempt()` | Integration tests for rate limiting take 5+ seconds per failed-attempt cycle | Mock or bypass the delay in tests via a test-only filter or by testing at the unit level | Any test that exercises 4+ failed attempts |
+| Browser login on every test | Test suite grows from 5 to 50 tests; suite time goes from 30s to 5 min | Use `storageState` for WordPress auth cookies; only login once in `global-setup.ts` | After 10+ authenticated tests |
+| `workers: 1` for all tests | Correct for lockout tests; catastrophic for all others | Use Playwright `projects` to run lockout tests serially; run the rest in parallel | As soon as more than 5 tests exist |
+| Running wp-env `clean all` between every test | Guarantees clean state | Each `clean all` takes 30–60 seconds; 50 tests × 45s = 37+ minutes | After 3 tests |
+| Screenshotting the full page including admin bar | Stable now | Admin bar countdown changes every second when session is active | First test run with an active session |
+| Not caching Playwright browsers in CI | Playwright re-downloads Chromium/Firefox/WebKit on every run | Cache `~/.cache/ms-playwright` keyed on Playwright version; saves 200–400MB download per run | Every CI run without caching |
 
 ---
 
 ## Security Mistakes
 
-Domain-specific security issues in testing that can produce false confidence.
+Security-relevant testing mistakes specific to this domain.
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Testing `wp_check_password()` with a plaintext password stored in test DB via `wp_insert_user()` without bcrypt | Test passes with MD5 hash; integration test does not exercise bcrypt (WP 6.8+) behavior | Create test users with `wp_create_user()` which goes through the full password hashing pipeline, NOT by directly inserting a known hash |
-| Asserting session is active by checking only user meta, not cookie token | Integration test verifies session was stored but misses the cookie binding — the most important security property | Always assert both: (1) user meta `_wp_sudo_token` exists, and (2) `$_COOKIE[Sudo_Session::TOKEN_COOKIE]` matches |
-| Integration tests that disable nonce verification globally | Tests pass but nonce bypass is never caught | Never add `define('DOING_AJAX', true)` or similar globals that disable nonce checks; test nonce behavior explicitly |
-| LLM-generated test assertions using fabricated hook names or filter names | Test passes because the fabricated hook never fires (no-op), not because behavior is correct | Verify every `do_action`/`apply_filters` name against the plugin's own `includes/` source before writing assertions |
-| Writing WP 7.0 "compatibility tests" that only check `is_wp_version_compatible()` | Returns true but does not exercise the actual changed behavior | Write tests that exercise the specific WP 7.0 feature (admin refresh CSS, Abilities API) if the plugin interacts with it |
+| Committing `storageState.json` to the repository | Admin credentials and session tokens visible in version history | Add `tests/e2e/.auth/*.json` and `storageState.json` to `.gitignore` immediately |
+| Hardcoding test admin passwords in test fixtures | Password visible in repository; used to test lockout behavior | Use environment variables or wp-env's default admin credentials (documented, not committed) |
+| Tests that disable the gate for convenience (`update_option('wp_sudo_settings', ...)`) | Creates a test-only bypass path that could be cargo-culted into production code | Test the gate as it runs; if a test needs to bypass the gate, use the session activation flow, not a settings override |
+| Using the production wp-env database URL in CI | Writes test data (failed attempts, lockout records) to a database shared with other CI jobs | Always use `wp-env`'s isolated test database; never configure Playwright to point at a live site |
+| Testing with WP_DEBUG=true enabled in wp-env | PHP notices and warnings appear in page content, breaking text assertions | Use `"config": { "WP_DEBUG": false }` in `.wp-env.json` for the test environment, or mask debug output in assertions |
 
 ---
 
 ## UX Pitfalls
 
-User experience mistakes in this domain (the plugin developer's experience running tests).
+Developer experience mistakes that make the test suite hard to maintain.
 
 | Pitfall | Developer Impact | Better Approach |
 |---------|-----------------|-----------------|
-| Integration test suite with no separation between slow and fast tests | Developers stop running tests locally because they take too long | Tag DB-heavy tests `@group integration`; keep unit tests in `composer test` (fast); run integration separately |
-| Integration tests that output debug info to STDOUT | PHPUnit's strict output mode (`beStrictAboutOutputDuringTests`) fails the test | Never `echo` or `var_dump` in integration tests; use PHPUnit assertions and WP's `$this->fail()` |
-| No clear error message when WP test environment is not installed | Cryptic "bootstrap.php not found" fatal errors | Add an explicit check at the top of integration bootstrap with a human-readable error: "Run composer run install-wp-tests first" |
-| WP 7.0 visual check buried in manual testing guide | Visual regression from admin refresh goes undetected until after release | Add a specific WP 7.0 visual check section to `tests/MANUAL-TESTING.md` |
+| Tests named after implementation details (`test('AJAX handler returns 200')`) | Unclear what the test validates; hard to update when implementation changes | Name tests after user-observable behavior: `test('admin activating a session sees countdown in admin bar')` |
+| Putting wp-env setup in `package.json` scripts only | PHP developers unfamiliar with npm cannot run E2E tests | Add a `composer test:e2e` script that delegates to `npm run test:e2e`; document in README |
+| Using `page.screenshot()` for every assertion | Screenshot files accumulate; diffs are noisy | Reserve screenshots for failure artifacts (`--screenshot=only-on-failure`) and explicit visual snapshot tests |
+| No `test.describe` grouping | 50+ flat tests in one file; hard to run subsets | Group by feature area: `challenge flow`, `admin bar`, `MU-plugin install`, `rate limiting` |
+| Missing Playwright trace artifacts on CI failure | "The test failed" with no evidence | Configure `trace: 'on-first-retry'` so CI captures a `.zip` trace file on failure; upload as a workflow artifact |
 
 ---
 
@@ -332,13 +355,13 @@ User experience mistakes in this domain (the plugin developer's experience runni
 
 Things that appear complete but are missing critical pieces.
 
-- [ ] **Integration test bootstrap:** Often missing `define('WP_TESTS_PHPUNIT_POLYFILLS_PATH', ...)` — verify the constant is defined before loading the WP test suite bootstrap, or polyfill autoloading will fail silently or fatally.
-- [ ] **Cookie/session integration tests:** Often missing the cookie token assertion — verify tests assert `$_COOKIE[Sudo_Session::TOKEN_COOKIE]` was populated, not just user meta.
-- [ ] **Two Factor plugin loading:** Often missing class-existence guard — verify the integration bootstrap never loads the unit test stub `Two_Factor_Core` before loading the real plugin.
-- [ ] **Multisite transient path:** Often missing the `set_site_transient` branch test — verify integration tests cover the multisite transient path in `Request_Stash`, not just the single-site path.
-- [ ] **WP 7.0 "Tested up to" bump:** Often deferred — verify `readme.txt`, `readme.md`, and `docs/security-model.md` all have WP 7.0 in their version references before the GA release (April 9, 2026).
-- [ ] **PHPUnit schema version match:** Often left as the old version — verify `phpunit-integration.xml.dist` uses the correct schema URI for PHPUnit 9.x (`http://schema.phpunit.de/9.6/phpunit.xsd`) not the one from unit tests or a newer version.
-- [ ] **LLM-generated method names:** After any LLM-assisted test writing, verify every `WP_UnitTestCase` method, WordPress function, and Third-party class method against its live source before committing.
+- [ ] **wp-env clean protocol:** Often set up but not verified — confirm `npx wp-env clean all` actually drops the sudo-specific user meta and transients, not just the WP options. Run `npx wp-env run tests-cli wp user meta list 1` after clean to verify no `_wp_sudo_*` keys remain.
+- [ ] **storageState excludes sudo cookies:** After saving auth state in `global-setup.ts`, inspect the saved JSON and confirm `wp_sudo_token` and `wp_sudo_challenge` are NOT present. These cookies must never be reused.
+- [ ] **Playwright browser cache in CI:** After adding `actions/cache` for `~/.cache/ms-playwright`, verify the cache hits on second run (check "Cache restored" in GitHub Actions output). A misconfigured cache key will silently re-download browsers on every run.
+- [ ] **wp-env version pinned:** After writing `.wp-env.json`, confirm the `"core"` field references a specific WP tag (`"WordPress/WordPress#6.9"`) not `null` or `"trunk"`. Run `npx wp-env start` and check `npx wp-env run tests-cli wp core version` to verify the expected version.
+- [ ] **Countdown timer masked in visual snapshots:** Any `toHaveScreenshot` call on an admin page after session activation must include `{ mask: [page.locator('#wp-admin-bar-wp-sudo-active')] }`. Check all snapshot assertions for this mask.
+- [ ] **Node.js version pinned:** After adding `.nvmrc` and `engines` in `package.json`, verify GitHub Actions uses `actions/setup-node@v4` with the same version, not the runner's system Node.js.
+- [ ] **E2E tests isolated from PHP test suite in CI:** After adding `playwright.yml`, confirm `phpunit.yml` does NOT include any Playwright steps. The PHP and E2E workflows should be completely separate files with no shared jobs.
 
 ---
 
@@ -348,13 +371,14 @@ When pitfalls occur despite prevention, how to recover.
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| PHPUnit version collision | MEDIUM | Separate the configs into two files; restore unit tests to original config; start integration config fresh |
-| Brain\Monkey contamination in integration tests | MEDIUM | Grep for `Brain\Monkey` in integration bootstrap and remove; ensure integration bootstrap has its own setup/teardown |
-| Patchwork intercepting real `setcookie` in integration tests | LOW | Remove Patchwork require from integration bootstrap; rewrite cookie assertions to check `$_COOKIE` superglobal mutation instead of header output |
-| "Cannot redeclare class Two_Factor_Core" fatal | LOW | Remove all stub class definitions from integration bootstrap; load real plugin after WP bootstrap completes |
-| Multisite tests polluting single-site test DB | HIGH | Drop and recreate test DB; separate DB names in CI matrix; document the separation in README |
-| LLM-fabricated assertion method breaking test run | LOW | Check PHPUnit 9.6 docs for the real method name; add to `llm_lies_log.txt` |
-| WP 7.0 admin refresh breaks plugin CSS | MEDIUM | Run visual diff against WP 6.9 and WP 7.0 on manual testing guide; identify specific selectors affected; fix and add to manual check |
+| Stale wp-env state causing test failures | LOW | Run `npx wp-env clean all && npx wp-env start`; re-run tests |
+| Race condition: `waitForNavigation` after AJAX challenge | MEDIUM | Replace all `waitForNavigation()` calls with `waitForURL(expectedPattern)`; audit all challenge page tests |
+| IP lockout bleeding across parallel test workers | LOW | Clear IP transients via `wpCli wp transient delete --regex wp_sudo_ip_*`; redesign lockout tests to use `project: { workers: 1 }` |
+| Admin bar countdown causing snapshot drift | LOW | Add countdown timer mask to all affected `toHaveScreenshot` calls; regenerate baselines with `npx playwright test --update-snapshots` |
+| storageState containing stale sudo token | LOW | Delete the saved state file; regenerate with `npx playwright test --global-setup`; add sudo cookies to exclusion filter |
+| WordPress version auto-upgraded in wp-env | MEDIUM | Pin version in `.wp-env.json`; regenerate all snapshots after verifying selectors still work on pinned version |
+| Node.js version mismatch in CI | LOW | Add `actions/setup-node@v4` with explicit `node-version: '20'` to Playwright CI workflow |
+| `Frame was detached` on challenge page | MEDIUM | Add `page.waitForURL(/wp-sudo-challenge/)` before any challenge page assertions; ensure tests navigate to challenge URL from top-level frame |
 
 ---
 
@@ -364,36 +388,32 @@ How roadmap phases should address these pitfalls.
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| PHPUnit version collision (Pitfall 1) | Integration harness scaffolding | `composer test` (unit) and `composer test:integration` both pass independently |
-| Brain\Monkey contamination (Pitfall 2) | Integration harness scaffolding | No Brain\Monkey imports in integration bootstrap; both suites pass |
-| WP_UnitTestCase cannot test real cookies (Pitfall 3) | Integration harness scaffolding + session binding tests | Cookie tests verify user meta + `$_COOKIE` superglobal only; documented boundary in bootstrap |
-| Transient TTL not testable (Pitfall 4) | Integration harness scaffolding | No `sleep()` calls in integration tests; TTL expiry covered by existing unit tests |
-| Two Factor plugin loading (Pitfall 5) | Two Factor integration test phase | No stub class redeclaration errors; real `Two_Factor_Core::is_user_using_two_factor()` called |
-| Multisite separate config (Pitfall 6) | Multisite integration test phase | `WP_TESTS_MULTISITE=1` matrix job documented; multisite tests tagged `@group ms-required` |
-| WP 7.0 visual regression (admin refresh) | WP 7.0 compatibility check phase | Manual testing guide has WP 7.0 section; all admin pages verified on Beta 1 and RC |
-| LLM method confabulation (all phases) | Every phase | Every new external API reference in tests verified against live source before merge; added to `llm_lies_log.txt` if fabricated |
+| Stale wp-env state (Pitfall 1) | Environment scaffolding | `npx wp-env clean all` in CI confirmed working; `_wp_sudo_*` user meta absent after clean |
+| AJAX navigation race condition (Pitfall 2) | First behavioral tests | Zero `waitForNavigation()` calls in test files; all challenge interactions use `waitForURL` or `Promise.all` pattern |
+| IP rate limiting across parallel workers (Pitfall 3) | Rate limiting test phase | Lockout tests tagged to run serially; IP transient cleanup in `afterEach` |
+| Countdown timer in snapshots (Pitfall 4) | Admin bar test phase | All `toHaveScreenshot` calls on admin pages include countdown mask; timer-related tests use `session_duration = 1` |
+| wp-env cold-start latency (Pitfall 5) | Environment scaffolding | `global-setup.ts` includes warm-up request; tests do not fail on first CI run of a fresh container |
+| storageState sudo token contamination (Pitfall 6) | Authentication scaffolding | `storageState.json` inspected and confirmed free of `wp_sudo_*` cookies |
+| iframe-break `Frame was detached` (Pitfall 7) | Plugin activation gating tests | `waitForURL(/wp-sudo-challenge/)` present in all plugin-update-triggered challenge tests |
+| POST replay untestable via `route()` (Pitfall 8) | POST replay test phase | Tests assert destination page state, not form fields; PHPUnit integration tests cover stash data integrity |
+| WordPress version drift (Pitfall 9) | Environment scaffolding | `.wp-env.json` pins specific WP version; CI job checks `wp core version` against expected value |
+| Node.js version incompatibility (Pitfall 10) | Environment scaffolding | `.nvmrc` committed; `package.json` has `engines` field; CI uses `actions/setup-node@v4` with explicit version |
 
 ---
 
 ## Sources
 
-- `wordpress-develop` trunk `composer.json` (fetched 2026-02-19) — confirms WP 7.0.0 target; PHPUnit not in require-dev; `yoast/phpunit-polyfills ^1.1.0` is the bridge
-  - URL: `https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/composer.json`
-- `wordpress-develop` trunk `phpunit.xml.dist` (fetched 2026-02-19) — schema references PHPUnit 9.2; bootstrap at `tests/phpunit/includes/bootstrap.php`
-  - URL: `https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/phpunit.xml.dist`
-- `wordpress-develop` trunk `tests/phpunit/includes/bootstrap.php` (fetched 2026-02-19) — confirms `WP_TESTS_PHPUNIT_POLYFILLS_PATH` constant pattern; minimum PHPUnit 5.7.21; polyfills minimum 1.1.0
-  - URL: `https://raw.githubusercontent.com/WordPress/wordpress-develop/trunk/tests/phpunit/includes/bootstrap.php`
-- Yoast PHPUnit Polyfills README (fetched 2026-02-19) — confirms 4.x series supports PHPUnit 7.5–12.x; 1.x series supports 4.8–9.x
-  - URL: `https://raw.githubusercontent.com/yoast/phpunit-polyfills/main/README.md`
-- WP Sudo `composer.json` — confirms PHPUnit 9.6 constraint; Brain\Monkey 2.7; Patchwork via Brain\Monkey
-- WP Sudo `patchwork.json` — confirms `setcookie`, `header`, `hash_equals` are redefined at PHP level
-- WP Sudo `tests/bootstrap.php` — confirms Two_Factor_Core and Two_Factor_Provider stubs are globally declared
-- WP Sudo `tests/TestCase.php` — confirms Brain\Monkey setup/teardown pattern; static cache reset on teardown
-- WP Sudo `includes/class-sudo-session.php` — confirms `setcookie()` calls, `$_COOKIE` superglobal mutations, transient TTL usage, `sleep()` in `record_failed_attempt()`
-- WP Sudo `includes/class-request-stash.php` — confirms `set_transient`/`set_site_transient` branching, 300-second TTL
-- WP Sudo `docs/roadmap-2026-02.md` — maintainer assessment of integration test gaps and WP 7.0 impact
-- WP Sudo `llm_lies_log.txt` — documented history of fabricated class names, method names, and meta keys; informs LLM-confabulation pitfall severity
+- WP Sudo `admin/js/wp-sudo-challenge.js` — AJAX-driven navigation pattern, iframe-break behavior, POST replay via `HTMLFormElement.prototype.submit.call()`, loading overlay state machine (HIGH confidence)
+- WP Sudo `admin/js/wp-sudo-admin-bar.js` — `setInterval` countdown, `window.location.reload()` at expiry, `wp-sudo-expiring` CSS class timing (HIGH confidence)
+- WP Sudo `includes/class-sudo-session.php` — `MAX_FAILED_ATTEMPTS = 5`, `LOCKOUT_DURATION = 300`, `PROGRESSIVE_DELAYS`, `GRACE_SECONDS = 120`, per-IP transient prefix constants (HIGH confidence)
+- WP Sudo `includes/class-challenge.php` — AJAX actions, challenge page slug, nonce, stash key parameter (HIGH confidence)
+- WP Sudo `includes/class-admin.php` — MU-plugin AJAX install/uninstall actions (HIGH confidence)
+- WP Sudo `.github/workflows/phpunit.yml` — Current CI structure: separate unit, integration, and code-quality jobs; `ubuntu-24.04` runner; no Node.js setup (HIGH confidence)
+- WP Sudo `composer.json` — No Node.js tooling currently; confirms zero-Node.js baseline (HIGH confidence)
+- Playwright architecture: AJAX navigation patterns, `storageState`, `waitForNavigation` race conditions, `Promise.all` pattern (MEDIUM confidence — training data, not verified against current official docs)
+- `@wordpress/env` (wp-env) behavior: Docker volume persistence, `wp-env clean`, port defaults, HTTP-only (MEDIUM confidence — training data; verify against current `@wordpress/env` docs before implementation)
+- GitHub Actions Docker networking: loopback IP sharing across parallel jobs (MEDIUM confidence — training data; verify with GitHub Actions docs if IP-based tests prove problematic)
 
 ---
-*Pitfalls research for: WordPress security plugin integration tests and WP 7.0 compatibility*
-*Researched: 2026-02-19*
+*Pitfalls research for: Adding Playwright E2E testing to WP Sudo (zero Node.js baseline)*
+*Researched: 2026-03-08*
