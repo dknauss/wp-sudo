@@ -12,6 +12,7 @@ use WP_Sudo\Gate;
 use WP_Sudo\Challenge;
 use WP_Sudo\Admin_Bar;
 use WP_Sudo\Admin;
+use WP_Sudo\CLI_Command;
 use WP_Sudo\Upgrader;
 use WP_Sudo\Sudo_Session;
 use WP_Sudo\Tests\TestCase;
@@ -107,6 +108,39 @@ class PluginTest extends TestCase {
 		$plugin->init();
 
 		$this->assertNull( $plugin->admin() );
+	}
+
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_init_registers_wp_cli_command_when_cli_context(): void {
+		// Bootstrap Brain\Monkey manually (separate process has no parent setUp).
+		\Brain\Monkey\setUp();
+
+		Functions\when( 'load_plugin_textdomain' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( WP_SUDO_VERSION );
+		Functions\when( 'add_action' )->justReturn( true );
+		Functions\when( 'add_filter' )->justReturn( true );
+		Functions\when( 'is_admin' )->justReturn( false );
+		Functions\when( 'get_current_user_id' )->justReturn( 0 );
+
+		if ( ! class_exists( '\WP_CLI', false ) ) {
+			// phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound
+			eval( 'namespace { class WP_CLI { public static array $commands = []; public static function add_command( string $name, $callable ): bool { self::$commands[ $name ] = $callable; return true; } } }' );
+		}
+
+		if ( ! defined( 'WP_CLI' ) ) {
+			define( 'WP_CLI', true );
+		}
+
+		$plugin = new Plugin();
+		$plugin->init();
+
+		$this->assertArrayHasKey( 'sudo', \WP_CLI::$commands );
+		$this->assertSame( CLI_Command::class, \WP_CLI::$commands['sudo'] );
+
+		\Brain\Monkey\tearDown();
 	}
 
 	// -----------------------------------------------------------------

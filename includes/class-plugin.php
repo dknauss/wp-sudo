@@ -102,6 +102,11 @@ class Plugin {
 			$this->gate->register_early();
 		}
 
+		// WP-CLI commands for operators.
+		if ( defined( 'WP_CLI' ) && WP_CLI && class_exists( '\WP_CLI' ) ) {
+			\WP_CLI::add_command( 'sudo', CLI_Command::class );
+		}
+
 		// Challenge: interstitial page for admin UI reauthentication.
 		$this->challenge = new Challenge( $stash );
 		$this->challenge->register();
