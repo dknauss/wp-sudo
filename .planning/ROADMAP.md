@@ -1,7 +1,7 @@
 # Roadmap: Playwright E2E Test Infrastructure
 
 **Milestone:** v2.14 — Playwright E2E Test Infrastructure
-**Status:** Active — defining phases
+**Status:** Active — Phase 6 planned
 **Created:** 2026-03-08
 **Depth:** Standard (3 phases)
 **Source:** .planning/research/SUMMARY.md, .planning/REQUIREMENTS.md
@@ -13,6 +13,13 @@
 **Goal:** Stand up the complete Playwright + wp-env toolchain from zero Node.js baseline. First smoke test passes locally and in CI. Login helper works with storageState. No behavioral tests yet — this phase is pure infrastructure.
 
 **Requirements covered:** TOOL-01, TOOL-02, TOOL-03, TOOL-04, TOOL-05, TOOL-06
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Node.js toolchain: package.json, .nvmrc, .wp-env.json, tsconfig.json
+- [ ] 06-02-PLAN.md — Playwright config, global-setup with auth/cookie filtering, fixture, smoke test
+- [ ] 06-03-PLAN.md — CI workflow (e2e.yml) and .gitignore updates
 
 **Key decisions:**
 - `@playwright/test` 1.58.2, `@wordpress/env` 11.1.0 (exact versions, pinned)
@@ -42,11 +49,6 @@
 - CI workflow runs, starts wp-env, runs smoke test, uploads artifacts on failure
 - `storageState` file created with WP auth cookies, no `wp_sudo_token`
 - Smoke test navigates to Settings → Sudo and asserts page title
-
-**Estimated plans:** 3
-- 06-01: Node.js toolchain + wp-env config + package.json (Wave 1)
-- 06-02: Playwright config + global-setup + login fixture + smoke test (Wave 2)
-- 06-03: CI workflow + .gitignore + documentation (Wave 3)
 
 ---
 
@@ -128,10 +130,10 @@
 
 | Phase | Goal | Requirements | Plans | Depends On |
 |-------|------|-------------|-------|------------|
-| 6 | E2E infrastructure scaffold | TOOL-01–06 (6) | 3 | None |
+| 6 | E2E infrastructure scaffold | TOOL-01-06 (6) | 3 | None |
 | 7 | Core E2E tests + visual regression | COOK, TIMR, MUPG, GATE, CHAL, VISN (20) | 4 | Phase 6 |
 | 8 | Keyboard + admin bar interaction | KEYB, ABAR (6) | 2 | Phase 7 |
 
 **Total:** 3 phases, 9 plans, 32 v1 requirements
-**Estimated effort:** ~2 weeks (Phase 6: 2–3 days, Phase 7: 5–7 days, Phase 8: 2–3 days)
-**Time-sensitive:** Visual regression baselines (VISN-01–04) should be captured before WP 7.0 GA (April 9, 2026)
+**Estimated effort:** ~2 weeks (Phase 6: 2-3 days, Phase 7: 5-7 days, Phase 8: 2-3 days)
+**Time-sensitive:** Visual regression baselines (VISN-01-04) should be captured before WP 7.0 GA (April 9, 2026)
