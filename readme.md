@@ -170,7 +170,7 @@ Yes. Settings and sessions are network-wide. The action registry includes networ
 
 Yes. Use the `wp_sudo_gated_actions` filter. See [Developer Reference](docs/developer-reference.md) for the rule structure and code examples.
 
-For more questions, see the [full FAQ](FAQ.md).
+For more questions, see the [full FAQ](docs/FAQ.md).
 
 ## Developer Reference
 

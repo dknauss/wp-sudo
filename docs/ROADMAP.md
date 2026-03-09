@@ -825,7 +825,7 @@ administration. Not relevant for single-site installs.
 
 **SBOM Enhancements**
 
-The CycloneDX SBOM (`bom.json`) currently reflects only the PHP/Composer dependency
+The CycloneDX SBOM (`.sbom/bom.json`) currently reflects only the PHP/Composer dependency
 graph (zero production dependencies). Options:
 - GitHub Action for CI-generated SBOMs on every release tag.
 - JS dependency tracking if Gutenberg integration introduces an npm build step.

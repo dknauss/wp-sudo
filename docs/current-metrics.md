@@ -55,7 +55,7 @@ value across these known consumers:
 - `docs/developer-reference.md` — hook signatures, audit hooks
 - `tests/MANUAL-TESTING.md` — gated rules count
 - `.planning/PROJECT.md` — project summary
-- `ROADMAP.md` — unit test coverage notes
+- `docs/ROADMAP.md` — unit test coverage notes
 
 ## CI Matrix Snapshot
 

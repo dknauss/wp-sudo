@@ -20,7 +20,7 @@ composer verify:metrics       # Verify docs/current-metrics.md against live repo
 composer lint                 # Run PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum)
 composer lint:fix             # Auto-fix PHPCS violations
 composer analyse              # Run PHPStan level 6 (use --memory-limit=1G if needed)
-composer sbom                 # Regenerate CycloneDX SBOM (bom.json)
+composer sbom                 # Regenerate CycloneDX SBOM (.sbom/bom.json)
 ./vendor/bin/phpunit tests/Unit/SudoSessionTest.php   # Run a single test file
 ./vendor/bin/phpunit --filter testMethodName           # Run a single test method
 ```
@@ -31,7 +31,7 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 
 - `docs/security-model.md` — threat model, boundaries, environmental considerations.
 - `docs/developer-reference.md` — hook signatures, filters, custom rule structure.
-- `FAQ.md` — all frequently asked questions.
+- `docs/FAQ.md` — all frequently asked questions.
 - `CHANGELOG.md` — full version history.
 - `docs/ai-agentic-guidance.md` — AI and agentic tool integration guidance.
 - `docs/two-factor-integration.md` — 2FA plugin integration guide.
@@ -39,12 +39,12 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 - `docs/ui-ux-testing-prompts.md` — structured UI/UX testing prompts.
 - `docs/abilities-api-assessment.md` — WordPress Abilities API (6.9+) assessment.
 - `docs/sudo-architecture-comparison-matrix.md` — competitive comparison with other sudo/reauth approaches.
-- `ROADMAP.md` — unified roadmap: integration tests, WP 7.0 prep, collaboration analysis, TDD strategy, core design features, feature backlog, accessibility appendix.
+- `docs/ROADMAP.md` — unified roadmap: integration tests, WP 7.0 prep, collaboration analysis, TDD strategy, core design features, feature backlog, accessibility appendix.
 
 ## Verification Requirements
 
 LLM-generated content has a documented history of confabulation in this project.
-See `llm_lies_log.txt` for the full record. These rules exist to prevent recurrence.
+See `docs/llm-lies-log.md` for the full record. These rules exist to prevent recurrence.
 
 ### External code references (method names, class names, meta keys, hooks)
 
@@ -88,7 +88,7 @@ find ./tests -type f -name "*.php" -print0 | xargs -0 wc -l | tail -1           
 ### Pre-release audit
 
 Before tagging a release, re-verify all external claims added or modified since the
-last tag. Append any new findings to `llm_lies_log.txt`. If new fabrications are
+last tag. Append any new findings to `docs/llm-lies-log.md`. If new fabrications are
 found, fix them before tagging.
 
 Update the project size table in `readme.md` if production or test line counts
