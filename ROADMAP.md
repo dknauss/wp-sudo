@@ -134,7 +134,7 @@ Current project state (as of March 8, 2026):
 > what drove the test design.
 
 ### What unit tests cover well (no integration gap)
-- Request matching across all 6 surfaces (98 GateTest methods)
+- Request matching across all 7 surfaces (98 GateTest methods)
 - Session state machine, token crypto, rate limiting
 - Hook registration and filter application
 - Policy enforcement (DISABLED/LIMITED/UNRESTRICTED)

@@ -7,7 +7,7 @@ Last activity: 2026-03-09 -- Plan 08-02 (ABAR-01/02 + full suite + docs) complet
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-08)
+See: .planning/PROJECT.md (updated 2026-03-09)
 
 **Core value:** Every destructive admin action requires proof the person at the keyboard is still the authenticated user.
 **Current focus:** Playwright E2E Test Infrastructure

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-WP Sudo is a WordPress plugin that provides action-gated reauthentication. Dangerous admin operations (plugin activation, user deletion, critical settings changes, etc.) require password confirmation before they proceed — regardless of user role. It covers 6 request surfaces (admin UI, REST API, AJAX, WP-CLI, Cron, XML-RPC) with per-surface policy controls.
+WP Sudo is a WordPress plugin that provides action-gated reauthentication. Dangerous admin operations (plugin activation, user deletion, critical settings changes, etc.) require password confirmation before they proceed — regardless of user role. It covers 7 request surfaces (admin UI, REST API, AJAX, WP-CLI, Cron, XML-RPC, WPGraphQL) with per-surface policy controls.
 
 ## Core Value
 
@@ -14,7 +14,7 @@ Every destructive WordPress admin action requires proof that the person at the k
 
 <!-- Shipped and confirmed valuable. -->
 
-- Action-gated reauthentication across 6 surfaces — v1.0+
+- Action-gated reauthentication across 7 surfaces (admin UI, REST, AJAX, CLI, Cron, XML-RPC, WPGraphQL) — v1.0+, WPGraphQL v2.5.0
 - 32 built-in gated rules (23 single-site + 9 multisite) — v2.0+
 - Cryptographic session tokens (cookie + SHA-256 user meta) — v1.0+
 - Two Factor plugin integration — v1.0+
@@ -39,10 +39,10 @@ Every destructive WordPress admin action requires proof that the person at the k
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Playwright E2E test infrastructure covering PHPUnit-uncoverable scenarios
-- [ ] WP 7.0 visual regression baselines
-- [ ] Admin UI smoke tests in a real browser
-- [ ] E2E tests in CI on every push
+- [x] Playwright E2E test infrastructure covering PHPUnit-uncoverable scenarios — v2.14
+- [x] WP 7.0 visual regression baselines — v2.14
+- [x] Admin UI smoke tests in a real browser — v2.14
+- [x] E2E tests in CI on every push — v2.14
 
 ### Out of Scope
 
@@ -80,9 +80,9 @@ WordPress dev environment: PHP 8.1+, WP 6.7+. CI matrix: unit tests on PHP 8.1-8
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Playwright over Cypress | Playwright has better multi-browser support, faster execution, and native WordPress ecosystem adoption (Gutenberg uses it) | -- Pending |
-| wp-env for test environment | Standard WordPress dev tool, used by Gutenberg, handles DB setup | -- Pending |
-| Visual regression via screenshot comparison | Catches WP 7.0 admin refresh breakage without manual testing | -- Pending |
+| Playwright over Cypress | Playwright has better multi-browser support, faster execution, and native WordPress ecosystem adoption (Gutenberg uses it) | Adopted — @playwright/test 1.58.2, Chromium only |
+| wp-env for test environment | Standard WordPress dev tool, used by Gutenberg, handles DB setup | Adopted — @wordpress/env 11.1.0, port 8889 |
+| Visual regression via screenshot comparison | Catches WP 7.0 admin refresh breakage without manual testing | Adopted — 4 baselines captured (challenge card, settings form, admin bar active/expiring) |
 
 ---
-*Last updated: 2026-03-08 after milestone v2.14 initialization*
+*Last updated: 2026-03-09 — milestone v2.14 complete (32/32 requirements, 29 E2E tests)*
