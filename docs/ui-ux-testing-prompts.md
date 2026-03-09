@@ -81,7 +81,7 @@ Each section uses `- [ ]` checkboxes so the document works as a runnable checkli
 - [ ] **Challenge page:** Card layout focuses on the single task (password entry) with minimal surrounding UI.
 - [ ] **Challenge page:** 2FA step is hidden by default and only revealed when needed.
 - [ ] **Challenge page:** Loading overlay covers the card to prevent interaction with stale UI during AJAX.
-- [ ] **Settings page:** Settings form contains only 5 fields (1 numeric + 4 dropdowns). Additional context is in help tabs, not inline.
+- [ ] **Settings page:** Settings form contains 6 fields when WPGraphQL is active (1 numeric + 5 dropdowns), otherwise 5 fields (1 numeric + 4 dropdowns). Additional context is in help tabs, not inline.
 - [ ] **Settings page:** Gated actions table is read-only reference, not a configuration surface, reducing cognitive load.
 - [ ] **Admin bar timer:** Single compact node with icon, label, and countdown; no extraneous elements.
 

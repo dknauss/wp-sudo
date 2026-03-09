@@ -98,7 +98,7 @@ would add no additional security value by intercepting them.
 
 ### Current Gate surfaces: no `ability` surface type
 
-The Gate class (`includes/class-gate.php`) currently recognizes six surfaces:
+The Gate class (`includes/class-gate.php`) currently recognizes seven surfaces:
 
 | Surface | Interception point |
 |---------|--------------------|
@@ -108,6 +108,7 @@ The Gate class (`includes/class-gate.php`) currently recognizes six surfaces:
 | `cli` | `init` at priority 0 via function-level hooks |
 | `cron` | `init` at priority 0 via function-level hooks |
 | `xmlrpc` | `init` at priority 0 via `xmlrpc_enabled` filter and function hooks |
+| `wpgraphql` | `graphql_process_http_request` action (v2.5.0+, conditional on WPGraphQL being active) |
 
 There is no `ability` surface type. The Abilities API REST routes are served through
 the standard WordPress REST API and are therefore already covered by the existing
