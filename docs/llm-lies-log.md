@@ -151,10 +151,22 @@ Repos:   wp-sudo, wordpress-2fa-ecosystem
 
 ROOT CAUSE
 ----------
-All errors stem from the same pattern: generating reference content from
-training data instead of verifying against live, authoritative sources.
-The WordPress.org Plugin Info API, WordPress.org SVN, and GitHub raw
-file URLs were all available and could have been queried in seconds.
+All errors have stemmed from patterns that boil down to *not checking the 
+actual source*, which leads to stale or confabulated source material.
+
+- Generating reference content from training data instead of verifying
+against live, authoritative sources. This is now a requirement.
+
+- Losing track of current state (workflow progress). STATE.md now tracks 
+workflow progress: which phase, which plan, what's done.
+
+- Losing track of current metrics (test and line counts). CURRENT-METRICS.md 
+tracks this now. 
+
+- Losing track of architectural facts — the volatile numbers that change
+when features ship: total request surfaces, gated rules, settings fields,
+dropdowns, help tabs. The "Architectural Facts" table in CURRENT-METRICS.md
+tracks this now.
 
 The fabricated method and meta key names are the worst category — these
 are not stale facts but invented strings that sound plausible. A human
