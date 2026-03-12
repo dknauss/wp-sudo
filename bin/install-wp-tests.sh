@@ -77,8 +77,10 @@ check_mysql_tools_installed() {
 }
 
 if [[ $WP_VERSION =~ ^[0-9]+\.[0-9]+\-(beta|RC)[0-9]+$ ]]; then
-	WP_BRANCH=${WP_VERSION%\-*}
-	WP_TESTS_TAG="branches/$WP_BRANCH"
+	# Pre-release core tarballs exist, but the matching develop.svn test library
+	# paths do not. During the beta/RC cycle, trunk is the canonical PHPUnit
+	# library source for the upcoming major release.
+	WP_TESTS_TAG="trunk"
 
 elif [[ $WP_VERSION =~ ^[0-9]+\.[0-9]+$ ]]; then
 	WP_TESTS_TAG="branches/$WP_VERSION"

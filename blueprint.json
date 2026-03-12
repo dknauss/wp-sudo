@@ -1,5 +1,8 @@
 {
   "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "preferredVersions": {
+    "wp": "7.0-beta4"
+  },
   "landingPage": "/wp-admin/",
   "steps": [
     { "step": "login", "username": "admin", "password": "password" },

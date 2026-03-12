@@ -2,7 +2,7 @@
 
 This file is the single source of truth for current repository counts.
 
-Last verified: 2026-03-08
+Last verified: 2026-03-12
 Verification environment: local repo checkout at `/Users/danknauss/Documents/GitHub/wp-sudo`
 
 ## Test Metrics
@@ -62,14 +62,14 @@ value across these known consumers:
 Source: `.github/workflows/phpunit.yml`
 
 - Unit test matrix: PHP 8.1, 8.2, 8.3, 8.4
-- Integration matrix: PHP 8.1 and 8.3; WordPress 6.7, latest, trunk; multisite true/false
+- Integration matrix: PHP 8.1 and 8.3; WordPress 7.0-beta4; multisite true/false
 
 ## Verification Notes
 
-- `composer test:unit` passed on 2026-03-08.
-- `composer test:integration` passed on 2026-03-08 (`137 tests`, `430 assertions`, `8 skipped`) after resetting the local test database (`wordpress_test`).
-- `WP_MULTISITE=1 composer test:integration` passed on 2026-03-08 (`137 tests`, `438 assertions`, `2 skipped`).
-- `composer analyse:phpstan`, `composer analyse:psalm`, and `composer lint` passed on 2026-03-08.
+- `composer test:unit` passed on 2026-03-12.
+- `composer test:integration` passed on 2026-03-12 (`137 tests`, `430 assertions`, `8 skipped`) after resetting the local test database (`wordpress_test`).
+- `WP_MULTISITE=1 composer test:integration` passed on 2026-03-12 (`137 tests`, `438 assertions`, `2 skipped`).
+- `composer analyse:phpstan`, `composer analyse:psalm`, and `composer lint` passed on 2026-03-12.
 
 ## Update Procedure
 

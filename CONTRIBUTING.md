@@ -31,8 +31,8 @@ Runs in ~0.3s. No external dependencies — all WordPress functions are mocked w
 export WP_TESTS_DIR="$PWD/.tmp/wordpress-tests-lib"
 export WP_CORE_DIR="$PWD/.tmp/wordpress"
 
-# One-time setup: installs WordPress test library and creates test DB
-bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 latest
+# One-time setup: installs the WordPress 7.0 beta 4 test library and creates test DB
+bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 7.0-beta4
 
 # Run tests
 composer test:integration
@@ -169,6 +169,8 @@ When in doubt: if the test needs a real database, real crypto, or calls that cro
 Every PR automatically gets a **"Try in WordPress Playground"** comment with a
 link that installs the plugin from that PR's commit and lands you in the admin
 logged in as `admin` / `password`.
+
+Current Playground previews are pinned to WordPress `7.0-beta4` as of 2026-03-12.
 
 ### What you can test in Playground
 
