@@ -2276,6 +2276,53 @@ class GateTest extends TestCase {
 		$this->gate->render_gate_notice();
 	}
 
+	public function test_gate_notice_uses_current_network_admin_request_url(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'is_network_admin' )->justReturn( true );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'network_admin_url' )->alias( fn( $path = '' ) => 'http://multisite-subdomains.local/wp-admin/network/' . $path );
+		Functions\when( 'home_url' )->alias( fn( $path = '' ) => 'http://subsite.multisite-subdomains.local' . $path );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'esc_url_raw' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+
+		$_SERVER['REQUEST_URI']    = '/wp-admin/network/plugins.php';
+		$_SERVER['HTTP_HOST']      = 'multisite-subdomains.local';
+		$_SERVER['REQUEST_SCHEME'] = 'http';
+		$GLOBALS['pagenow']        = 'plugins.php';
+
+		$captured_args = null;
+		Functions\expect( 'add_query_arg' )
+			->once()
+			->with(
+				\Mockery::on(
+					function ( $args ) use ( &$captured_args ) {
+						$captured_args = $args;
+						return true;
+					}
+				),
+				'http://multisite-subdomains.local/wp-admin/network/admin.php'
+			)
+			->andReturn( 'http://multisite-subdomains.local/wp-admin/network/admin.php?page=wp-sudo-challenge' );
+
+		ob_start();
+		$this->gate->render_gate_notice();
+		ob_end_clean();
+
+		$this->assertSame(
+			'http://multisite-subdomains.local/wp-admin/network/plugins.php',
+			$captured_args['return_url'] ?? '',
+			'Gate notice should point back to the current network admin page, not a subsite home_url().'
+		);
+
+		unset( $_SERVER['REQUEST_URI'], $_SERVER['HTTP_HOST'], $_SERVER['REQUEST_SCHEME'] );
+	}
+
 	/**
 	 * Test gate notice renders on theme-install.php.
 	 */

@@ -532,9 +532,16 @@ class Plugin {
 			return is_network_admin() ? network_admin_url() : admin_url();
 		}
 
-		$request_uri = sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) );
+		$scheme = is_ssl() ? 'https' : 'http';
+		$host   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? '' ) );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() sanitizes the full URL; sanitize_text_field() would corrupt encoded path/query segments.
+		$request_uri = wp_unslash( $_SERVER['REQUEST_URI'] );
 
-		return home_url( $request_uri );
+		if ( '' === $host ) {
+			return is_network_admin() ? network_admin_url() : admin_url();
+		}
+
+		return esc_url_raw( $scheme . '://' . $host . $request_uri );
 	}
 
 	/**

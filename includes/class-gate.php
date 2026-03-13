@@ -1357,9 +1357,7 @@ class Gate {
 		// phpcs:enable WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___SERVER__HTTP_USER_AGENT__
 		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
 
-		$current_url = isset( $_SERVER['REQUEST_URI'] )
-			? home_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) )
-			: '';
+		$current_url = $this->get_current_admin_url();
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
@@ -1424,9 +1422,7 @@ class Gate {
 
 		$shortcut = $is_mac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S';
 
-		$current_url = isset( $_SERVER['REQUEST_URI'] )
-			? home_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) )
-			: '';
+		$current_url = $this->get_current_admin_url();
 
 		$query_args = array( 'page' => 'wp-sudo-challenge' );
 		if ( $current_url ) {
@@ -1549,5 +1545,29 @@ class Gate {
 		}
 
 		return sanitize_key( wp_unslash( $value ) );
+	}
+
+	/**
+	 * Build the current admin URL from the incoming request host and URI.
+	 *
+	 * This preserves the actual network admin host on multisite subdomain installs.
+	 *
+	 * @return string
+	 */
+	private function get_current_admin_url(): string {
+		if ( ! isset( $_SERVER['REQUEST_URI'] ) ) {
+			return '';
+		}
+
+		$scheme = is_ssl() ? 'https' : 'http';
+		$host   = sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? '' ) );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw() sanitizes the full URL; sanitize_text_field() would corrupt encoded path/query segments.
+		$request_uri = wp_unslash( $_SERVER['REQUEST_URI'] );
+
+		if ( '' === $host ) {
+			return '';
+		}
+
+		return esc_url_raw( $scheme . '://' . $host . $request_uri );
 	}
 }

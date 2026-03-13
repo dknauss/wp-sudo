@@ -263,6 +263,8 @@ class PluginTest extends TestCase {
 		Functions\when( 'get_user_meta' )->justReturn( 0 );
 		Functions\when( 'admin_url' )->alias( fn( $path = '' ) => 'https://example.com/wp-admin/' . $path );
 		Functions\when( 'home_url' )->alias( fn( $path = '' ) => 'https://example.com' . $path );
+		Functions\when( 'is_ssl' )->justReturn( true );
+		Functions\when( 'esc_url_raw' )->returnArg();
 		Functions\when( 'sanitize_text_field' )->returnArg();
 		Functions\when( 'wp_unslash' )->returnArg();
 		Functions\when( 'wp_enqueue_script' )->justReturn();
@@ -295,6 +297,53 @@ class PluginTest extends TestCase {
 		// The return_url must NOT be URL-encoded before add_query_arg (which encodes it itself).
 		$this->assertStringNotContainsString( '%3A', $captured_args['return_url'], 'return_url should not be pre-encoded before add_query_arg.' );
 		$this->assertStringNotContainsString( '%2F', $captured_args['return_url'], 'return_url should not be pre-encoded before add_query_arg.' );
+
+		unset( $_GET['page'], $_SERVER['REQUEST_URI'], $_SERVER['HTTP_HOST'], $_SERVER['REQUEST_SCHEME'] );
+	}
+
+	public function test_enqueue_shortcut_uses_current_network_admin_request_url(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 1 );
+		Functions\when( 'get_user_meta' )->justReturn( 0 );
+		Functions\when( 'is_network_admin' )->justReturn( true );
+		Functions\when( 'network_admin_url' )->alias( fn( $path = '' ) => 'http://multisite-subdomains.local/wp-admin/network/' . $path );
+		Functions\when( 'home_url' )->alias( fn( $path = '' ) => 'http://subsite.multisite-subdomains.local' . $path );
+		Functions\when( 'is_ssl' )->justReturn( false );
+		Functions\when( 'esc_url_raw' )->returnArg();
+		Functions\when( 'sanitize_text_field' )->returnArg();
+		Functions\when( 'wp_unslash' )->returnArg();
+		Functions\when( 'wp_enqueue_script' )->justReturn();
+
+		$_GET['page']             = 'plugins.php';
+		$_SERVER['REQUEST_URI']   = '/wp-admin/network/plugins.php';
+		$_SERVER['HTTP_HOST']     = 'multisite-subdomains.local';
+		$_SERVER['REQUEST_SCHEME'] = 'http';
+
+		$captured_args = null;
+		Functions\expect( 'add_query_arg' )
+			->once()
+			->with(
+				\Mockery::on(
+					function ( $args ) use ( &$captured_args ) {
+						$captured_args = $args;
+						return true;
+					}
+				),
+				'http://multisite-subdomains.local/wp-admin/network/admin.php'
+			)
+			->andReturn( 'http://multisite-subdomains.local/wp-admin/network/admin.php?page=wp-sudo-challenge' );
+
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with( 'wp-sudo-shortcut', 'wpSudoShortcut', \Mockery::type( 'array' ) );
+
+		$plugin = new Plugin();
+		$plugin->enqueue_shortcut();
+
+		$this->assertSame(
+			'http://multisite-subdomains.local/wp-admin/network/plugins.php',
+			$captured_args['return_url'] ?? '',
+			'Network admin shortcut should return to the current network admin URL, not a subsite home_url().'
+		);
 
 		unset( $_GET['page'], $_SERVER['REQUEST_URI'], $_SERVER['HTTP_HOST'], $_SERVER['REQUEST_SCHEME'] );
 	}
