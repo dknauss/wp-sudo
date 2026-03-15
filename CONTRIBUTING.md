@@ -69,6 +69,43 @@ npm run test:e2e:local
 
 Use the local site's real admin credentials. `WP_BASE_URL` can be `http://` or `https://` depending on your local environment.
 
+### Local site plugin drift
+
+Some Local sites use a copied `wp-content/plugins/wp-sudo` directory instead of
+the live repo checkout. In that case the site can drift behind `main` even when
+this repo is up to date.
+
+Before debugging unexpected Local-site behaviour, compare the site plugin PHP to
+the repo:
+
+```bash
+SITE_PLUGIN="/path/to/site/app/public/wp-content/plugins/wp-sudo"
+
+cmp -s includes/class-plugin.php "$SITE_PLUGIN/includes/class-plugin.php" && echo "class-plugin.php identical" || echo "class-plugin.php differs"
+cmp -s includes/class-gate.php "$SITE_PLUGIN/includes/class-gate.php" && echo "class-gate.php identical" || echo "class-gate.php differs"
+cmp -s wp-sudo.php "$SITE_PLUGIN/wp-sudo.php" && echo "wp-sudo.php identical" || echo "wp-sudo.php differs"
+```
+
+If the site copy differs, sync it from the repo before continuing:
+
+```bash
+SITE_PLUGIN="/path/to/site/app/public/wp-content/plugins/wp-sudo"
+
+rsync -a --delete \
+  --exclude '.git/' \
+  --exclude '.github/' \
+  --exclude '.wp-env/' \
+  --exclude 'node_modules/' \
+  --exclude '.tmp/' \
+  --exclude 'playwright-report/' \
+  --exclude 'test-results/' \
+  --exclude 'tests/e2e/artifacts/' \
+  ./ "$SITE_PLUGIN"/
+```
+
+If you want zero drift risk, replace the copied plugin directory with a symlink
+to this repo checkout instead of relying on manual syncs.
+
 ### E2E CI split: functional vs visual
 
 The Playwright suite is split into two projects:
