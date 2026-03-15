@@ -10,13 +10,26 @@ const STORAGE_STATE_PATH = path.join(
 const BASE_URL = process.env.WP_BASE_URL ?? 'http://localhost:8889';
 const USERNAME = process.env.WP_USERNAME ?? 'admin';
 const PASSWORD = process.env.WP_PASSWORD ?? 'password';
+const REQUEST_BASE_URL = process.env.WP_REQUEST_BASE_URL ?? BASE_URL;
+const REQUEST_HOST_HEADER = process.env.WP_REQUEST_HOST_HEADER;
 
 async function globalSetup() {
+    const parsedRequestBaseUrl = new URL( REQUEST_BASE_URL );
+    const extraHTTPHeaders: Record<string, string> = {};
+
+    // Optional escape hatch for environments that need a different bootstrap
+    // origin or explicit Host header during the request-context login flow.
+    if ( REQUEST_HOST_HEADER ) {
+        extraHTTPHeaders.Host = REQUEST_HOST_HEADER;
+    }
+
     // Ensure the storage-states directory exists.
     await fs.mkdir( path.dirname( STORAGE_STATE_PATH ), { recursive: true } );
 
     const requestContext = await request.newContext( {
-        baseURL: BASE_URL,
+        baseURL: REQUEST_BASE_URL,
+        extraHTTPHeaders,
+        ignoreHTTPSErrors: parsedRequestBaseUrl.protocol === 'https:',
     } );
 
     // Warm-up request: hit wp-admin to ensure WordPress is fully initialized.

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.WP_BASE_URL ?? 'http://localhost:8889';
+const ignoreHTTPSErrors = baseURL.startsWith( 'https://' );
 
 export default defineConfig( {
     testDir: './specs',
@@ -17,6 +18,7 @@ export default defineConfig( {
     globalSetup: require.resolve( './global-setup' ),
     use: {
         baseURL,
+        ignoreHTTPSErrors,
         headless: true,
         viewport: { width: 1280, height: 900 },
         locale: 'en-US',

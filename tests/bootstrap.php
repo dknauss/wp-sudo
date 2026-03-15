@@ -13,12 +13,18 @@ define( 'ABSPATH', '/tmp/fake-wordpress/' );
 
 // ── WordPress directory constants ────────────────────────────────────
 define( 'WP_CONTENT_DIR', '/tmp/fake-wordpress/wp-content' );
+define( 'WP_PLUGIN_DIR', WP_CONTENT_DIR . '/plugins' );
+define( 'WP_PLUGIN_URL', 'https://example.com/wp-content/plugins' );
+define( 'WPMU_PLUGIN_DIR', WP_CONTENT_DIR . '/mu-plugins' );
+define( 'WPMU_PLUGIN_URL', 'https://example.com/wp-content/mu-plugins' );
 
 // ── Plugin constants (normally defined in wp-sudo.php) ───────────────
 define( 'WP_SUDO_VERSION', '2.13.0' );
 define( 'WP_SUDO_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WP_SUDO_PLUGIN_URL', 'https://example.com/wp-content/plugins/wp-sudo/' );
 define( 'WP_SUDO_PLUGIN_BASENAME', 'wp-sudo/wp-sudo.php' );
+
+require_once dirname( __DIR__ ) . '/includes/class-bootstrap.php';
 
 // ── WordPress time constants ─────────────────────────────────────────
 define( 'MINUTE_IN_SECONDS', 60 );

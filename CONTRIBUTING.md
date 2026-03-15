@@ -69,42 +69,60 @@ npm run test:e2e:local
 
 Use the local site's real admin credentials. `WP_BASE_URL` can be `http://` or `https://` depending on your local environment.
 
-### Local site plugin drift
+To run the multisite network-admin regression against the `multisite-subdomains` Local site:
+
+```bash
+WP_BASE_URL="https://multisite-subdomains.local" \
+WP_USERNAME="test" \
+WP_PASSWORD="test" \
+npm run test:e2e:local:multisite
+```
+
+This spec is local-only. It skips automatically under the default single-site `wp-env` configuration used in CI.
+
+### Local site plugin drift and symlink management
 
 Some Local sites use a copied `wp-content/plugins/wp-sudo` directory instead of
 the live repo checkout. In that case the site can drift behind `main` even when
 this repo is up to date.
 
-Before debugging unexpected Local-site behaviour, compare the site plugin PHP to
-the repo:
+The canonical helper for compare/sync/symlink operations is:
 
 ```bash
-SITE_PLUGIN="/path/to/site/app/public/wp-content/plugins/wp-sudo"
+npm run local:plugin -- status
+npm run local:plugin -- sync
+npm run local:plugin -- link
+```
 
-cmp -s includes/class-plugin.php "$SITE_PLUGIN/includes/class-plugin.php" && echo "class-plugin.php identical" || echo "class-plugin.php differs"
-cmp -s includes/class-gate.php "$SITE_PLUGIN/includes/class-gate.php" && echo "class-gate.php identical" || echo "class-gate.php differs"
-cmp -s wp-sudo.php "$SITE_PLUGIN/wp-sudo.php" && echo "wp-sudo.php identical" || echo "wp-sudo.php differs"
+By default it targets the active Local multisite environment used for `multisite-subdomains.local`:
+
+```bash
+/Users/danknauss/Development/Local Sites/multisite-subdomains/app/public/wp-content/plugins/wp-sudo
+```
+
+Override that path with `SITE_PLUGIN=/path/to/site/wp-content/plugins/wp-sudo`.
+
+Before debugging unexpected Local-site behaviour, run:
+
+```bash
+npm run local:plugin -- status
 ```
 
 If the site copy differs, sync it from the repo before continuing:
 
 ```bash
-SITE_PLUGIN="/path/to/site/app/public/wp-content/plugins/wp-sudo"
-
-rsync -a --delete \
-  --exclude '.git/' \
-  --exclude '.github/' \
-  --exclude '.wp-env/' \
-  --exclude 'node_modules/' \
-  --exclude '.tmp/' \
-  --exclude 'playwright-report/' \
-  --exclude 'test-results/' \
-  --exclude 'tests/e2e/artifacts/' \
-  ./ "$SITE_PLUGIN"/
+npm run local:plugin -- sync
 ```
 
 If you want zero drift risk, replace the copied plugin directory with a symlink
-to this repo checkout instead of relying on manual syncs.
+to this repo checkout:
+
+```bash
+npm run local:plugin -- link
+```
+
+The `link` command preserves the previous copied plugin directory as a timestamped
+backup before replacing it with a symlink.
 
 ### E2E CI split: functional vs visual
 

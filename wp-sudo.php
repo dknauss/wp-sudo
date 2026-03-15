@@ -21,17 +21,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+require_once __DIR__ . '/includes/class-bootstrap.php';
+
 // Plugin version.
 define( 'WP_SUDO_VERSION', '2.13.0' );
 
 // Plugin directory path.
 define( 'WP_SUDO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
-// Plugin directory URL.
-define( 'WP_SUDO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+// Register the real path so symlinked installs resolve plugin_basename()/plugins_url()
+// through the public plugin slug instead of the filesystem target path.
+\WP_Sudo\Bootstrap::register_plugin_realpath( __FILE__ );
 
 // Plugin basename.
-define( 'WP_SUDO_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+define( 'WP_SUDO_PLUGIN_BASENAME', \WP_Sudo\Bootstrap::plugin_basename( __FILE__ ) );
+
+// Plugin directory URL.
+define( 'WP_SUDO_PLUGIN_URL', \WP_Sudo\Bootstrap::plugin_dir_url( __FILE__ ) );
 
 /**
  * Autoload plugin classes.
