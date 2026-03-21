@@ -63,7 +63,7 @@ const execAsync = promisify( exec );
  * To scrape a real activate URL we must:
  *   1. Activate a sudo session (so real <a> links render)
  *   2. Navigate to plugins.php
- *   3. Extract the href from the first .activate a element
+ *   3. Extract the href for Hello Dolly's activate action
  *   4. Clear the sudo cookie (so the gate intercepts when we navigate to that URL)
  *
  * Source: WordPress plugins.php — activate links include _wpnonce query param (verified)
@@ -71,9 +71,9 @@ const execAsync = promisify( exec );
  * Source: class-challenge.php — stash stores the gated URL including nonce (verified)
  *
  * @param page       Playwright Page object.
- * @returns          The full admin-relative URL of the first available activate link with nonce,
+ * @returns          The full admin-relative URL for Hello Dolly's activate action with nonce,
  *                   e.g. '/wp-admin/plugins.php?action=activate&plugin=hello.php&_wpnonce=abc123'
- *                   Returns null if no activatable plugin is found.
+ *                   Returns null if the expected activate link is unavailable.
  */
 async function getActivateUrl( page: Page ): Promise<string | null> {
     // Step A: Activate a sudo session so the gate renders real <a> links.
@@ -84,13 +84,18 @@ async function getActivateUrl( page: Page ): Promise<string | null> {
     // Step B: Navigate to plugins.php with active session — real <a> links render.
     await page.goto( '/wp-admin/plugins.php' );
 
-    // Source: WordPress plugins.php — activate links are in <td class="activate"> <a> (verified)
-    const count = await page.locator( '.activate a' ).count();
-    if ( count === 0 ) {
+    // Use Hello Dolly specifically. Akismet activation can redirect to its own
+    // settings screen, which makes CHAL-01's replay assertion against plugins.php
+    // brittle even when stash replay is working correctly.
+    const activateLink = page.locator(
+        '.activate a[href*="action=activate"][href*="plugin=hello.php"]'
+    ).first();
+
+    if ( await activateLink.count() === 0 ) {
         return null;
     }
 
-    const href = await page.locator( '.activate a' ).first().getAttribute( 'href' );
+    const href = await activateLink.getAttribute( 'href' );
     if ( ! href ) {
         return null;
     }

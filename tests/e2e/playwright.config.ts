@@ -6,7 +6,7 @@ const ignoreHTTPSErrors = baseURL.startsWith( 'https://' );
 export default defineConfig( {
     testDir: './specs',
     outputDir: './artifacts/test-results',
-    snapshotPathTemplate: '{testDir}/{testFileDir}/__snapshots__/{arg}-{projectName}{ext}',
+    snapshotPathTemplate: '{testDir}/{testFileDir}/__snapshots__/{arg}-chromium{ext}',
     fullyParallel: false,
     workers: 1,
     retries: process.env.CI ? 2 : 0,

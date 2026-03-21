@@ -10,7 +10,7 @@
  *   tests/e2e/specs/visual/__snapshots__/{name}-chromium.png
  *
  * Source: playwright.config.ts — snapshotPathTemplate (verified)
- *   '{testDir}/{testFileDir}/__snapshots__/{arg}-{projectName}{ext}'
+ *   '{testDir}/{testFileDir}/__snapshots__/{arg}-chromium{ext}'
  *
  * To update baselines after intentional UI changes:
  *   npx playwright test --config tests/e2e/playwright.config.ts \
