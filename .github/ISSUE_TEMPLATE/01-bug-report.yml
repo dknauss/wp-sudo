@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a defect in plugin behavior, integrations, or workflows.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: input
+    id: area
+    attributes:
+      label: Affected area
+      description: Name the action gate, integration, file, or workflow involved.
+      placeholder: profile edits, plugin install gate, e2e workflow
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction details
+      description: Include WordPress version, PHP version, steps, logs, or screenshots.
