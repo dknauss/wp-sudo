@@ -70,6 +70,14 @@ Those five scenarios drove the Phase 6-8 Playwright work. The settings page, cha
 
 WordPress dev environment: PHP 8.1+, WP 6.7+. CI matrix: unit tests on PHP 8.1-8.4, integration tests on PHP 8.1/8.3, WP 6.7 and 7.0-beta4, single-site + multisite. Playwright hosted CI remains single-site via `wp-env`; Local `multisite-subdomains.local` now provides the dedicated multisite network-admin browser regression target.
 
+Current multisite browser coverage is intentionally narrow: `MULTI-01` proves network-admin session reauthentication returns to the correct network URL on a real Local multisite install. The main remaining browser gap is not return URL handling, but network-admin stash/challenge/replay for gated actions that only exist on multisite.
+
+Recommended next multisite browser sequence:
+
+1. `MULTI-02` — `network/themes.php` network enable/disable GET stash replay
+2. `MULTI-03` — `sites.php` confirm/action2 flow for archive/deactivate/spam/delete
+3. `MULTI-04` — network settings POST replay
+
 ## Constraints
 
 - **Compatibility**: Must work with existing CI matrix (GitHub Actions, Ubuntu)
@@ -77,6 +85,7 @@ WordPress dev environment: PHP 8.1+, WP 6.7+. CI matrix: unit tests on PHP 8.1-8
 - **No build step pollution**: Playwright deps must not affect the plugin's zero-production-dependency stance
 - **CI time budget**: E2E suite should add no more than ~2 minutes to CI pipeline
 - **Local multisite drift**: Symlinked Local/Studio plugin installs can execute the plugin from the repo target path, not the public `wp-content/plugins/<slug>` path. Bootstrap URL logic must recover the public plugin basename from active plugin state, and browser regressions for that behavior remain local-only.
+- **Multisite browser scope**: Hosted Playwright CI still cannot prove network-admin-only stash/replay behavior. Local multisite regressions should target multisite-specific routing seams in priority order instead of adding broad duplicate coverage.
 
 ## Key Decisions
 
@@ -88,4 +97,4 @@ WordPress dev environment: PHP 8.1+, WP 6.7+. CI matrix: unit tests on PHP 8.1-8
 | Local multisite browser verification stays outside hosted CI | GitHub-hosted `wp-env` is single-site; the multisite network-admin failure only surfaced on a symlinked Local install | Adopted — keep hosted CI single-site, add Local multisite regression + helper script + bootstrap hardening |
 
 ---
-*Last updated: 2026-03-20 — milestone v2.14 complete plus multisite symlink hardening and planning/workflow alignment refresh (32/32 requirements, 30 E2E tests defined)*
+*Last updated: 2026-03-20 — milestone v2.14 complete plus multisite symlink hardening, planning/workflow alignment refresh, and explicit multisite regression sequencing (32/32 requirements, 30 E2E tests defined)*

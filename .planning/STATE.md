@@ -28,6 +28,9 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 - Phase 7 plan checker: 1 blocker (MUPG mapping) + 4 warnings fixed; all selectors cross-referenced against source
 - Phase 7: COMPLETE ✅ (all 4 waves, all 20 requirements verified — 23 E2E tests passing)
 - Post-milestone hardening: COMPLETE ✅ (Local multisite network-admin regression added; symlink-safe bootstrap path recovery covered in unit + integration + Local browser runs)
+- Current Local multisite browser coverage is `MULTI-01` only: session reauth from `network/plugins.php` back to the same network-admin URL
+- Primary remaining multisite browser gap: real network-admin gated-action stash/challenge/replay
+- Recommended next sequence: `MULTI-02` `network/themes.php` GET replay → `MULTI-03` `sites.php` confirm/action2 replay → `MULTI-04` network settings POST replay
 
 ## Phase 6 Execution Progress
 
