@@ -1,5 +1,5 @@
 /**
- * Challenge flow tests — CHAL-01 through CHAL-09
+ * Challenge flow tests — CHAL-01 through CHAL-10
  *
  * Tests the full stash-challenge-replay flow and challenge page form elements.
  *
@@ -960,6 +960,76 @@ test.describe( 'Challenge flow', () => {
                 await getE2eTwoFactorProviderEvent(),
                 'The provider should still allow a later successful validation after resend'
             ).toBe( 'validated' );
+        } finally {
+            await disableE2eTwoFactor();
+        }
+    } );
+
+    /**
+     * CHAL-10: Repeated invalid 2FA attempts should surface the throttle countdown in the UI.
+     */
+    test( 'CHAL-10: repeated invalid 2FA codes trigger the throttle UI', async ( {
+        page,
+    } ) => {
+        await enableE2eTwoFactor();
+
+        try {
+            await reachTwoFactorStep( page );
+
+            const initialUrl = page.url();
+
+            for ( let attempt = 1; attempt <= 3; attempt++ ) {
+                await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+                await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+                await expect(
+                    page.locator( '#wp-sudo-challenge-2fa-error' ),
+                    `Invalid 2FA attempt ${ attempt } should show the inline error box`
+                ).toBeVisible( { timeout: 10_000 } );
+
+                await expect(
+                    page.locator( '#wp-sudo-challenge-2fa-error' ),
+                    `Invalid 2FA attempt ${ attempt } should still be treated as an authentication failure, not a throttle yet`
+                ).toContainText( 'Invalid authentication code', { timeout: 5_000 } );
+            }
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The 4th invalid 2FA attempt should surface the throttle countdown'
+            ).toBeVisible( { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The throttle UI should tell the user to wait before trying again'
+            ).toContainText( 'Please wait', { timeout: 5_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The 2FA submit button should be disabled during the throttle window'
+            ).toBeDisabled();
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-step' ),
+                'The throttle path must keep the user on the 2FA step'
+            ).toBeVisible();
+
+            expect(
+                page.url(),
+                'The throttle path must not navigate away from the challenge page'
+            ).toBe( initialUrl );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The throttle countdown should expire and re-enable the submit button'
+            ).toBeEnabled( { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The throttle notice should clear after the short delay expires'
+            ).toBeHidden( { timeout: 10_000 } );
         } finally {
             await disableE2eTwoFactor();
         }
