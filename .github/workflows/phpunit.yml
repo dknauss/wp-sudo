@@ -47,7 +47,12 @@ jobs:
           fi
 
       - name: Run unit tests
-        run: composer test:unit
+        run: |
+          if [ "${{ matrix.php }}" = "8.0" ]; then
+            ./vendor/bin/phpunit --configuration phpunit.xml.dist
+          else
+            composer test:unit
+          fi
 
   unit-tests-coverage:
     name: "Unit Tests (Coverage)"
@@ -159,15 +164,14 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_ROOT_HOST: '%'
+          MYSQL_DATABASE: wordpress_test
           MARIADB_ROOT_PASSWORD: root
           MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
+          MARIADB_AUTO_UPGRADE: '1'
         ports:
           - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+        options: ${{ matrix.db_image == 'mariadb:lts' && '--health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=10s --health-retries=12 --health-start-period=60s' || '--health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5' }}
     env:
       WP_TESTS_DIR: /tmp/wordpress-tests-lib
       WP_MULTISITE: ${{ matrix.multisite && '1' || '' }}
@@ -209,7 +213,12 @@ jobs:
         run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wp }}
 
       - name: Run integration tests
-        run: composer test:integration
+        run: |
+          if [ "${{ matrix.php }}" = "8.0" ]; then
+            ./vendor/bin/phpunit --configuration phpunit-integration.xml.dist
+          else
+            composer test:integration
+          fi
 
   code-quality:
     name: "Code Quality (lint + static analysis)"
