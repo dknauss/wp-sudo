@@ -1,5 +1,5 @@
 /**
- * Challenge flow tests — CHAL-01 through CHAL-14
+ * Challenge flow tests — CHAL-01 through CHAL-16
  *
  * Tests the full stash-challenge-replay flow and challenge page form elements.
  *
@@ -86,11 +86,18 @@ const E2E_TWO_FACTOR_CODE = '123456';
  *                   e.g. '/wp-admin/plugins.php?action=activate&plugin=hello.php&_wpnonce=abc123'
  *                   Returns null if the expected activate link is unavailable.
  */
-async function getActivateUrl( page: Page ): Promise<string | null> {
+async function getActivateUrl(
+    page: Page,
+    requiresTwoFactor = false
+): Promise<string | null> {
     // Step A: Activate a sudo session so the gate renders real <a> links.
     // Without a session, filter_plugin_action_links() replaces <a> with <span> (no href).
     // Source: class-gate.php filter_plugin_action_links() (verified)
-    await activateSudoSession( page );
+    if ( requiresTwoFactor ) {
+        await activateSudoSessionWithTwoFactor( page );
+    } else {
+        await activateSudoSession( page );
+    }
 
     // Step B: Navigate to plugins.php with active session — real <a> links render.
     await page.goto( '/wp-admin/plugins.php' );
@@ -410,6 +417,41 @@ async function withCliPolicyUnrestricted( fn: () => Promise<void> ): Promise<voi
             { timeout: 15_000 }
         );
     }
+}
+
+/**
+ * Ensure Hello Dolly is inactive so a real activate link exists for stash replay tests.
+ */
+async function ensureHelloPluginInactive(): Promise<void> {
+    await withCliPolicyUnrestricted( async () => {
+        await execAsync(
+            'npx wp-env run cli wp plugin deactivate hello --quiet 2>/dev/null || true',
+            { timeout: 30_000 }
+        );
+    } );
+}
+
+/**
+ * Navigate to a real stashed plugin-activation challenge for Hello Dolly.
+ */
+async function reachStashedPluginActivationChallenge(
+    page: Page,
+    requiresTwoFactor = false
+): Promise<void> {
+    await ensureHelloPluginInactive();
+
+    const activateUrl = await getActivateUrl( page, requiresTwoFactor );
+
+    if ( activateUrl === null ) {
+        throw new Error( 'No activate link found on plugins.php — cannot test stash-backed challenge replay.' );
+    }
+
+    await clearSudoSession( page );
+    await page.goto( activateUrl );
+    await page.waitForURL( /page=wp-sudo-challenge/, { timeout: 10_000 } );
+    await page.waitForFunction(
+        () => typeof ( window as Window & { wpSudoChallenge?: unknown } ).wpSudoChallenge !== 'undefined'
+    );
 }
 
 test.describe( 'Challenge flow', () => {
@@ -1366,6 +1408,220 @@ test.describe( 'Challenge flow', () => {
                 hasSudoCookie,
                 'The post-lockout 2FA recovery retry should create a fresh sudo session cookie'
             ).toBe( true );
+        } finally {
+            await disableE2eTwoFactor();
+        }
+    } );
+
+    /**
+     * CHAL-15: A stashed gated action should replay after the 2FA lockout countdown expires.
+     */
+    test( 'CHAL-15: stash replay survives 2FA lockout expiry recovery', async ( {
+        page,
+    } ) => {
+        await enableE2eTwoFactor();
+        await setE2eLockoutSeconds( 3 );
+
+        try {
+            await reachStashedPluginActivationChallenge( page, true );
+
+            await page.fill( '#wp-sudo-challenge-password', 'password' );
+            await page.click( '#wp-sudo-challenge-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-step' ),
+                'A correct password should advance the stashed action flow to the 2FA step'
+            ).toBeVisible( { timeout: 15_000 } );
+
+            for ( let attempt = 1; attempt <= 3; attempt++ ) {
+                await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+                await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+                await expect(
+                    page.locator( '#wp-sudo-challenge-2fa-error' ),
+                    `Invalid 2FA attempt ${ attempt } should still surface the normal inline auth error`
+                ).toContainText( 'Invalid authentication code', { timeout: 10_000 } );
+            }
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The 4th invalid 2FA code should trigger the short throttle before the shortened lockout'
+            ).toBeDisabled();
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The short throttle must expire before the lockout-triggering 2FA retry'
+            ).toBeEnabled( { timeout: 10_000 } );
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The shortened 2FA lockout should render the lockout countdown on the 2FA step'
+            ).toContainText( 'Too many failed attempts', { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The 2FA submit button should stay disabled while the shortened lockout runs'
+            ).toBeDisabled();
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The shortened 2FA lockout countdown should complete and re-enable the 2FA form'
+            ).toBeEnabled( { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The 2FA lockout notice should clear when the shortened countdown ends'
+            ).toBeHidden( { timeout: 10_000 } );
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', E2E_TWO_FACTOR_CODE );
+
+            await Promise.all( [
+                page.waitForURL( /plugins\.php/, { timeout: 15_000 } ),
+                page.click( '#wp-sudo-challenge-2fa-submit' ),
+            ] );
+
+            await expect(
+                page,
+                'The recovered stash-backed 2FA flow must return to plugins.php'
+            ).toHaveURL( /plugins\.php/ );
+
+            await expect(
+                page.locator( '.deactivate a[href*="plugin=hello.php"]' ),
+                'The stashed Hello Dolly activation should complete after 2FA lockout recovery'
+            ).toBeVisible( { timeout: 10_000 } );
+        } finally {
+            await disableE2eTwoFactor();
+        }
+    } );
+
+    /**
+     * CHAL-16: A provider resend should still allow stash replay after 2FA lockout expiry recovery.
+     */
+    test( 'CHAL-16: provider resend still replays the stash after 2FA lockout expiry', async ( {
+        page,
+    } ) => {
+        await enableE2eTwoFactor();
+        await enableE2eTwoFactorProvider();
+        await setE2eLockoutSeconds( 3 );
+
+        try {
+            await reachStashedPluginActivationChallenge( page, true );
+
+            await page.fill( '#wp-sudo-challenge-password', 'password' );
+            await page.click( '#wp-sudo-challenge-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-step' ),
+                'A correct password should advance the stash-backed provider flow to the 2FA step'
+            ).toBeVisible( { timeout: 15_000 } );
+
+            for ( let attempt = 1; attempt <= 3; attempt++ ) {
+                await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+                await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+                await expect(
+                    page.locator( '#wp-sudo-challenge-2fa-error' ),
+                    `Invalid provider-backed 2FA attempt ${ attempt } should still surface the normal inline auth error`
+                ).toContainText( 'Invalid authentication code', { timeout: 10_000 } );
+            }
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The 4th invalid provider-backed 2FA code should trigger the short throttle before the shortened lockout'
+            ).toBeDisabled();
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The short throttle must expire before the lockout-triggering provider-backed retry'
+            ).toBeEnabled( { timeout: 10_000 } );
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The shortened provider-backed 2FA lockout should render the lockout countdown on the 2FA step'
+            ).toContainText( 'Too many failed attempts', { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The provider-backed 2FA submit button should stay disabled while the shortened lockout runs'
+            ).toBeDisabled();
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The shortened provider-backed 2FA lockout countdown should complete and re-enable the 2FA form'
+            ).toBeEnabled( { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The provider-backed 2FA lockout notice should clear when the shortened countdown ends'
+            ).toBeHidden( { timeout: 10_000 } );
+
+            const challengeUrl = page.url();
+
+            await page.evaluate( () => {
+                const modeInput = document.getElementById(
+                    'wp-sudo-e2e-two-factor-mode'
+                ) as HTMLInputElement | null;
+
+                if ( modeInput ) {
+                    modeInput.value = 'resend';
+                }
+            } );
+
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            expect(
+                page.url(),
+                'A provider resend response must keep the stash-backed recovery flow on the challenge page'
+            ).toBe( challengeUrl );
+
+            expect(
+                await getE2eTwoFactorProviderEvent(),
+                'The test-only provider must record that the resend branch ran after the lockout expired'
+            ).toBe( 'resent' );
+
+            await page.evaluate( () => {
+                const modeInput = document.getElementById(
+                    'wp-sudo-e2e-two-factor-mode'
+                ) as HTMLInputElement | null;
+
+                if ( modeInput ) {
+                    modeInput.value = 'verify';
+                }
+            } );
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', E2E_TWO_FACTOR_CODE );
+
+            await Promise.all( [
+                page.waitForURL( /plugins\.php/, { timeout: 15_000 } ),
+                page.click( '#wp-sudo-challenge-2fa-submit' ),
+            ] );
+
+            expect(
+                await getE2eTwoFactorProviderEvent(),
+                'The provider should still allow a later successful validation after resend and lockout expiry'
+            ).toBe( 'validated' );
+
+            await expect(
+                page,
+                'The recovered provider-backed stash flow must return to plugins.php'
+            ).toHaveURL( /plugins\.php/ );
+
+            await expect(
+                page.locator( '.deactivate a[href*="plugin=hello.php"]' ),
+                'The stashed Hello Dolly activation should complete after provider resend and 2FA lockout recovery'
+            ).toBeVisible( { timeout: 10_000 } );
         } finally {
             await disableE2eTwoFactor();
         }
