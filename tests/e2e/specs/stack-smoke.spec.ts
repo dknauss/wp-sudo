@@ -77,4 +77,24 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
         ] );
         await expect( sessionDuration ).toHaveValue( originalValue );
     } );
+
+    test( 'STACK-04: admin bar AJAX deactivation clears the sudo cookie', async ( {
+        page,
+        context,
+    } ) => {
+        await activateSudoSession( page );
+        await expect( page.locator( '#wp-admin-bar-wp-sudo-active' ) ).toBeVisible();
+
+        await Promise.all( [
+            page.waitForURL( /\/wp-admin\/(?:index\.php)?$/, { timeout: 15_000 } ),
+            page.locator( '#wp-admin-bar-wp-sudo-active' ).click(),
+        ] );
+
+        await expect( page.locator( '#wp-admin-bar-wp-sudo-active' ) ).not.toBeVisible();
+
+        const cookies = await context.cookies();
+        expect(
+            cookies.find( ( cookie ) => cookie.name === 'wp_sudo_token' )
+        ).toBeUndefined();
+    } );
 } );

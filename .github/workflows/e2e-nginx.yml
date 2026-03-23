@@ -30,6 +30,18 @@ jobs:
       - name: Start nginx stack
         run: docker compose -f .github/docker/nginx-mariadb.compose.yml up -d --wait db php nginx
 
+      - name: Wait for nginx WordPress bootstrap files
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9080/wp-admin/install.php | grep -Eq "200|302"; then
+              echo "WordPress bootstrap files are ready"
+              exit 0
+            fi
+            echo "Waiting for bootstrap files... (attempt $i)"
+            sleep 2
+          done
+          exit 1
+
       - name: Install WordPress and activate WP Sudo
         run: |
           docker compose -f .github/docker/nginx-mariadb.compose.yml run --rm cli wp core install \

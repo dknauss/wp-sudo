@@ -7,27 +7,41 @@ on:
 
 jobs:
   integration-compat:
-    name: "Compat Sweep (PHP 8.1, WP ${{ matrix.wp }})"
+    name: "Compat Sweep (PHP 8.1, WP ${{ matrix.wp }}, ${{ matrix.db_label }})"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        wp: ['6.3', '6.4', '6.5', '6.6']
+        include:
+          - wp: '6.3'
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - wp: '6.4'
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - wp: '6.5'
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - wp: '6.6'
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - wp: '6.4'
+            db_label: 'MariaDB LTS'
+            db_image: 'mariadb:lts'
     services:
       db:
-        image: mysql:8.0
+        image: ${{ matrix.db_image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
           MYSQL_ROOT_HOST: '%'
           MYSQL_DATABASE: wordpress_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
+          MARIADB_AUTO_UPGRADE: '1'
         ports:
           - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+        options: ${{ matrix.db_image == 'mariadb:lts' && '--health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=10s --health-retries=12 --health-start-period=60s' || '--health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5' }}
     env:
       WP_TESTS_DIR: /tmp/wordpress-tests-lib
     steps:
