@@ -206,6 +206,30 @@ npm run test:e2e:visual -- --update-snapshots
 
 Do not update visual snapshots just to make required CI pass. Review the uploaded Playwright artifacts from the `E2E Visual Baselines` workflow first, then refresh snapshots only when the UI change is intentional.
 
+### Release CI gates vs breadth checks
+
+WP Sudo now has two different kinds of browser/compatibility workflows:
+
+- **Primary release gates:** `PHPUnit`, `Psalm`, `CodeQL`, `E2E Tests`, and `E2E Nginx Smoke`. These should all be green before tagging a release.
+- **Breadth workflows:** `WordPress Compat Sweep` and `E2E SQLite Smoke`. These expand compatibility signal across older WordPress minors and SQLite, but they are not the fast-feedback path for every push or PR.
+
+The nginx smoke workflow is treated as a first-class release gate because it is fast, stable, and catches stack-sensitive issues around routing, cookies, redirects, replay, and AJAX behavior that the default Apache stack can miss.
+
+The scheduled compatibility sweep and SQLite smoke workflow should still be checked before release when the touched code could plausibly affect:
+
+- WordPress version compatibility (`6.3` through `6.6`)
+- MariaDB-specific behavior outside the main integration matrix
+- SQLite request handling, bootstrap timing, or alternate persistence behavior
+- stack-sensitive flows such as redirects, cookies, request replay, and admin/AJAX request handling
+
+When expanding the alternate-stack smoke pack, keep it focused on stack-sensitive behaviors only. Do not clone the full Playwright suite onto every environment. Prefer adding or extending smoke cases when a flow depends on:
+
+- cookies or session persistence
+- redirects or replay after auth
+- admin-bar or AJAX request handling
+- settings POST replay
+- challenge rendering or browser-visible auth transitions
+
 If `mysql` or `mysqladmin` is not found, install client tooling first:
 
 ```bash
