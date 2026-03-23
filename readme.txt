@@ -168,6 +168,9 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 
 == Changelog ==
 
+= Unreleased =
+* **Fix: lockout-expiry recovery on the challenge page** — corrected an edge case where the countdown could reach zero but the server still treated the lockout as active for that exact second, blocking the immediate retry. Password and IP lockouts now expire in sync with the visible countdown, and browser coverage verifies recovery after the countdown ends.
+
 = 2.14.0 =
 * **Feature: Playwright end-to-end coverage** — added browser-verified challenge, cookie, gate UI, admin bar timer, keyboard shortcut, MU-plugin AJAX, multisite network-admin, and visual-regression coverage to exercise the real user flows around reauthentication.
 * **Fix: multisite symlink and network-admin flow hardening** — preserved network-admin return URLs and supported symlinked local multisite installs used in Local and Studio-style development.

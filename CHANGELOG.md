@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Fix: lockout-expiry recovery on the challenge page** — corrected an expiry-boundary edge case where the challenge countdown could reach zero but the server still treated the lockout as active for that exact second, blocking the immediate retry. Password and IP lockouts now expire in sync with the visible countdown, and browser coverage now verifies successful recovery after the countdown ends.
+
 ## 2.14.0
 
 - **Feature: Playwright end-to-end coverage** — added browser-verified challenge, cookie, gate UI, admin bar timer, keyboard shortcut, MU-plugin AJAX, multisite network-admin, and visual-regression coverage to exercise the real user flows around reauthentication.
