@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.1', '8.2', '8.3', '8.4']
+        php: ['8.0', '8.1', '8.2', '8.3', '8.4']
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -39,7 +39,12 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: |
+          if [ "${{ matrix.php }}" = "8.0" ]; then
+            composer install --no-interaction --prefer-dist --ignore-platform-req=php
+          else
+            composer install --no-interaction --prefer-dist
+          fi
 
       - name: Run unit tests
         run: composer test:unit
@@ -92,20 +97,70 @@ jobs:
           verbose: true
 
   integration-tests:
-    name: "Integration Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }}, MS ${{ matrix.multisite }})"
+    name: "Integration Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }}, MS ${{ matrix.multisite }}, ${{ matrix.db_label }})"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.1', '8.3']
-        wp: ['6.7', '7.0-beta4']
-        multisite: [false, true]
+        include:
+          - php: '8.0'
+            wp: '6.2'
+            multisite: false
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.1'
+            wp: '6.7'
+            multisite: false
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.1'
+            wp: '6.7'
+            multisite: true
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.3'
+            wp: '6.7'
+            multisite: false
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.3'
+            wp: '6.7'
+            multisite: true
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.1'
+            wp: '7.0-beta4'
+            multisite: false
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.1'
+            wp: '7.0-beta4'
+            multisite: true
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.3'
+            wp: '7.0-beta4'
+            multisite: false
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.3'
+            wp: '7.0-beta4'
+            multisite: true
+            db_label: 'MySQL 8.0'
+            db_image: 'mysql:8.0'
+          - php: '8.1'
+            wp: '6.7'
+            multisite: false
+            db_label: 'MariaDB LTS'
+            db_image: 'mariadb:lts'
     services:
-      mysql:
-        image: mysql:8.0
+      db:
+        image: ${{ matrix.db_image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
         ports:
           - 3306:3306
         options: >-
@@ -143,7 +198,12 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: |
+          if [ "${{ matrix.php }}" = "8.0" ]; then
+            composer install --no-interaction --prefer-dist --ignore-platform-req=php
+          else
+            composer install --no-interaction --prefer-dist
+          fi
 
       - name: Install WordPress test suite
         run: bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 ${{ matrix.wp }}

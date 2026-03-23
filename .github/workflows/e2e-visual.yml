@@ -7,7 +7,7 @@ on:
 
 jobs:
   e2e-visual:
-    name: "E2E Visual Baselines (non-blocking)"
+    name: "E2E Visual Baselines (Apache + MariaDB, non-blocking)"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 

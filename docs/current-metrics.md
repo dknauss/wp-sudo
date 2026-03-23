@@ -20,10 +20,10 @@ Verification environment: primary local repo checkout at `/Users/danknauss/Devel
 | Metric | Value | Verification |
 |---|---:|---|
 | Production PHP lines (`includes/`, `wp-sudo.php`, `uninstall.php`, `mu-plugin/`, `bridges/`) | 8,963 | `find ./includes ./wp-sudo.php ./uninstall.php ./mu-plugin ./bridges -type f -name "*.php" -print0 | xargs -0 wc -l | tail -1` |
-| Tests PHP lines (`tests/`) | 17,253 | `find ./tests -type f -name "*.php" -print0 | xargs -0 wc -l | tail -1` |
-| Production + tests PHP lines | 26,216 | sum of the two rows above |
-| Test-to-production ratio | 1.92:1 | `17253 / 8963` |
-| Total repo PHP lines (excluding `vendor/`, `vendor_test/`, `.tmp/`, `.git/`) | 26,273 | `find . -type f -name "*.php" ! -path "*/vendor/*" ! -path "*/vendor_test/*" ! -path "*/.tmp/*" ! -path "*/.git/*" -print0 | xargs -0 wc -l | tail -1` |
+| Tests PHP lines (`tests/`) | 17,290 | `find ./tests -type f -name "*.php" -print0 | xargs -0 wc -l | tail -1` |
+| Production + tests PHP lines | 26,253 | sum of the two rows above |
+| Test-to-production ratio | 1.93:1 | `17290 / 8963` |
+| Total repo PHP lines (excluding `vendor/`, `vendor_test/`, `.tmp/`, `.git/`) | 26,310 | `find . -type f -name "*.php" ! -path "*/vendor/*" ! -path "*/vendor_test/*" ! -path "*/.tmp/*" ! -path "*/.git/*" -print0 | xargs -0 wc -l | tail -1` |
 
 ## Architectural Facts
 
@@ -41,7 +41,7 @@ the count in prose without a verification command.
 | Audit hooks | 9 | `grep -c "do_action.*wp_sudo_" includes/class-*.php \| awk -F: '{sum+=$2} END{print sum}'` | v2.11.0 |
 | Settings fields (base) | 5 | 1 numeric (duration) + 4 policy dropdowns (REST, CLI, Cron, XML-RPC) | v2.0.0 |
 | Settings fields (with WPGraphQL) | 6 | +1 conditional WPGraphQL policy dropdown | v2.5.0 |
-| E2E tests | 45 | `npx playwright test --config tests/e2e/playwright.config.ts --list` | unreleased |
+| E2E tests | 47 | `npx playwright test --config tests/e2e/playwright.config.ts --list` | unreleased |
 
 ### Files that reference these counts
 
@@ -61,8 +61,8 @@ value across these known consumers:
 
 Source: `.github/workflows/phpunit.yml`
 
-- Unit test matrix: PHP 8.1, 8.2, 8.3, 8.4
-- Integration matrix: PHP 8.1 and 8.3; WordPress 6.7 and 7.0-beta4; multisite true/false
+- Unit test matrix: PHP 8.0, 8.1, 8.2, 8.3, 8.4
+- Integration matrix: PHP 8.0, 8.1, 8.3; WordPress 6.2, 6.7, 7.0-beta4; MySQL 8.0 plus one MariaDB LTS lane; multisite true/false on the main MySQL lanes
 
 ## Verification Notes
 

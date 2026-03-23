@@ -110,7 +110,7 @@ All 5 phases shipped. Identified by independent assessments from Codex, Gemini, 
 
 ### ✓ CI Matrix — ~~Phase A~~ ✅ Done v2.9.2
 
-- PHP 8.0–8.4, WP 6.7 + latest + trunk, single-site + multisite + PCOV coverage
+- PHP 8.0–8.4 for unit tests; targeted integration coverage for WordPress 6.2, 6.7, and 7.0-beta4; single-site + multisite + PCOV coverage
 
 ---
 
@@ -121,7 +121,7 @@ challenges and priorities for WP Sudo.
 
 Current project state (as of March 8, 2026):
 - Current test and size counts are centralized in [`docs/current-metrics.md`](docs/current-metrics.md).
-- CI pipeline: unit tests on PHP 8.1–8.4; integration tests on PHP 8.1 and 8.3; WordPress 6.7 + latest + trunk; single-site + multisite + PCOV coverage job
+- CI pipeline: unit tests on PHP 8.0–8.4; integration tests on PHP 8.0/8.1/8.3; WordPress 6.2, 6.7, and 7.0-beta4; single-site + multisite; MySQL 8.0 plus one MariaDB lane; PCOV coverage job
 - WordPress 7.0 Beta 2 tested (February 27, 2026); GA is April 9, 2026
 
 ---
@@ -129,9 +129,10 @@ Current project state (as of March 8, 2026):
 ## 1. Integration Tests — Scope and Value
 
 > **Status: Complete.** The integration test suite shipped in v2.4.0 (55 tests) and
-> expanded in v2.4.1 (73 tests). CI runs against PHP 8.1–8.4, WordPress latest +
-> trunk, single-site + multisite. The analysis below is preserved for context on
-> what drove the test design.
+> expanded in v2.4.1 (73 tests). CI now runs targeted compatibility lanes across
+> PHP 8.0/8.1/8.3 and WordPress 6.2, 6.7, and 7.0-beta4 with single-site +
+> multisite coverage. The analysis below is preserved for context on what drove
+> the test design.
 
 ### What unit tests cover well (no integration gap)
 - Request matching across all 7 surfaces (98 GateTest methods)
@@ -402,10 +403,10 @@ Local by Flywheel sites. Gaps remain in CI and broader hosting diversity.
 
 | Dimension | Current coverage | Gap |
 |-----------|-----------------|-----|
-| **Web server** | nginx (Studio, Local multisite-subdirectory) + Apache (Local single-site, Local multisite-subdomain) | Apache in CI (mod_php, FastCGI, FPM variants) |
-| **PHP version** | 8.0–8.4 (CI matrix), 8.2 (Local dev) | ✅ Covered — PHP 8.0 added to CI v2.9.2 |
-| **Database** | MySQL 8.0 (Local CI), SQLite (Studio) | MariaDB 10.x, MySQL 5.7 (legacy hosts) |
-| **WordPress version** | 6.7 + latest + trunk (CI), 6.9.1–7.0-beta2 (dev sites) | 6.2–6.6 still untested; 6.7+ now covered in CI |
+| **Web server** | Apache + MariaDB (`wp-env` Playwright CI), nginx + SQLite (Studio local), nginx/Apache + MySQL (Local manual) | nginx in automated CI; Apache variants beyond the default `wp-env` stack |
+| **PHP version** | 8.0–8.4 (unit CI), 8.0/8.1/8.3 (integration CI), 8.2 (Studio/wp-env local) | 8.2 and 8.4 are still missing from integration CI |
+| **Database** | MySQL 8.0 (integration CI), MariaDB LTS (`wp-env` CI + one integration lane), SQLite (Studio local) | automated SQLite CI, MariaDB matrix breadth, MySQL 5.7 legacy hosts |
+| **WordPress version** | 6.2 support-floor lane, 6.7 stable lane, 7.0-beta4 forward lane | 6.3–6.6 still untested in automation |
 | **OS** | macOS (dev), Ubuntu 24.04 (CI) | Windows (if any WP-CLI or path handling is OS-sensitive) |
 | **Hosting stack** | Bare local dev | Shared hosting (cPanel), managed WP (Pressable, WP Engine, Cloudways), containerized (Docker, Kubernetes) |
 
@@ -421,21 +422,20 @@ Local by Flywheel sites. Gaps remain in CI and broader hosting diversity.
   `json_validate()` (8.3+), readonly properties (8.2+).
 - **Database engine:** MariaDB and MySQL have subtle JSON and collation differences.
   The upgrader migration chain and option serialization could behave differently.
-- **Backward compat:** The plugin declares WordPress 6.2+ minimum. CI now tests
-  6.7, latest, and trunk. WP 6.2–6.6 remain untested — 6.7 is a reasonable floor
-  covering most active hosts.
+- **Backward compat:** The plugin declares WordPress 6.2+ minimum. CI now includes
+  a dedicated 6.2 floor lane, plus 6.7 and 7.0-beta4. WP 6.3–6.6 remain untested.
 
 ### Recommended approach
 
-**Phase A: Expand CI matrix** ✅ Done v2.9.2
+**Phase A: Expand CI matrix** ✅ Done v2.9.2, extended in v2.14.x
 
-CI matrix now covers PHP 8.0–8.4 (unit tests) and PHP 8.0/8.1/8.3 × WP 6.7/latest/trunk × single-site/multisite (18 integration runs). Further backward compat expansion (WP 6.2–6.6) can be added incrementally if 6.7 runs cleanly.
+CI matrix now covers PHP 8.0–8.4 for unit tests, a 6.2 support-floor integration lane on PHP 8.0, stable/forward integration lanes on PHP 8.1 and 8.3 for WordPress 6.7 and 7.0-beta4, and one dedicated MariaDB lane. Further backward compat expansion (WP 6.3–6.6) can be added incrementally if the 6.2 floor lane stays green.
 
-**Phase B: Apache + MariaDB CI job (medium effort)**
+**Phase B: Apache + MariaDB CI job** ✅ Covered by Playwright `wp-env`
 
-Add a separate CI job that runs on an Apache + MariaDB container instead of the
-default nginx + MySQL. This catches `.htaccess`-dependent behavior and MariaDB
-query differences.
+The Playwright workflow already runs against the default `wp-env` Docker stack,
+which is Apache + MariaDB. That lane is now named explicitly in CI so it is
+visible as an intentional compatibility signal rather than an accidental default.
 
 **Phase C: Manual testing matrix (low effort, recurring)**
 

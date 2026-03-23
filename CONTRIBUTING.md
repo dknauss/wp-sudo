@@ -90,6 +90,21 @@ npm run test:e2e:local
 
 Use the local site's real admin credentials. `WP_BASE_URL` can be `http://` or `https://` depending on your local environment.
 
+For WordPress Studio, use the Studio site's localhost port directly. Studio is the
+recommended local path for SQLite-focused verification because it avoids pretending
+that the default `wp-env` Docker stack exercises SQLite:
+
+```bash
+WP_BASE_URL="http://localhost:8881" \
+WP_USERNAME="admin" \
+WP_PASSWORD="password" \
+npm run test:e2e:local
+```
+
+If you point Playwright at a Studio site, keep `WP_BASE_URL` and `WP_REQUEST_BASE_URL`
+on the same `localhost:<port>` origin unless you intentionally configured a custom
+domain for that Studio instance.
+
 To run the multisite network-admin regression against the `multisite-subdomains` Local site:
 
 ```bash

@@ -8,7 +8,7 @@ on:
 
 jobs:
   e2e-tests:
-    name: "E2E Tests (Playwright)"
+    name: "E2E Tests (Playwright, Apache + MariaDB)"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 

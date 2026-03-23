@@ -21,14 +21,42 @@ MYSQLADMIN_BIN=""
 LOCAL_SOCKET_HOST_DETECTED=false
 
 download() {
-    if [ `which curl` ]; then
-        curl -sL "$1" > "$2";
-    elif [ `which wget` ]; then
-        wget -nv -O "$2" "$1"
-    else
-        echo "Error: Neither curl nor wget is installed."
-        exit 1
-    fi
+	local url="$1"
+	local destination="$2"
+	local tmp_destination="${destination}.tmp"
+	local attempt=1
+	local max_attempts=5
+	local sleep_seconds=2
+
+	while [ "$attempt" -le "$max_attempts" ]; do
+		rm -f "$tmp_destination"
+
+		if command -v curl > /dev/null 2>&1; then
+			if curl -fsSL --connect-timeout 15 --max-time 300 "$url" -o "$tmp_destination"; then
+				mv "$tmp_destination" "$destination"
+				return 0
+			fi
+		elif command -v wget > /dev/null 2>&1; then
+			if wget -q -T 30 -O "$tmp_destination" "$url"; then
+				mv "$tmp_destination" "$destination"
+				return 0
+			fi
+		else
+			echo "Error: Neither curl nor wget is installed."
+			exit 1
+		fi
+
+		if [ "$attempt" -lt "$max_attempts" ]; then
+			echo "Download failed (attempt $attempt/$max_attempts): $url"
+			sleep "$sleep_seconds"
+			sleep_seconds=$(( sleep_seconds * 2 ))
+		fi
+
+		attempt=$(( attempt + 1 ))
+	done
+
+	echo "Error: failed to download $url after $max_attempts attempts."
+	exit 1
 }
 
 # Check if svn is installed
@@ -153,7 +181,7 @@ elif [[ $WP_VERSION == 'nightly' || $WP_VERSION == 'trunk' ]]; then
 	WP_TESTS_TAG="trunk"
 else
 	# http serves a single offer, whereas https serves multiple. we only want one
-	download http://api.wordpress.org/core/version-check/1.7/ /tmp/wp-latest.json
+	download https://api.wordpress.org/core/version-check/1.7/ /tmp/wp-latest.json
 	grep '[0-9]+\.[0-9]+(\.[0-9]+)?' /tmp/wp-latest.json
 	LATEST_VERSION=$(grep -o '"version":"[^"]*' /tmp/wp-latest.json | sed 's/"version":"//')
 	if [[ -z "$LATEST_VERSION" ]]; then
