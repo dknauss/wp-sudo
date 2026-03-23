@@ -1,5 +1,5 @@
 /**
- * Challenge flow tests — CHAL-01 through CHAL-13
+ * Challenge flow tests — CHAL-01 through CHAL-14
  *
  * Tests the full stash-challenge-replay flow and challenge page form elements.
  *
@@ -1281,5 +1281,93 @@ test.describe( 'Challenge flow', () => {
             hasSudoCookie,
             'The post-lockout recovery retry should create a fresh sudo session cookie'
         ).toBe( true );
+    } );
+
+    /**
+     * CHAL-14: After the 2FA lockout countdown ends, a correct code should recover immediately.
+     */
+    test( 'CHAL-14: 2FA lockout expiry allows a later successful retry', async ( {
+        page,
+    } ) => {
+        await enableE2eTwoFactor();
+        await setE2eLockoutSeconds( 3 );
+
+        try {
+            await reachTwoFactorStep( page );
+
+            for ( let attempt = 1; attempt <= 3; attempt++ ) {
+                await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+                await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+                await expect(
+                    page.locator( '#wp-sudo-challenge-2fa-error' ),
+                    `Invalid 2FA attempt ${ attempt } should still surface the normal inline auth error`
+                ).toContainText( 'Invalid authentication code', { timeout: 10_000 } );
+            }
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The 4th invalid 2FA code should trigger the short throttle before the shortened lockout'
+            ).toBeDisabled();
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The short throttle must expire before the lockout-triggering 2FA retry'
+            ).toBeEnabled( { timeout: 10_000 } );
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', '000000' );
+            await page.click( '#wp-sudo-challenge-2fa-submit' );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The shortened 2FA lockout should render the lockout countdown on the 2FA step'
+            ).toContainText( 'Too many failed attempts', { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The 2FA submit button should stay disabled while the shortened lockout runs'
+            ).toBeDisabled();
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-submit' ),
+                'The shortened 2FA lockout countdown should complete and re-enable the 2FA form'
+            ).toBeEnabled( { timeout: 10_000 } );
+
+            await expect(
+                page.locator( '#wp-sudo-challenge-2fa-error' ),
+                'The 2FA lockout notice should clear when the shortened countdown ends'
+            ).toBeHidden( { timeout: 10_000 } );
+
+            await page.fill( '#wp-sudo-e2e-two-factor-code', E2E_TWO_FACTOR_CODE );
+
+            await Promise.all( [
+                page.waitForURL(
+                    ( url ) =>
+                        url.pathname.includes( '/wp-admin/' ) &&
+                        ! url.search.includes( 'wp-sudo-challenge' ),
+                    { timeout: 15_000 }
+                ),
+                page.click( '#wp-sudo-challenge-2fa-submit' ),
+            ] );
+
+            await expect(
+                page,
+                'A correct 2FA code should succeed immediately once the lockout countdown has fully expired'
+            ).toHaveURL( /\/wp-admin\// );
+
+            const hasSudoCookie = ( await page.context().cookies() ).some(
+                ( cookie ) => cookie.name === 'wp_sudo_token'
+            );
+
+            expect(
+                hasSudoCookie,
+                'The post-lockout 2FA recovery retry should create a fresh sudo session cookie'
+            ).toBe( true );
+        } finally {
+            await disableE2eTwoFactor();
+        }
     } );
 } );
