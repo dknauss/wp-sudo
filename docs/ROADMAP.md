@@ -403,10 +403,10 @@ Local by Flywheel sites. Gaps remain in CI and broader hosting diversity.
 
 | Dimension | Current coverage | Gap |
 |-----------|-----------------|-----|
-| **Web server** | Apache + MariaDB (`wp-env` Playwright CI), nginx + SQLite (Studio local), nginx/Apache + MySQL (Local manual) | nginx in automated CI; Apache variants beyond the default `wp-env` stack |
+| **Web server** | Apache + MariaDB (`wp-env` Playwright CI), nginx + php-fpm + MariaDB (stack-smoke CI), nginx + SQLite (Studio local), nginx/Apache + MySQL (Local manual) | full browser suite still runs only on the default Apache stack |
 | **PHP version** | 8.0–8.4 (unit CI), 8.0/8.1/8.3 (integration CI), 8.2 (Studio/wp-env local) | 8.2 and 8.4 are still missing from integration CI |
-| **Database** | MySQL 8.0 (integration CI), MariaDB LTS (`wp-env` CI + one integration lane), SQLite (Studio local) | automated SQLite CI, MariaDB matrix breadth, MySQL 5.7 legacy hosts |
-| **WordPress version** | 6.2 support-floor lane, 6.7 stable lane, 7.0-beta4 forward lane | 6.3–6.6 still untested in automation |
+| **Database** | MySQL 8.0 (integration CI), MariaDB LTS (`wp-env` CI + one integration lane), SQLite (Playground stack-smoke CI + Studio local) | MariaDB matrix breadth, MySQL 5.7 legacy hosts |
+| **WordPress version** | 6.2 support-floor lane, 6.3–6.6 scheduled compat sweep, 6.7 stable lane, 7.0-beta4 forward lane | 6.3–6.6 are not part of required push/PR CI yet |
 | **OS** | macOS (dev), Ubuntu 24.04 (CI) | Windows (if any WP-CLI or path handling is OS-sensitive) |
 | **Hosting stack** | Bare local dev | Shared hosting (cPanel), managed WP (Pressable, WP Engine, Cloudways), containerized (Docker, Kubernetes) |
 
@@ -423,13 +423,14 @@ Local by Flywheel sites. Gaps remain in CI and broader hosting diversity.
 - **Database engine:** MariaDB and MySQL have subtle JSON and collation differences.
   The upgrader migration chain and option serialization could behave differently.
 - **Backward compat:** The plugin declares WordPress 6.2+ minimum. CI now includes
-  a dedicated 6.2 floor lane, plus 6.7 and 7.0-beta4. WP 6.3–6.6 remain untested.
+  a dedicated 6.2 floor lane, a scheduled 6.3–6.6 compatibility sweep, plus 6.7
+  and 7.0-beta4 lanes.
 
 ### Recommended approach
 
 **Phase A: Expand CI matrix** ✅ Done v2.9.2, extended in v2.14.x
 
-CI matrix now covers PHP 8.0–8.4 for unit tests, a 6.2 support-floor integration lane on PHP 8.0, stable/forward integration lanes on PHP 8.1 and 8.3 for WordPress 6.7 and 7.0-beta4, and one dedicated MariaDB lane. Further backward compat expansion (WP 6.3–6.6) can be added incrementally if the 6.2 floor lane stays green.
+CI matrix now covers PHP 8.0–8.4 for unit tests, a 6.2 support-floor integration lane on PHP 8.0, stable/forward integration lanes on PHP 8.1 and 8.3 for WordPress 6.7 and 7.0-beta4, one dedicated MariaDB lane, and a scheduled WordPress 6.3–6.6 compatibility sweep on PHP 8.1.
 
 **Phase B: Apache + MariaDB CI job** ✅ Covered by Playwright `wp-env`
 
@@ -445,9 +446,11 @@ release, run the manual guide on at least:
 - One managed WordPress host (Pressable, WP Engine, or Cloudways free trial)
 - The minimum supported WordPress version (currently 6.2)
 
-**Phase D: Docker-based local testing (medium effort)**
+**Phase D: Docker-based local testing (medium effort)** ➜ partially completed
 
-Create a `docker-compose.yml` with switchable profiles:
+The repo now has a dedicated nginx + php-fpm + MariaDB Compose stack under
+`.github/docker/` for CI/browser smoke coverage. A broader contributor-friendly
+multi-profile local stack is still future work:
 - `apache-mysql` (the classic LAMP stack)
 - `nginx-mariadb` (alternative)
 - `apache-sqlite` (WP 6.4+ SQLite support)
@@ -471,15 +474,16 @@ Specifically, the repo now has:
 - unit CI on PHP `8.0`–`8.4`
 - integration CI on PHP `8.0`/`8.1`/`8.3`
 - automated WordPress lanes for `6.2`, `6.7`, and `7.0-beta4`
+- a scheduled WordPress `6.3`–`6.6` compatibility sweep
 - one MariaDB integration lane in addition to the main MySQL `8.0` matrix
 - Playwright E2E on Apache + MariaDB via `wp-env`
+- Playwright stack-smoke coverage on explicit nginx + php-fpm + MariaDB
+- Playwright stack-smoke coverage on Playground SQLite
 - local/manual SQLite verification documented for Studio
 
 Still missing from automation:
-- WordPress `6.3`–`6.6`
-- explicit nginx CI
-- automated SQLite CI
 - broader MariaDB and legacy-MySQL breadth
+- full browser-suite parity on alternate stacks
 
 That is a good balance for current plugin risk: the dangerous-action challenge and replay flows are well covered, while future matrix expansion should focus on compatibility breadth rather than adding more low-signal tests to already-covered flows.
 

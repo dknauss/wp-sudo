@@ -1,0 +1,77 @@
+name: E2E SQLite Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * 4'
+
+jobs:
+  e2e-sqlite-smoke:
+    name: "E2E Stack Smoke (Playground SQLite)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start Playground SQLite stack
+        run: |
+          nohup npx @wp-playground/cli@3.1.13 server \
+            --port=9400 \
+            --site-url=http://127.0.0.1:9400 \
+            --wp=6.7 \
+            --php=8.3 \
+            --mount-dir . /wordpress/wp-content/plugins/wp-sudo \
+            --blueprint=.github/playground/sqlite-stack-smoke.blueprint.json \
+            > playground.log 2>&1 &
+          echo $! > playground.pid
+
+      - name: Wait for Playground WordPress to be ready
+        run: |
+          for i in $(seq 1 45); do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9400/wp-login.php | grep -q "200"; then
+              echo "WordPress is ready"
+              exit 0
+            fi
+            echo "Waiting for WordPress... (attempt $i)"
+            sleep 2
+          done
+          exit 1
+
+      - name: Run stack smoke tests
+        env:
+          WP_BASE_URL: http://127.0.0.1:9400
+          WP_REQUEST_BASE_URL: http://127.0.0.1:9400
+        run: npm run test:e2e:stack-smoke
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-sqlite-report
+          path: |
+            playground.log
+            playwright-report/
+            tests/e2e/artifacts/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Stop Playground SQLite stack
+        if: always()
+        run: |
+          if [ -f playground.pid ]; then
+            kill "$(cat playground.pid)" || true
+          fi

@@ -1,0 +1,80 @@
+import { test, expect, activateSudoSession } from '../fixtures/test';
+
+test.describe( 'WP Sudo alternative stack smoke tests', () => {
+    test( 'STACK-01: admin dashboard and settings page load', async ( {
+        visitAdminPage,
+        page,
+    } ) => {
+        await visitAdminPage( 'index.php' );
+
+        await expect( page ).toHaveURL( /\/wp-admin\/(?:index\.php)?$/ );
+        await expect( page.locator( '#wpbody' ) ).toBeVisible();
+
+        await visitAdminPage( 'options-general.php', 'page=wp-sudo-settings' );
+
+        await expect( page ).toHaveURL( /page=wp-sudo-settings$/ );
+        await expect( page.locator( 'h1' ) ).toContainText( 'Sudo' );
+        await expect( page.locator( '.wrap' ) ).toBeVisible();
+    } );
+
+    test( 'STACK-02: session-only challenge activates sudo and sets the cookie', async ( {
+        page,
+        context,
+    } ) => {
+        await activateSudoSession( page );
+
+        await expect( page ).toHaveURL( /\/wp-admin\/(?:index\.php)?$/ );
+        await expect( page.locator( '#wp-admin-bar-wp-sudo-active' ) ).toBeVisible();
+
+        const cookies = await context.cookies();
+        expect(
+            cookies.find( ( cookie ) => cookie.name === 'wp_sudo_token' )
+        ).toBeDefined();
+    } );
+
+    test( 'STACK-03: stashed settings POST replays after password auth', async ( {
+        page,
+    } ) => {
+        await page.goto( '/wp-admin/options-general.php?page=wp-sudo-settings' );
+        await expect( page ).toHaveURL(
+            /\/wp-admin\/options-general\.php\?page=wp-sudo-settings$/
+        );
+
+        const sessionDuration = page.locator( '#session_duration' );
+        const originalValue = await sessionDuration.inputValue();
+        const updatedValue = originalValue === '14' ? '13' : '14';
+
+        await sessionDuration.fill( updatedValue );
+
+        await Promise.all( [
+            page.waitForURL( /page=wp-sudo-challenge/, { timeout: 15_000 } ),
+            page.locator( '#submit' ).click(),
+        ] );
+
+        await page.waitForFunction(
+            () => typeof ( window as Window & { wpSudoChallenge?: unknown } ).wpSudoChallenge !== 'undefined'
+        );
+        await page.fill( '#wp-sudo-challenge-password', 'password' );
+
+        await Promise.all( [
+            page.waitForURL(
+                /\/wp-admin\/options-general\.php\?page=wp-sudo-settings$/,
+                { timeout: 15_000 }
+            ),
+            page.click( '#wp-sudo-challenge-submit' ),
+        ] );
+
+        await expect( sessionDuration ).toHaveValue( updatedValue );
+
+        // Restore the original setting so stack smoke runs stay side-effect-light.
+        await sessionDuration.fill( originalValue );
+        await Promise.all( [
+            page.waitForURL(
+                /\/wp-admin\/options-general\.php\?page=wp-sudo-settings$/,
+                { timeout: 15_000 }
+            ),
+            page.locator( '#submit' ).click(),
+        ] );
+        await expect( sessionDuration ).toHaveValue( originalValue );
+    } );
+} );

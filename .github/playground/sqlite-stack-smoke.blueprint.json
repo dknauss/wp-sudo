@@ -1,0 +1,20 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "6.7"
+  },
+  "landingPage": "/wp-admin/options-general.php?page=wp-sudo-settings",
+  "steps": [
+    {
+      "step": "activatePlugin",
+      "pluginName": "WP Sudo",
+      "pluginPath": "wp-sudo/wp-sudo.php"
+    },
+    {
+      "step": "login",
+      "username": "admin",
+      "password": "password"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+name: E2E Nginx Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 2'
+
+jobs:
+  e2e-nginx-smoke:
+    name: "E2E Stack Smoke (nginx + php-fpm + MariaDB)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start nginx stack
+        run: docker compose -f .github/docker/nginx-mariadb.compose.yml up -d --wait db php nginx
+
+      - name: Install WordPress and activate WP Sudo
+        run: |
+          docker compose -f .github/docker/nginx-mariadb.compose.yml run --rm cli wp core install \
+            --path=/var/www/html \
+            --url=http://127.0.0.1:9080 \
+            --title='WP Sudo Nginx Smoke' \
+            --admin_user=admin \
+            --admin_password=password \
+            --admin_email=dev@example.com \
+            --skip-email
+          docker compose -f .github/docker/nginx-mariadb.compose.yml run --rm cli wp plugin activate wp-sudo --path=/var/www/html
+
+      - name: Wait for nginx WordPress to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9080/wp-login.php | grep -q "200"; then
+              echo "WordPress is ready"
+              exit 0
+            fi
+            echo "Waiting for WordPress... (attempt $i)"
+            sleep 2
+          done
+          exit 1
+
+      - name: Run stack smoke tests
+        env:
+          WP_BASE_URL: http://127.0.0.1:9080
+          WP_REQUEST_BASE_URL: http://127.0.0.1:9080
+        run: npm run test:e2e:stack-smoke
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-nginx-report
+          path: |
+            playwright-report/
+            tests/e2e/artifacts/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Stop nginx stack
+        if: always()
+        run: docker compose -f .github/docker/nginx-mariadb.compose.yml down -v

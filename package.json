@@ -9,6 +9,7 @@
     "local:plugin": "bash bin/local-plugin-dev.sh",
     "test:e2e": "playwright test --config tests/e2e/playwright.config.ts --project=chromium",
     "test:e2e:all": "playwright test --config tests/e2e/playwright.config.ts",
+    "test:e2e:stack-smoke": "playwright test --config tests/e2e/playwright.config.ts --project=chromium tests/e2e/specs/stack-smoke.spec.ts",
     "test:e2e:local": "playwright test --config tests/e2e/playwright.config.ts --project=chromium",
     "test:e2e:local:multisite": "playwright test --config tests/e2e/playwright.config.ts --project=chromium tests/e2e/specs/multisite-network-admin.spec.ts",
     "test:e2e:visual": "playwright test --config tests/e2e/playwright.config.ts --project=chromium-visual",

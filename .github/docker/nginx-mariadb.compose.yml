@@ -1,0 +1,61 @@
+services:
+  db:
+    image: mariadb:lts
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpress
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_AUTO_UPGRADE: '1'
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  php:
+    image: wordpress:php8.3-fpm
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_CONFIG_EXTRA: |
+        define( 'FS_METHOD', 'direct' );
+    volumes:
+      - wordpress:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/wp-sudo
+
+  nginx:
+    image: nginx:1.28-alpine
+    depends_on:
+      - php
+    ports:
+      - '9080:80'
+    volumes:
+      - wordpress:/var/www/html:ro
+      - ../..:/var/www/html/wp-content/plugins/wp-sudo:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+  cli:
+    image: wordpress:cli-php8.3
+    depends_on:
+      db:
+        condition: service_healthy
+      php:
+        condition: service_started
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/wp-sudo
+
+volumes:
+  wordpress:
