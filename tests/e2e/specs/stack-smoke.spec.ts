@@ -122,4 +122,29 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
 
         await expect( page.locator( 'h1' ) ).toContainText( 'Sudo' );
     } );
+
+    test( 'STACK-06: cancel respects an explicit return_url without creating a sudo cookie', async ( {
+        page,
+        context,
+    } ) => {
+        await page.goto( '/wp-admin/options-general.php?page=wp-sudo-settings' );
+        const returnUrl = page.url();
+
+        await page.goto(
+            '/wp-admin/admin.php?page=wp-sudo-challenge&return_url=' +
+                encodeURIComponent( returnUrl )
+        );
+
+        await Promise.all( [
+            page.waitForURL( returnUrl, { timeout: 15_000 } ),
+            page.locator( '#wp-sudo-challenge-password-step a.button:has-text("Cancel")' ).click(),
+        ] );
+
+        await expect( page.locator( 'h1' ) ).toContainText( 'Sudo' );
+
+        const cookies = await context.cookies();
+        expect(
+            cookies.find( ( cookie ) => cookie.name === 'wp_sudo_token' )
+        ).toBeUndefined();
+    } );
 } );
