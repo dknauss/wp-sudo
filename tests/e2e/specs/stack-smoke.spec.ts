@@ -225,7 +225,7 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
         ).toBeUndefined();
     } );
 
-    test( 'STACK-09: cookie-auth REST delete fails closed without an active sudo session', async ( {
+    test( 'STACK-09: cookie-auth REST plugin install fails closed without an active sudo session', async ( {
         page,
         context,
     } ) => {
@@ -244,12 +244,17 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
                 { credentials: 'same-origin' }
             ).then( ( response ) => response.text() );
 
-            const response = await fetch( '/?rest_route=/wp/v2/plugins/hello', {
-                method: 'DELETE',
+            const response = await fetch( '/?rest_route=/wp/v2/plugins', {
+                method: 'POST',
                 credentials: 'same-origin',
                 headers: {
+                    'Content-Type': 'application/json',
                     'X-WP-Nonce': nonce,
                 },
+                body: JSON.stringify( {
+                    slug: 'hello-dolly',
+                    status: 'inactive',
+                } ),
             } );
 
             const text = await response.text();
@@ -268,7 +273,7 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
 
         expect( result.status ).toBe( 403 );
         expect( result.body?.code ).toBe( 'sudo_required' );
-        expect( result.body?.data?.rule_id ).toBe( 'plugin.delete' );
+        expect( result.body?.data?.rule_id ).toBe( 'plugin.install' );
 
         const updatedCookies = await context.cookies();
         expect(
