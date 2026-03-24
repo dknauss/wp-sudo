@@ -377,7 +377,7 @@ not context retrieval.
 
 ## Recommended Next Steps (Priority Order)
 
-> Steps 1–12 completed in v2.4.0–v2.12.0 development. Updated March 8, 2026.
+> Steps 1–16 completed in v2.4.0–v2.14.x development. Updated March 24, 2026.
 
 1. ~~Add TDD requirement to CLAUDE.md~~ — done (v2.4.0)
 2. ~~Install WP 7.0 Beta 1, run manual testing guide~~ — done (v2.4.0)
@@ -391,10 +391,49 @@ not context retrieval.
 10. ~~**Security hardening sprint** — stash redaction, upload-action gating, non-blocking rate limiting~~ — done (v2.10.2–v2.11.0)
 11. ~~**Rule-schema validation and MU loader resilience**~~ — done (v2.11.0)
 12. ~~**WSAL sensor extension and GraphQL persisted-query strategy**~~ — done (v2.11.0)
-13. **Plan environment diversity testing** (see section 5)
+13. ~~**Plan environment diversity testing**~~ — done (see section 5)
 14. ~~**Multi-dimensional rate limiting (IP + user)**~~ — done (v2.13.0)
-15. **Playwright E2E test infrastructure** — close JS/browser coverage gaps
-16. **Apache + MariaDB CI job** — expand environment diversity in CI
+15. ~~**Playwright E2E test infrastructure**~~ — done; browser coverage and alternate-stack smoke lanes are in place
+16. ~~**Apache + MariaDB CI job**~~ — done; covered by the named `wp-env` Playwright lane
+
+### Post-7.0 Priority Plan
+
+Once WordPress 7.0 GA is signed off and the compatibility release work is closed,
+the recommended implementation order is:
+
+1. **Finish WP 7.0 GA cleanup**
+   - Bump `Tested up to`
+   - Cut the next release with the already-queued unreleased notes
+   - Remove the temporary `handle_err_admin_role()` workaround if core `#64690` shipped as expected
+   - **Effort:** Low
+2. **Strengthen release-only environment checks instead of broadening required CI**
+   - Add the managed-host/manual environment checklist promised in section 5
+   - Keep SQLite as smoke/release assurance, not a required merge gate
+   - Add breadth only where a real compatibility signal is missing
+   - **Effort:** Low to medium
+3. **Build the Session Activity Dashboard Widget**
+   - This is the smallest meaningful product feature still open
+   - It adds operator value without forcing a major challenge-flow redesign
+   - It will also establish the audit-data persistence layer that other visibility features could reuse
+   - **Effort:** Medium
+4. **Design Gutenberg Block Editor integration before implementation**
+   - Treat this as the next major UX milestone, not an opportunistic patch
+   - Start with a design phase: challenge transport, snackbar UX, replay model, and test strategy
+   - Only implement after the challenge component boundaries are explicit
+   - **Effort:** High
+5. **Re-evaluate multisite Network Policy Hierarchy after the dashboard/audit work**
+   - This remains valuable, but only for a narrower audience
+   - It becomes easier once policy state and audit visibility are clearer
+   - **Effort:** High
+
+### Post-7.0 Backlog Triage
+
+Use this default order after the GA release unless a real user need overrides it:
+
+- **Do next:** Session Activity Dashboard Widget
+- **Plan next:** Gutenberg Block Editor Integration
+- **Do later if demand exists:** Network Policy Hierarchy for Multisite
+- **Keep as design backlog:** client-side modal challenge, per-session sudo isolation, REST sudo grant endpoint, SSO/SAML/OIDC framework
 
 ---
 
