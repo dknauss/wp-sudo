@@ -5,8 +5,21 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PHPUNIT_CONFIG="${1:-phpunit-integration.xml.dist}"
 WP_MULTISITE_VALUE="${WP_MULTISITE:-}"
-WP_TESTS_CONFIG_DEFAULT="$REPO_ROOT/.tmp/wordpress-tests-lib/wp-tests-config.php"
 MYSQLADMIN_BIN=""
+
+resolve_wp_tests_config_path() {
+	if [ -n "${WP_TESTS_CONFIG:-}" ]; then
+		printf '%s\n' "$WP_TESTS_CONFIG"
+		return 0
+	fi
+
+	if [ -n "${WP_TESTS_DIR:-}" ]; then
+		printf '%s/wp-tests-config.php\n' "${WP_TESTS_DIR%/}"
+		return 0
+	fi
+
+	printf '%s/.tmp/wordpress-tests-lib/wp-tests-config.php\n' "$REPO_ROOT"
+}
 
 find_wp_env_tests_container() {
 	docker ps --format '{{.Names}}' 2>/dev/null | grep -E -- '-tests-cli-1$' | head -n 1 || true
@@ -125,11 +138,17 @@ main() {
 	local db_password=""
 	local tests_container=""
 	local wp_version=""
+	local wp_tests_config=""
+
+	if [ -n "${CI:-}" ] && [ -n "${WP_TESTS_DIR:-}" ] && [ -f "${WP_TESTS_DIR%/}/wp-tests-config.php" ]; then
+		exec ./vendor/bin/phpunit --configuration "$PHPUNIT_CONFIG"
+	fi
 
 	MYSQLADMIN_BIN="$(resolve_mysqladmin_bin || true)"
-	db_host="$(extract_db_host "${WP_TESTS_CONFIG:-$WP_TESTS_CONFIG_DEFAULT}" "DB_HOST" || true)"
-	db_user="$(extract_db_host "${WP_TESTS_CONFIG:-$WP_TESTS_CONFIG_DEFAULT}" "DB_USER" || true)"
-	db_password="$(extract_db_host "${WP_TESTS_CONFIG:-$WP_TESTS_CONFIG_DEFAULT}" "DB_PASSWORD" || true)"
+	wp_tests_config="$(resolve_wp_tests_config_path)"
+	db_host="$(extract_db_host "$wp_tests_config" "DB_HOST" || true)"
+	db_user="$(extract_db_host "$wp_tests_config" "DB_USER" || true)"
+	db_password="$(extract_db_host "$wp_tests_config" "DB_PASSWORD" || true)"
 
 	if [ -n "$db_host" ] && host_db_reachable "$db_host" "$db_user" "$db_password"; then
 		exec ./vendor/bin/phpunit --configuration "$PHPUNIT_CONFIG"
@@ -146,7 +165,7 @@ main() {
 	if [ -n "$db_host" ]; then
 		echo "Configured integration DB host is unreachable: $db_host" >&2
 	else
-		echo "No integration DB host could be read from ${WP_TESTS_CONFIG:-$WP_TESTS_CONFIG_DEFAULT}" >&2
+		echo "No integration DB host could be read from $wp_tests_config" >&2
 	fi
 
 	echo "Start a reachable test database or a wp-env tests-cli container, then retry." >&2
