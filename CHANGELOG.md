@@ -6,6 +6,7 @@
 - **Tests: expanded 2FA recovery replay coverage** — browser coverage now verifies stash replay after 2FA lockout expiry for GET and POST actions, and covers the provider resend branch before a later successful replay.
 - **Testing workflow: compatibility breadth expansion** — added a scheduled WordPress `6.3`–`6.6` integration sweep on PHP `8.1`, plus explicit browser smoke workflows for nginx + php-fpm + MariaDB and Playground SQLite so alternate-stack compatibility is continuously exercised instead of remaining local-only.
 - **Tests: alternate-stack smoke coverage** — added a reusable Playwright smoke pack that proves admin load, session-only challenge success, and stashed settings POST replay across the default Apache stack and the new nginx/SQLite lanes.
+- **Tests: dedicated multisite alternate-stack lane** — added a separate nginx + MariaDB multisite smoke workflow for network-admin challenge cancel and stashed POST replay, and scoped those browser cases to that dedicated lane so the default single-site Playwright suite stays stable.
 
 ## 2.14.0
 
