@@ -244,7 +244,7 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
                 { credentials: 'same-origin' }
             ).then( ( response ) => response.text() );
 
-            const response = await fetch( '/wp-json/wp/v2/plugins/hello', {
+            const response = await fetch( '/?rest_route=/wp/v2/plugins/hello', {
                 method: 'DELETE',
                 credentials: 'same-origin',
                 headers: {
@@ -252,15 +252,23 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
                 },
             } );
 
+            const text = await response.text();
+            let body;
+            try {
+                body = JSON.parse( text );
+            } catch {
+                body = text;
+            }
+
             return {
                 status: response.status,
-                json: await response.json(),
+                body,
             };
         } );
 
         expect( result.status ).toBe( 403 );
-        expect( result.json?.code ).toBe( 'sudo_required' );
-        expect( result.json?.data?.rule_id ).toBe( 'plugin.delete' );
+        expect( result.body?.code ).toBe( 'sudo_required' );
+        expect( result.body?.data?.rule_id ).toBe( 'plugin.delete' );
 
         const updatedCookies = await context.cookies();
         expect(
