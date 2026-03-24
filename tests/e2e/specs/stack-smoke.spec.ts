@@ -224,4 +224,47 @@ test.describe( 'WP Sudo alternative stack smoke tests', () => {
             updatedCookies.find( ( cookie ) => cookie.name === 'wp_sudo_token' )
         ).toBeUndefined();
     } );
+
+    test( 'STACK-09: cookie-auth REST delete fails closed without an active sudo session', async ( {
+        page,
+        context,
+    } ) => {
+        const cookies = await context.cookies();
+        const authCookies = cookies.filter(
+            ( cookie ) => ! cookie.name.startsWith( 'wp_sudo' )
+        );
+        await context.clearCookies();
+        await context.addCookies( authCookies );
+
+        await page.goto( '/wp-admin/options-general.php?page=wp-sudo-settings' );
+
+        const result = await page.evaluate( async () => {
+            const nonce = await fetch(
+                '/wp-admin/admin-ajax.php?action=rest-nonce',
+                { credentials: 'same-origin' }
+            ).then( ( response ) => response.text() );
+
+            const response = await fetch( '/wp-json/wp/v2/plugins/hello', {
+                method: 'DELETE',
+                credentials: 'same-origin',
+                headers: {
+                    'X-WP-Nonce': nonce,
+                },
+            } );
+
+            return {
+                status: response.status,
+                json: await response.json(),
+            };
+        } );
+
+        expect( result.status ).toBe( 403 );
+        expect( result.json?.code ).toBe( 'sudo_required' );
+        expect( result.json?.data?.rule_id ).toBe( 'plugin.delete' );
+
+        const updatedCookies = await context.cookies();
+        expect(
+            updatedCookies.find( ( cookie ) => cookie.name === 'wp_sudo_token' )
+        ).toBeUndefined();
+    } );
 } );
