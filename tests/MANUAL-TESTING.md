@@ -1382,18 +1382,28 @@ curl -sk -X POST "YOUR_SITE_URL/graphql" \
 2. Copy bridge:
    `wp-content/plugins/wp-sudo/bridges/wp-sudo-stream-bridge.php`
    → `wp-content/mu-plugins/wp-sudo-stream-bridge.php`
-3. Trigger a blocked action (for example, plugin activation without sudo).
+3. Trigger a denied or intercepted action without sudo (for example, plugin
+   activation without sudo, or a REST plugin delete attempt).
 4. Open **Stream > Records**.
 5. **Expected:** A record appears with connector `wp_sudo`, context
-   `wp_sudo`, and action `blocked`.
+   `wp_sudo`, and an action that matches the fired WP Sudo hook for that
+   surface (for example `gated` or `blocked`).
 6. Open the record details.
 7. **Expected:** Record args/meta include `source=wp-sudo`,
-   `hook=wp_sudo_action_blocked`, plus `rule_id` and `surface`.
+   the corresponding `hook` (for example `wp_sudo_action_gated` or
+   `wp_sudo_action_blocked`), plus `rule_id` and `surface`.
 8. Trigger other lifecycle events (activate/deactivate sudo, lockout,
    replay) and confirm corresponding actions (`activated`,
    `deactivated`, `lockout`, `replayed`) appear in Stream.
-9. Temporarily deactivate/uninstall Stream while leaving the bridge file in place.
-10. **Expected:** No fatal errors; bridge remains inert when Stream APIs are absent.
+9. Trigger a real replay flow (for example, activate an inactive plugin through
+   the challenge screen) and confirm a `replayed` record appears.
+10. **Expected:** The replay record includes
+    `hook=wp_sudo_action_replayed` and the expected `rule_id`
+    (for example `plugin.activate`).
+11. Temporarily deactivate/uninstall Stream while leaving the bridge file in place.
+12. **Expected:** No fatal errors; bridge remains inert when Stream APIs are
+    absent, WP Sudo still fails closed normally, and no new Stream records are
+    written until Stream is reactivated.
 
 ---
 
