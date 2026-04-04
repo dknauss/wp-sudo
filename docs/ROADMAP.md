@@ -977,6 +977,145 @@ floors with per-site overrides and enforce the "can only tighten" constraint.
 *Impact:* Medium — valuable for large multisite networks with delegated site
 administration. Not relevant for single-site installs.
 
+### REST / Surface Controls Backlog
+
+These ideas are inspired by REST-surface management tooling, but only the parts that strengthen WP Sudo's own operator experience belong here. The guiding rule is: **improve visibility, testing, and emergency control without weakening the role-agnostic reauthentication model**.
+
+#### Priority 1 — High-value operator tools
+
+**Priority Lockdown Presets**
+
+One-click emergency presets for remote or non-interactive surfaces:
+
+- `REST App Passwords`
+- `XML-RPC`
+- `WP-CLI`
+- `Cron`
+- `WPGraphQL`
+
+The first pass should ship as a small set of opinionated presets, not a policy wizard. Example presets:
+
+- **Normal** — current recommended defaults
+- **Incident Lockdown** — tighten all remote surfaces to the most restrictive safe policy
+- **Headless Friendly** — preserve intentional API surfaces while tightening legacy or rarely used ones
+
+**Implementation details**
+- Add a preset layer above the existing per-surface settings in `class-admin.php`
+- Store the selected preset in `wp_sudo_settings`, but keep explicit per-surface values as the source of truth after application
+- Show a confirmation screen summarizing exactly which policies will change
+- Fire a dedicated audit hook or enrich the existing settings-change event so logging plugins can record preset application
+- Do not add per-user, per-role, or per-IP bypasses as part of this work
+
+*Impact:* High during incident response and support. Low implementation risk because it reuses the existing policy model.
+
+**Request / Rule Tester**
+
+An admin-side tool for entering a method, URL, surface, and optional context to see how WP Sudo would evaluate the request.
+
+Expected output:
+- matched rule ID
+- matched surface (`admin`, `ajax`, `rest`, etc.)
+- decision (`allow`, `gate`, `soft-block`, `hard-block`)
+- whether stash/replay is eligible
+- notes about policy overrides or missing prerequisites
+
+**Implementation details**
+- Build it as an internal diagnostic panel under Settings → Sudo, not a public endpoint
+- Reuse `Gate` and `Action_Registry` matching logic rather than reimplementing rule parsing in JS
+- Introduce a pure evaluation method if needed so the tester can simulate without side effects
+- Support representative inputs first: method, full URL, selected surface, authenticated/unauthenticated toggle, multisite/network-admin toggle
+- Defer advanced request-body simulation unless a real use case appears
+
+*Impact:* High for maintainers, site operators, and third-party integrators trying to understand why a request was gated.
+
+**Protection Status Panel**
+
+An at-a-glance operator panel summarizing whether WP Sudo is in a healthy, fully-protective state.
+
+Recommended first-pass indicators:
+- MU-plugin installed or not
+- active sudo session / grace window state for the current user
+- 2FA integration detected or not
+- current surface policy summary
+- recent lockouts or recently gated actions
+- whether the current environment is using HTTPS
+
+**Implementation details**
+- Prefer a compact settings-page panel or dashboard widget summary, not a new top-level admin screen
+- Reuse existing Site Health checks where possible instead of duplicating diagnostics logic
+- Pull recent activity from the planned `wp_sudo_events` table when available; until then, show only live configuration/state
+- Keep the first version read-only; no inline policy editing from the status panel
+
+*Impact:* High for day-to-day operability and support triage.
+
+#### Priority 2 — Strong supporting UX
+
+**Expanded Diagnostics / Site Health Coverage**
+
+Broaden WP Sudo's existing diagnostics so operators can quickly confirm that the plugin is enforcing what they think it is enforcing.
+
+Suggested additions:
+- challenge URL reachability
+- cookie security flags / HTTPS posture
+- REST and AJAX fail-closed sanity checks
+- detected 2FA bridge/plugin state
+- multisite network-policy visibility
+
+**Implementation details**
+- Extend `Site_Health` rather than building a parallel diagnostics subsystem
+- Separate hard failures from advisory warnings
+- Make each diagnostic link back to the exact setting or doc section that explains remediation
+- Keep destructive checks simulated where possible; use passive introspection before active probes
+
+*Impact:* Medium-high. Helps support and release verification without changing enforcement behavior.
+
+**Clearer Inline Help / Operator Guidance**
+
+Surface more of the existing docs directly inside the settings UI so admins understand the consequences of each policy without leaving the page.
+
+**Implementation details**
+- Add concise help text beside each surface policy and sensitive setting
+- Reuse the existing help-tab pattern instead of inventing a new docs UI
+- Link to `security-model.md`, `developer-reference.md`, `two-factor-integration.md`, and the new authentication deep references where relevant
+- Prioritize “why this matters” guidance over long feature descriptions
+
+*Impact:* Medium. Reduces operator mistakes and support load.
+
+#### Priority 3 — Cautious, opt-in enhancements
+
+**Custom REST / AJAX Sudo Error Semantics**
+
+Allow careful customization of the error message and possibly the response code used when WP Sudo denies a request for lack of an active sudo session.
+
+**Implementation details**
+- Prefer filter-based customization first; do not start with a broad admin UI
+- Preserve stable machine-readable identifiers such as `sudo_required`
+- Do not make the default more permissive or ambiguous for clients
+- Restrict any response-code customization to safe alternatives and document the interoperability risks
+
+*Impact:* Medium for advanced integrators, low for typical site owners.
+
+**HTTPS / TLS Posture Warnings**
+
+Warn when WP Sudo is operating in conditions that weaken the security story for challenge and session cookies.
+
+**Implementation details**
+- Start with warnings only; do not hard-block or silently rewrite site behavior
+- Detect non-HTTPS admin usage, insecure cookie context, or proxy/header misconfiguration where practical
+- Surface warnings in Site Health and the settings status panel
+- Link to remediation docs instead of trying to auto-fix server configuration
+
+*Impact:* Medium. Valuable security guidance, but should stay advisory unless a future design phase justifies stricter behavior.
+
+#### Explicit non-goals for this backlog slice
+
+To keep WP Sudo aligned with its core model, this backlog does **not** include:
+
+- per-role REST route matrices
+- user or IP whitelisting for sudo bypass
+- arbitrary REST data exposure features
+- broad API-management behavior unrelated to reauthentication or fail-closed enforcement
+
 ### Possible Features
 
 **SBOM Enhancements**
