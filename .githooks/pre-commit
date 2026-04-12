@@ -1,0 +1,185 @@
+#!/bin/bash
+# Pre-commit enforcement hook for claude-code-reviewer
+# Source: https://github.com/jazzsequence/claude-code-reviewer
+#
+# Reads configuration from .reviewer-config.sh in the project root.
+# Copy to .git/hooks/pre-commit and chmod +x, or use install.sh.
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# ── Load config ──────────────────────────────────────────────────────────────
+# Defaults — override in .reviewer-config.sh
+REVIEWER_TEST_CMD="npm test -- --run"
+REVIEWER_LINT_CMD="npm run lint"
+REVIEWER_BUILD_CMD="npm run build"
+REVIEWER_E2E_CMD=""                        # empty = skip E2E
+REVIEWER_MAX_FILES=5                       # max staged files (AI commits)
+REVIEWER_MAX_INSERTIONS=500                # max inserted lines (AI commits)
+REVIEWER_APPROVAL_TIMEOUT=300             # seconds before approval expires
+REVIEWER_APPROVAL_FILE="reviewer-approved" # relative to project root
+REVIEWER_TEXT_ONLY_PATTERN='\.(md|txt)$'  # file types that skip test suite
+REVIEWER_EXCLUDED_FILES='^package-lock\.json$|^yarn\.lock$|^pnpm-lock\.yaml$'
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+CONFIG_FILE="$REPO_ROOT/.reviewer-config.sh"
+
+if [ -f "$CONFIG_FILE" ]; then
+  # shellcheck source=/dev/null
+  source "$CONFIG_FILE"
+fi
+
+APPROVAL_FILE="$REPO_ROOT/$REVIEWER_APPROVAL_FILE"
+
+# ── Header ───────────────────────────────────────────────────────────────────
+echo "🔍 Pre-Commit Validation"
+echo "=============================="
+echo ""
+
+# ── Step 1: Reviewer approval ────────────────────────────────────────────────
+echo "1️⃣  Checking reviewer agent approval..."
+
+if [ "$USER_COMMIT" = "1" ]; then
+  echo -e "${YELLOW}⚠️  User commit bypass enabled${NC}"
+  echo "   Skipping reviewer agent check (USER_COMMIT=1)"
+elif [ -f "$APPROVAL_FILE" ]; then
+  APPROVAL_TIME=$(cat "$APPROVAL_FILE")
+  CURRENT_TIME=$(date +%s)
+  TIME_DIFF=$((CURRENT_TIME - APPROVAL_TIME))
+
+  if [ "$TIME_DIFF" -lt "$REVIEWER_APPROVAL_TIMEOUT" ]; then
+    echo -e "${GREEN}✅ Reviewer agent approved (${TIME_DIFF}s ago)${NC}"
+    rm "$APPROVAL_FILE"
+  else
+    echo -e "${RED}❌ BLOCKED: Reviewer approval expired (${TIME_DIFF}s old, max ${REVIEWER_APPROVAL_TIMEOUT}s)${NC}"
+    echo "   Spawn reviewer agent again and get a fresh approval."
+    exit 1
+  fi
+else
+  echo -e "${RED}❌ BLOCKED: No reviewer agent approval found${NC}"
+  echo "   For AI-generated changes: Spawn the reviewer agent and get APPROVE"
+  echo "   For your own changes:     USER_COMMIT=1 git commit -m \"message\""
+  exit 1
+fi
+echo ""
+
+# ── Step 2: Commit size (AI commits only) ────────────────────────────────────
+if [ "$USER_COMMIT" != "1" ]; then
+  echo "2️⃣  Checking commit size..."
+
+  STAGED_FILE_COUNT=$(git diff --cached --name-only \
+    | grep -Ev "$REVIEWER_EXCLUDED_FILES" \
+    | wc -l | tr -d ' ')
+
+  STAGED_INSERTIONS=$(git diff --cached --stat -- \
+    $(git diff --cached --name-only | grep -Ev "$REVIEWER_EXCLUDED_FILES" \
+      | sed 's/^/:/') 2>/dev/null \
+    | tail -1 | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
+
+  if [ "$STAGED_FILE_COUNT" -gt "$REVIEWER_MAX_FILES" ]; then
+    echo -e "${RED}❌ BLOCKED: Commit too large — $STAGED_FILE_COUNT files staged (max $REVIEWER_MAX_FILES for AI commits)${NC}"
+    echo "   Split into smaller, atomic commits:"
+    git diff --cached --name-only | grep -Ev "$REVIEWER_EXCLUDED_FILES" | sed 's/^/     /'
+    exit 1
+  fi
+
+  if [ "$STAGED_INSERTIONS" -gt "$REVIEWER_MAX_INSERTIONS" ]; then
+    echo -e "${RED}❌ BLOCKED: Commit too large — ~$STAGED_INSERTIONS lines added (max $REVIEWER_MAX_INSERTIONS for AI commits)${NC}"
+    echo "   Split into smaller, atomic commits."
+    exit 1
+  fi
+
+  echo -e "${GREEN}✅ Commit size OK ($STAGED_FILE_COUNT files, ~$STAGED_INSERTIONS insertions)${NC}"
+  echo ""
+fi
+
+# ── Step 3: Tests (skip for text-only changes) ───────────────────────────────
+NON_TEXT_FILES=$(git diff --cached --name-only \
+  | grep -Ev "$REVIEWER_EXCLUDED_FILES" \
+  | grep -Ev "$REVIEWER_TEXT_ONLY_PATTERN" \
+  | wc -l | tr -d ' ')
+
+echo "3️⃣  Running tests..."
+echo ""
+
+if [ "$NON_TEXT_FILES" -eq 0 ]; then
+  echo "   ℹ️  Text/markdown-only changes — skipping test suite"
+  echo -e "${GREEN}✅ Tests skipped (no source code changed)${NC}"
+  echo ""
+else
+  # Unit tests
+  if [ -n "$REVIEWER_TEST_CMD" ]; then
+    echo "   Running unit tests..."
+    if ! eval "$REVIEWER_TEST_CMD" 2>&1 | tail -6; then
+      echo -e "${RED}❌ BLOCKED: Unit tests failed${NC}"
+      exit 1
+    fi
+    echo -e "${GREEN}✅ Unit tests passed${NC}"
+  fi
+
+  # Linter
+  if [ -n "$REVIEWER_LINT_CMD" ]; then
+    echo "   Running linter..."
+    if ! eval "$REVIEWER_LINT_CMD" 2>&1 | tail -3; then
+      echo -e "${RED}❌ BLOCKED: Linter failed${NC}"
+      exit 1
+    fi
+    echo -e "${GREEN}✅ Linter passed${NC}"
+  fi
+
+  # Build
+  if [ -n "$REVIEWER_BUILD_CMD" ]; then
+    echo "   Running build..."
+    if ! eval "$REVIEWER_BUILD_CMD" > /tmp/reviewer-build-log.txt 2>&1; then
+      echo -e "${RED}❌ BLOCKED: Build failed${NC}"
+      tail -20 /tmp/reviewer-build-log.txt
+      exit 1
+    fi
+    echo -e "${GREEN}✅ Build successful${NC}"
+  fi
+
+  # E2E tests (opt-in)
+  if [ -n "$REVIEWER_E2E_CMD" ]; then
+    echo "   Running E2E tests..."
+    if ! eval "$REVIEWER_E2E_CMD"; then
+      echo -e "${RED}❌ BLOCKED: E2E tests failed${NC}"
+      exit 1
+    fi
+    echo -e "${GREEN}✅ E2E tests passed${NC}"
+  fi
+
+  echo ""
+fi
+
+# ── Step 4: Secrets check ────────────────────────────────────────────────────
+echo "4️⃣  Checking for secrets..."
+for file in $(git diff --cached --name-only); do
+  if [[ "$file" == ".env" ]] || [[ "$file" == *".env."* ]] || \
+     [[ "$file" == *"credentials"* ]] || [[ "$file" == *"secrets"* ]] || \
+     [[ "$file" == "auth.json" ]]; then
+    echo -e "${RED}❌ BLOCKED: Attempting to commit sensitive file: $file${NC}"
+    exit 1
+  fi
+done
+echo -e "${GREEN}✅ No secrets${NC}"
+echo ""
+
+# ── Step 5: Reviewer reminder (AI commits only) ──────────────────────────────
+if [ "$USER_COMMIT" != "1" ]; then
+  echo "5️⃣  Reviewer oversight check..."
+  echo -e "${YELLOW}⚠️  MANDATORY: Reviewer agent must approve before every commit.${NC}"
+  echo "   1. Spawn reviewer agent with Claude Code's Agent tool"
+  echo "   2. Get APPROVE decision"
+  echo "   3. Reviewer writes the approval flag"
+  echo "   4. Commit within ${REVIEWER_APPROVAL_TIMEOUT}s"
+  echo ""
+fi
+
+echo "=============================="
+echo -e "${GREEN}✅ COMMIT ALLOWED${NC}"
+echo ""
+exit 0
