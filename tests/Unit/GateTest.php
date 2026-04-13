@@ -778,6 +778,49 @@ class GateTest extends TestCase {
 	}
 
 	/**
+	 * Test match_request matches REST connector credential settings update.
+	 */
+	public function test_match_request_matches_rest_connector_credentials_settings(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		$request = new \WP_REST_Request(
+			'POST',
+			'/wp/v2/settings'
+		);
+		$request->set_body_params(
+			array(
+				'connectors_ai_openai_api_key' => 'sk-test-1234',
+			)
+		);
+
+		$rule = $this->gate->match_request( 'rest', $request );
+
+		$this->assertNotNull( $rule );
+		$this->assertSame( 'connectors.update_credentials', $rule['id'] );
+	}
+
+	/**
+	 * Test match_request rejects non-credential settings on the REST settings route.
+	 */
+	public function test_match_request_rejects_rest_non_credential_settings(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		$request = new \WP_REST_Request(
+			'POST',
+			'/wp/v2/settings'
+		);
+		$request->set_body_params(
+			array(
+				'blogdescription' => 'New tagline',
+			)
+		);
+
+		$this->assertNull( $this->gate->match_request( 'rest', $request ) );
+	}
+
+	/**
 	 * Test match_request rejects REST GET to plugins (read is not gated).
 	 */
 	public function test_match_request_rejects_rest_get_plugins(): void {

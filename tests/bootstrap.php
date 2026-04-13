@@ -125,6 +125,10 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 			return $this->params;
 		}
 
+		public function set_body_params( array $params ): void {
+			$this->params = $params;
+		}
+
 		public function get_header( string $key ): ?string {
 			$key = strtolower( $key );
 			return $this->headers[ $key ] ?? null;

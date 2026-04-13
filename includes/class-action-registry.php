@@ -432,6 +432,21 @@ class Action_Registry {
 				),
 			),
 
+			array(
+				'id'       => 'connectors.update_credentials',
+				'label'    => __( 'Update connector credentials', 'wp-sudo' ),
+				'category' => 'options',
+				'admin'    => null,
+				'ajax'     => null,
+				'rest'     => array(
+					'route'    => '#^/wp/v2/settings$#',
+					'methods'  => array( 'PUT', 'PATCH', 'POST' ),
+					'callback' => function ( $request ): bool {
+						return self::request_contains_connector_api_key( $request->get_params() );
+					},
+				),
+			),
+
 			// ── WP Sudo Self-Protection ────────────────────────────────
 
 				array(
@@ -790,6 +805,35 @@ class Action_Registry {
 		}
 
 		return sanitize_text_field( wp_unslash( $value ) );
+	}
+
+	/**
+	 * Check whether REST settings params contain connector API key fields.
+	 *
+	 * @param array<mixed> $params Request parameters.
+	 * @return bool
+	 */
+	private static function request_contains_connector_api_key( array $params ): bool {
+		foreach ( array_keys( $params ) as $key ) {
+			if ( is_string( $key ) && self::is_connector_api_key_setting_name( $key ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Check whether a settings key matches the Connectors API key naming pattern.
+	 *
+	 * Core normalizes connector type and ID to underscores, yielding keys like:
+	 * connectors_ai_openai_api_key
+	 *
+	 * @param string $key Settings field name.
+	 * @return bool
+	 */
+	private static function is_connector_api_key_setting_name( string $key ): bool {
+		return 1 === preg_match( '#^connectors_[a-z0-9_]+_api_key$#', $key );
 	}
 
 	/**

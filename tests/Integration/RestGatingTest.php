@@ -123,6 +123,32 @@ class RestGatingTest extends TestCase {
 		$this->assertSame( $original_response, $result, 'Non-gated route should pass through.' );
 	}
 
+	/**
+	 * SURF-02: Cookie-auth connector credential write requires sudo.
+	 */
+	public function test_cookie_auth_connector_settings_write_returns_sudo_required(): void {
+		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
+
+		$request = new \WP_REST_Request(
+			'POST',
+			'/wp/v2/settings'
+		);
+		$request->set_body_params(
+			array(
+				'connectors_ai_openai_api_key' => 'sk-test-1234',
+			)
+		);
+		$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
+
+		$result = $this->gate->intercept_rest( null, array(), $request );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sudo_required', $result->get_error_code() );
+		$this->assertSame( 403, $result->get_error_data()['status'] );
+		$this->assertSame( 'connectors.update_credentials', $result->get_error_data()['rule_id'] );
+	}
+
 	// ─────────────────────────────────────────────────────────────────────
 	// App password tests (SURF-03)
 	// ─────────────────────────────────────────────────────────────────────
@@ -253,5 +279,52 @@ class RestGatingTest extends TestCase {
 		$this->assertSame( 'sudo_disabled', $result->get_error_code() );
 		$this->assertSame( 403, $result->get_error_data()['status'] );
 		$this->assertFalse( $hook_fired, 'wp_sudo_action_blocked should NOT fire for disabled policy.' );
+	}
+
+	/**
+	 * SURF-03: App-password connector credential write is blocked under limited policy.
+	 */
+	public function test_app_password_connector_settings_write_blocks_with_hook(): void {
+		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
+
+		$created = \WP_Application_Passwords::create_new_application_password(
+			$user->ID,
+			array( 'name' => 'connector-bot' )
+		);
+
+		$this->assertNotWPError( $created );
+
+		$item = $created[1];
+		$GLOBALS['wp_rest_application_password_uuid'] = $item['uuid'];
+
+		$request = new \WP_REST_Request(
+			'POST',
+			'/wp/v2/settings'
+		);
+		$request->set_body_params(
+			array(
+				'connectors_ai_openai_api_key' => 'sk-test-1234',
+			)
+		);
+
+		$blocked_args = array();
+		add_action(
+			'wp_sudo_action_blocked',
+			static function ( $uid, $rule_id, $surface ) use ( &$blocked_args ) {
+				$blocked_args = array( $uid, $rule_id, $surface );
+			},
+			10,
+			3
+		);
+
+		$result = $this->gate->intercept_rest( null, array(), $request );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sudo_blocked', $result->get_error_code() );
+		$this->assertSame( 403, $result->get_error_data()['status'] );
+		$this->assertSame( $user->ID, $blocked_args[0] ?? null );
+		$this->assertSame( 'connectors.update_credentials', $blocked_args[1] ?? null );
+		$this->assertSame( 'rest_app_password', $blocked_args[2] ?? null );
 	}
 }
