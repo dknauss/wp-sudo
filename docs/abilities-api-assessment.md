@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-19 (updated 2026-04-13)
 **WP version evaluated:** 7.0 Beta 1 through RC2
-**Status:** No gating changes required for WP 7.0; PHP execution path and Connectors credential surface identified for monitoring
+**Status:** No Abilities API gating changes required for WP 7.0; Connectors credential REST writes are now gated on `main`, and the PHP execution path remains monitor-only
 **Covers:** Abilities API, WordPress MCP Adapter, AI Client, Connectors API
 
 ---
@@ -262,8 +262,8 @@ which provides a settings page at **Settings > Connectors**. AI provider plugins
 that register with the AI Client's provider registry get automatic Connectors
 integration.
 
-**This is a potential gating target.** An attacker with a stolen admin session
-could use the Connectors settings page to:
+**This is now an active gating target in WP Sudo.** An attacker with a stolen
+admin session could use the Connectors settings page to:
 
 - **Exfiltrate data** — redirect AI traffic to an attacker-controlled endpoint,
   capturing prompts that may contain site content, user data, or admin context
@@ -271,22 +271,23 @@ could use the Connectors settings page to:
 - **Denial of service** — delete provider credentials, breaking AI-dependent features
 
 Connectors credential changes are a settings modification comparable to other
-settings that WP Sudo already gates. If the Connectors settings page uses a
-standard WordPress admin POST action (e.g., `options.php` or a custom action),
-it can be gated with an `Action_Registry` rule on the `admin` surface — no new
-surface type required.
+settings that WP Sudo already gates. Current `main` now ships a built-in REST
+rule, `connectors.update_credentials`, that matches:
 
-**Status:** The Connectors API is not yet publicly documented (as of WP 7.0 RC2).
-The admin action names and hook sequence are unknown. When WP 7.0 GA ships,
-inspect the Connectors settings page to identify:
+- `POST` / `PUT` / `PATCH` to `/wp/v2/settings`
+- only when request params include connector-style credential setting names
+  matching `connectors_[a-z0-9_]+_api_key`
 
-1. The admin POST action (e.g., `action=update` on `options.php`, or a custom action)
-2. The option key(s) used to store credentials
-3. Whether credentials are stored encrypted or as plaintext option values
-4. What capability is required (likely `manage_options`)
+This is intentionally narrower than gating all REST settings writes. It closes
+the write-only key replacement path for database-backed connector credentials
+without interfering with unrelated settings updates.
 
-If credentials are stored as standard WordPress options, a rule matching the
-Connectors settings save action can be added to `Action_Registry` immediately.
+**Current source-grounded understanding:** the official dev note now exists, and
+current core routes connector credential writes through the standard REST
+settings endpoint rather than a bespoke admin form action. The remaining WP 7.0
+GA task is verification, not first implementation: confirm the released route,
+setting-name pattern, and masking/validation behavior still match the current
+analysis in `connectors-api-reference.md`.
 
 ### MCP Adapter: no persistent agent sessions
 
@@ -332,9 +333,10 @@ but is not a concern until destructive abilities are registered.
    `wp_before_execute_ability` to gate the PHP execution path.
 4. For WP-CLI `wp ability run` with destructive abilities, add a function-level hook
    in `Gate::register_function_hooks()` targeting the appropriate WordPress action.
-5. When WP 7.0 GA ships, inspect the Connectors settings page to identify the admin
-   action and option keys for credential management. Add an `Action_Registry` rule
-   to gate credential changes if warranted.
+5. When WP 7.0 GA ships, verify that the released Connectors settings page still
+   writes credential changes through `/wp/v2/settings`, that connector setting
+   names still follow the documented `connectors_*_api_key` pattern, and that
+   the built-in `connectors.update_credentials` rule remains accurate.
 6. Monitor Make Core and Trac for any proposal to introduce persistent AI agent
    sessions or long-lived agent tokens — this would require a new WP Sudo policy tier.
 7. Monitor the WordPress MCP Adapter for any direct-execution path that bypasses REST

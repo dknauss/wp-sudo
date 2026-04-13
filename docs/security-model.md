@@ -360,7 +360,8 @@ surface initiated the call.
 
 The **Connectors API** manages API keys for external AI providers (and potentially
 other services) through a settings page at Settings > Connectors. This introduces
-a credential class that is outside WP Sudo's current threat model scope.
+an external credential class whose consequences are outside WordPress itself, but
+the write path is now explicitly in WP Sudo's threat model.
 
 Today, WP Sudo protects WordPress-internal credentials and state: passwords,
 session tokens, user roles, plugin activations. Connectors credentials are
@@ -372,11 +373,16 @@ session tokens, user roles, plugin activations. Connectors credentials are
 | Replace API key with attacker's own | Billing fraud against the attacker's provider account | No — financial impact is off-site |
 | Delete provider credentials | Denial of service for AI-dependent features | Yes — but damage is already done |
 
-The Connectors settings page is a natural gating target. It is a settings
-modification comparable to other admin settings WP Sudo already gates, and can
-be covered by an `Action_Registry` rule on the `admin` surface once the admin
-action names are known. See [abilities-api-assessment.md](abilities-api-assessment.md)
-for the inspection checklist to run when WP 7.0 GA ships.
+The Connectors settings page is now covered by a built-in REST rule:
+`connectors.update_credentials`. It challenges `POST` / `PUT` / `PATCH`
+writes to `/wp/v2/settings` when the request body contains connector credential
+setting names matching `connectors_*_api_key`. This mitigates the credential
+replacement vector for database-backed connector keys, while leaving unrelated
+REST settings writes untouched. The remaining follow-up at WordPress 7.0 GA is
+verification that core's released Connectors implementation still matches the
+documented route and setting-name pattern. See
+[abilities-api-assessment.md](abilities-api-assessment.md) and
+[connectors-api-reference.md](connectors-api-reference.md).
 
 ### AI agent entry points
 

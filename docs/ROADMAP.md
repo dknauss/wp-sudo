@@ -28,8 +28,8 @@
 ### Immediate (WP 7.0 GA — delayed, no confirmed date)
 
 - **Update "Tested up to"** in readme files when WordPress 7.0 GA ships (originally April 9, 2026; [delayed](https://make.wordpress.org/core/2026/03/31/extending-the-7-0-cycle/) for real-time collaboration architecture work)
-- **Gate Connectors credential changes** — Add an `Action_Registry` REST rule to gate `POST /wp/v2/settings` when the request body contains connector setting names (`connectors_*`). The Connectors settings page (Settings > Connectors) saves AI provider API keys via the REST settings endpoint. Credential replacement by an attacker with a stolen session has off-site consequences (data exfiltration, billing fraud) that WordPress cannot contain. Implementation is one rule — no Gate class changes needed. See [connectors-api-reference.md](connectors-api-reference.md) for the draft rule and full source analysis. Blocked on WP 7.0 GA for verification against released code.
-- **Verify Connectors source analysis** — When WP 7.0 GA ships, confirm the admin page structure, REST save path, and setting names documented in `connectors-api-reference.md` match the released code. The reference was drafted from trunk source at RC2; the Connectors API is not yet publicly documented.
+- **Verify Connectors GA parity** — the built-in `connectors.update_credentials` REST rule is already shipped on `main`, challenging `/wp/v2/settings` writes when request params contain `connectors_*_api_key`. When WordPress 7.0 GA ships, confirm the released Connectors implementation still matches the documented route, setting-name pattern, and masking/validation behavior.
+- **Manual release verification for Connectors gating** — run the new manual checks for cookie-auth and Application Password writes to `/wp/v2/settings` with connector credential fields and record the results in [tests/MANUAL-TESTING.md](../tests/MANUAL-TESTING.md) before the next public release.
 
 ### ✅ Shipped: Operator Tooling and Ecosystem Reach (v2.12.0)
 

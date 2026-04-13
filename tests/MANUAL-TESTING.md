@@ -364,6 +364,29 @@ curl -sk -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
 # Expected: {"code":"sudo_required", ...}
 ```
 
+### 4.3 Connector Credential Write (WP 7.0+)
+
+> Requires WordPress 7.0+ with the Connectors API available. Reuse the
+> cookie jar and `NONCE` from §4.2.
+
+```bash
+curl -sk -c /tmp/wp-cookies.txt -b /tmp/wp-cookies.txt \
+  -H "X-WP-Nonce: $NONCE" \
+  -H "Content-Type: application/json" \
+  -X POST "YOUR_SITE_URL/wp-json/wp/v2/settings" \
+  -d '{"connectors_ai_openai_api_key":"sk-test-1234"}'
+```
+
+**Expected:**
+```json
+{"code":"sudo_required","data":{"status":403,"rule_id":"connectors.update_credentials"}}
+```
+
+**Optional narrow-match check:** Repeat the same request with a non-critical,
+non-connector settings field such as `blogdescription`. **Expected:** WP Sudo
+does not treat it as `connectors.update_credentials`. Restore the original
+setting after the check if you change a live value.
+
 ---
 
 ## 5. REST API — App Password Policies
@@ -453,6 +476,33 @@ policy.
 
 > **Cleanup:** Delete any test app passwords and restore the policy to
 > Limited after testing.
+
+### 5.6 Connector Credential Writes (WP 7.0+)
+
+Use an Application Password against the same endpoint:
+
+```bash
+curl -sk -u "YOUR_USERNAME:YOUR_APP_PASS" \
+  -X POST "YOUR_SITE_URL/wp-json/wp/v2/settings" \
+  -H "Content-Type: application/json" \
+  -d '{"connectors_ai_openai_api_key":"sk-test-1234"}'
+```
+
+**With global policy = Limited (default):**
+```json
+{"code":"sudo_blocked","data":{"status":403,"rule_id":"connectors.update_credentials"}}
+```
+
+**With global policy = Disabled:**
+```json
+{"code":"sudo_disabled","data":{"status":403}}
+```
+
+**With global policy = Unrestricted:**
+- **Expected:** WP Sudo allows the request through and does not return a sudo
+  error. Core may still reject or blank an invalid AI provider key during
+  Connectors validation, so the success condition here is "not blocked by
+  WP Sudo", not "arbitrary key remains saved".
 
 ---
 

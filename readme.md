@@ -55,6 +55,7 @@ Inspired by the Linux command `sudo` (superuser do), Sudo for WordPress is repre
 | **Users** | Delete, change role, change password, create new user, create application password |
 | **File editors** | Plugin editor, theme editor |
 | **Critical options** | `siteurl`, `home`, `admin_email`, `default_role`, `users_can_register` |
+| **Connector credentials** | Settings > Connectors API key updates saved through the REST settings endpoint |
 | **WordPress core** | Update, reinstall |
 | **Site data export** | WXR export |
 | **WP Sudo settings** | Self-protected — settings changes require reauthentication |
@@ -73,6 +74,7 @@ Developers can add custom rules via the `wp_sudo_gated_actions` filter. See [Dev
 - **Zero-trust architecture** — a valid login session is never sufficient on its own. Dangerous operations require explicit identity confirmation every time.
 - **Role-agnostic** — any user attempting a gated action is challenged, including administrators.
 - **Full attack surface** — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, Application Passwords, and WPGraphQL.
+- **External credential integrity** — database-backed Connectors API keys cannot be silently replaced over `/wp/v2/settings` without reauthentication.
 - **Session binding** — sudo sessions are cryptographically bound to the browser via a secure httponly cookie token.
 - **2FA browser binding** — the two-factor challenge is bound to the originating browser with a one-time challenge cookie.
 - **Rate limiting** — 5 failed password attempts trigger a 5-minute lockout.
@@ -156,6 +158,11 @@ No. Sudo adds a reauthentication layer on top of the existing permission model. 
 ### What about REST API and Application Passwords?
 
 Cookie-authenticated REST requests receive a `sudo_required` error. Application Password requests are governed by a separate policy (Disabled, Limited, or Unrestricted). Individual application passwords can override the global policy from the user profile page.
+
+Connector credential writes through the WordPress 7.0 Connectors API are also
+covered here: REST updates to `/wp/v2/settings` that include
+`connectors_*_api_key` fields are challenged as a gated action rather than being
+treated as ordinary settings writes.
 
 ### What about WP-CLI, Cron, and XML-RPC?
 

@@ -104,6 +104,28 @@ To find the AJAX action names for a plugin, search its source for
 grep "wp_ajax_" /path/to/plugin/*.php
 ```
 
+### Built-in Example: Narrow REST Gating on a Shared Endpoint
+
+WP Sudo's built-in `connectors.update_credentials` rule is a good example of
+how to gate one sensitive action on a broad shared endpoint without blocking the
+entire endpoint.
+
+- **Route:** `/wp/v2/settings`
+- **Methods:** `POST`, `PUT`, `PATCH`
+- **Problem:** the endpoint is used for many unrelated settings writes
+- **Narrowing strategy:** only match when request params include connector
+  credential setting names matching `connectors_[a-z0-9_]+_api_key`
+
+This pattern is useful when a third-party plugin reuses a generic REST or admin
+save path for multiple settings classes, but only one subset is security
+critical. In those cases:
+
+- match the shared route/action normally
+- add a callback that checks for the exact field names or payload shape that
+  identify the dangerous write
+- prefer **over-matching inside the sensitive class** to under-matching and
+  missing a destructive credential or policy change
+
 ## Public API Helpers
 
 Use these helpers when you want to gate a custom operation without adding a
