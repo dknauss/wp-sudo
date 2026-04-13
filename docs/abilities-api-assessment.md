@@ -1,9 +1,9 @@
 # Abilities API Assessment
 
-**Date:** 2026-02-19 (updated 2026-02-28)
-**WP version evaluated:** 7.0 Beta 1
-**Status:** No gating changes required for WP 7.0
-**Covers:** Abilities API and WordPress MCP Adapter (same REST surface)
+**Date:** 2026-02-19 (updated 2026-04-13)
+**WP version evaluated:** 7.0 Beta 1 through RC2
+**Status:** No gating changes required for WP 7.0; PHP execution path and Connectors credential surface identified for monitoring
+**Covers:** Abilities API, WordPress MCP Adapter, AI Client, Connectors API
 
 ---
 
@@ -177,22 +177,137 @@ surface gating via function-level hooks in `register_function_hooks()` applies. 
 hook on the appropriate WordPress action that fires before the ability's
 `execute_callback` would be added to the function hook registration block.
 
+### Direct PHP execution path: `WP_Ability::execute()`
+
+**Correction (2026-04-13):** The original assessment stated that no PHP-level
+execution path exists. This was incorrect. WordPress 7.0 includes
+`WP_Ability::execute()` and `wp_get_ability()`, which allow any PHP code to
+execute an ability directly — bypassing the REST API entirely.
+
+Abilities registered with `show_in_rest => false` can *only* be executed this way.
+They are hidden from REST listings and return `rest_ability_not_found` on REST
+access, but remain callable via:
+
+```php
+$ability = wp_get_ability( 'namespace/ability-name' );
+$result  = $ability->execute( $input );
+```
+
+**Authorization on the PHP path:** `WP_Ability::execute()` runs input validation
+against the ability's input schema, calls `check_permissions()` (the ability's
+`permission_callback`), executes the callback via `do_execute()`, and validates
+output. This is a capability check (authorization), not reauthentication.
+
+**Hooks:** Two action hooks fire around execution:
+
+- `wp_before_execute_ability` — fires before the ability runs
+- `wp_after_execute_ability` — fires after the ability completes
+
+The `wp_before_execute_ability` hook is the interception point for WP Sudo. If
+a destructive ability is registered that plugins call via the PHP path (bypassing
+REST), WP Sudo can hook into `wp_before_execute_ability` to block execution when
+no sudo session is active — similar to the function-level hooks used for CLI,
+Cron, and XML-RPC surfaces in `Gate::register_function_hooks()`.
+
 ### When to add an `ability` surface type to Gate
 
-An `ability` surface type in `Gate` would only be warranted if abilities gain a
-non-REST execution path that bypasses all existing surfaces — for example, if a
-future WordPress version introduces a PHP-level `do_ability()` function that
-third-party code can call directly outside of REST or CLI contexts. As of WP 7.0,
-no such path exists. The REST layer is the primary execution path for abilities,
-and it is already covered.
+The PHP execution path already exists (condition 1 from the original trigger
+list is met). However, the remaining conditions are not yet met:
 
-**Trigger conditions for adding `ability` surface type:**
+**Revised trigger conditions:**
 
-1. A non-REST, non-CLI ability execution path is introduced in WordPress core
-2. That path bypasses `rest_request_before_callbacks` and `admin_init`
-3. Destructive abilities are registered that use this new path
+1. ~~A non-REST, non-CLI ability execution path is introduced~~ — **exists now**
+   (`WP_Ability::execute()`)
+2. A destructive ability is registered that plugins are likely to call via the
+   PHP path (not just REST)
+3. The `wp_before_execute_ability` hook proves to be a reliable interception point
+   (i.e., it fires consistently, cannot be bypassed, and provides enough context
+   to identify the ability being executed)
 
-None of these conditions exist in WP 7.0.
+Condition 2 is the practical trigger. Until destructive abilities exist, the PHP
+execution path is not a security concern — the three current core abilities are
+all read-only.
+
+**Implementation plan when conditions 2 and 3 are met:**
+
+- Hook `wp_before_execute_ability` in `Gate::register()` (all surfaces, not just
+  non-interactive) to catch PHP-path execution regardless of the calling context
+- Check the ability ID against a list of gated ability IDs in `Action_Registry`
+- If the ability is gated and no sudo session is active, block with `wp_die()` or
+  return a `WP_Error` depending on context
+
+This does not require a new surface constant — the existing `admin` surface
+(or a new `ability` label for audit hooks) is sufficient.
+
+---
+
+## AI Client and Connectors API (WP 7.0)
+
+### AI Client: `wp_ai_client_prompt()`
+
+WordPress 7.0 introduces a built-in AI Client — a provider-agnostic PHP API for
+sending prompts to external AI models (text generation, image generation, TTS,
+etc.). The entry point is `wp_ai_client_prompt()`, which returns a fluent builder.
+
+**WP Sudo does not need to gate AI Client prompt execution.** Sending a prompt
+to an external AI provider does not modify WordPress state. It is analogous to
+`wp_remote_post()` — an outbound HTTP call, not a destructive site operation.
+WordPress core provides the `wp_ai_client_prevent_prompt` filter for prompt-level
+access control, which is the correct layer for that concern.
+
+### Connectors API: credential management surface
+
+AI provider credentials (API keys) are managed through the **Connectors API**,
+which provides a settings page at **Settings > Connectors**. AI provider plugins
+that register with the AI Client's provider registry get automatic Connectors
+integration.
+
+**This is a potential gating target.** An attacker with a stolen admin session
+could use the Connectors settings page to:
+
+- **Exfiltrate data** — redirect AI traffic to an attacker-controlled endpoint,
+  capturing prompts that may contain site content, user data, or admin context
+- **Commit billing fraud** — replace a legitimate API key with the attacker's own
+- **Denial of service** — delete provider credentials, breaking AI-dependent features
+
+Connectors credential changes are a settings modification comparable to other
+settings that WP Sudo already gates. If the Connectors settings page uses a
+standard WordPress admin POST action (e.g., `options.php` or a custom action),
+it can be gated with an `Action_Registry` rule on the `admin` surface — no new
+surface type required.
+
+**Status:** The Connectors API is not yet publicly documented (as of WP 7.0 RC2).
+The admin action names and hook sequence are unknown. When WP 7.0 GA ships,
+inspect the Connectors settings page to identify:
+
+1. The admin POST action (e.g., `action=update` on `options.php`, or a custom action)
+2. The option key(s) used to store credentials
+3. Whether credentials are stored encrypted or as plaintext option values
+4. What capability is required (likely `manage_options`)
+
+If credentials are stored as standard WordPress options, a rule matching the
+Connectors settings save action can be added to `Action_Registry` immediately.
+
+### MCP Adapter: no persistent agent sessions
+
+The WordPress MCP Adapter uses **per-request authentication**:
+
+- **STDIO transport:** Authenticates via WP-CLI with `--user` at server startup
+- **HTTP transport:** Uses Application Passwords or custom OAuth per-request
+
+There is no persistent AI agent session concept, no long-lived agent tokens, and
+no session state maintained across requests. Each MCP tool call is an independent
+authenticated request that flows through the existing REST or CLI surface.
+
+As of WP 7.0 RC2, no core discussion (Make Core blog, Trac) has proposed
+persistent agent sessions or long-lived agent tokens. The real-time collaboration
+work (the cause of the 7.0 delay) uses short-lived WebSocket tokens for human
+editors, not AI agents.
+
+**If a persistent agent session concept is introduced in a future release**, it
+would warrant a new policy tier in WP Sudo (comparable to CLI or Cron policy) —
+a long-lived token that can perform multiple operations without per-request
+authentication is a new trust boundary.
 
 ---
 
@@ -202,18 +317,25 @@ None of these conditions exist in WP 7.0.
 
 All three core abilities are read-only. The existing REST surface interception in
 `Gate::intercept_rest()` already covers the `/wp-abilities/v1/` namespace routes if
-a matching rule is ever added to `Action_Registry`.
+a matching rule is ever added to `Action_Registry`. The PHP execution path exists
+but is not a concern until destructive abilities are registered.
 
 **Monitoring action items:**
 
 1. Watch the [abilities-api](https://github.com/WordPress/abilities-api) GitHub
-   repository for new ability registrations, especially any using `DELETE` on `/run`.
+   repository for new ability registrations, especially any using `DELETE` on `/run`
+   or registered with `show_in_rest => false`.
 2. When destructive abilities appear, add a REST rule to `Action_Registry` matching
    `/wp-abilities/v1/.*/run` with `DELETE` method. No `Gate` class changes required.
    This also covers MCP Adapter calls (same REST endpoints).
-3. For WP-CLI `wp ability run` with destructive abilities, add a function-level hook
+3. For abilities with `show_in_rest => false` that are destructive, hook
+   `wp_before_execute_ability` to gate the PHP execution path.
+4. For WP-CLI `wp ability run` with destructive abilities, add a function-level hook
    in `Gate::register_function_hooks()` targeting the appropriate WordPress action.
-4. Reassess the need for an `ability` surface type only if a non-REST, non-CLI
-   ability execution path is introduced.
-5. Monitor the WordPress MCP Adapter for any direct-execution path that bypasses REST
-   (none exists as of WP 7.0 Beta 1).
+5. When WP 7.0 GA ships, inspect the Connectors settings page to identify the admin
+   action and option keys for credential management. Add an `Action_Registry` rule
+   to gate credential changes if warranted.
+6. Monitor Make Core and Trac for any proposal to introduce persistent AI agent
+   sessions or long-lived agent tokens — this would require a new WP Sudo policy tier.
+7. Monitor the WordPress MCP Adapter for any direct-execution path that bypasses REST
+   (none exists as of WP 7.0 RC2).

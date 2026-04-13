@@ -317,3 +317,80 @@ Since v2.6.0, sudo sessions have a 120-second grace window (`Sudo_Session::GRACE
 ## 2FA Browser Binding
 
 When the password step succeeds and 2FA is required, a one-time challenge cookie is set in the browser. The 2FA pending state is keyed by the hash of this cookie, not by user ID. An attacker who stole the WordPress session cookie but is on a different machine does not have the challenge cookie and cannot complete the 2FA step.
+
+## Emerging Boundaries: Abilities API, AI Client, and Connectors (WP 7.0+)
+
+*Added 2026-04-13. Full analysis in [abilities-api-assessment.md](abilities-api-assessment.md).*
+
+WordPress 7.0 introduces three new subsystems that interact with WP Sudo's trust
+model in different ways. None require Gate changes today, but they establish new
+boundaries that will become relevant as the Abilities API matures.
+
+### PHP-path ability execution
+
+The Abilities API provides `WP_Ability::execute()` — a direct PHP execution path
+that bypasses REST, CLI, and all other surfaces the Gate currently intercepts.
+Any plugin can call:
+
+```php
+wp_get_ability( 'namespace/ability-name' )->execute( $input );
+```
+
+This path runs `check_permissions()` (the ability's `permission_callback`), which
+is a capability check — authorization, not reauthentication. The Gate does not
+intercept it.
+
+**Current risk: none.** All three core abilities in WP 7.0 are read-only. The PHP
+path is not a concern until a destructive ability is registered.
+
+**Future risk: medium.** The Abilities API is designed as a uniform execution
+interface — plugins are expected to call it programmatically. When destructive
+abilities appear, this path becomes a bypass route for any gated operation that
+is also registered as an ability. Unlike `activate_plugin()` (an internal function
+that plugins happen to call), abilities are an intentional public API for
+cross-plugin invocation, making widespread use of the PHP path likely.
+
+**Interception point:** `wp_before_execute_ability` fires before every ability
+execution, including the PHP path. When destructive abilities are registered,
+WP Sudo can hook this action to enforce reauthentication — regardless of which
+surface initiated the call.
+
+### External credential trust boundary
+
+The **Connectors API** manages API keys for external AI providers (and potentially
+other services) through a settings page at Settings > Connectors. This introduces
+a credential class that is outside WP Sudo's current threat model scope.
+
+Today, WP Sudo protects WordPress-internal credentials and state: passwords,
+session tokens, user roles, plugin activations. Connectors credentials are
+*external* — compromising them has consequences that WordPress cannot contain:
+
+| Attack | Impact | Containable by WordPress? |
+|---|---|---|
+| Redirect AI traffic to attacker endpoint | Prompt exfiltration (site content, user data, admin context) | No — data leaves the site |
+| Replace API key with attacker's own | Billing fraud against the attacker's provider account | No — financial impact is off-site |
+| Delete provider credentials | Denial of service for AI-dependent features | Yes — but damage is already done |
+
+The Connectors settings page is a natural gating target. It is a settings
+modification comparable to other admin settings WP Sudo already gates, and can
+be covered by an `Action_Registry` rule on the `admin` surface once the admin
+action names are known. See [abilities-api-assessment.md](abilities-api-assessment.md)
+for the inspection checklist to run when WP 7.0 GA ships.
+
+### AI agent entry points
+
+The WordPress MCP Adapter translates abilities into MCP tools for AI agents
+(Claude, Cursor, etc.). MCP calls flow through existing surfaces:
+
+- **HTTP transport** → REST API → `intercept_rest()` (covered)
+- **STDIO transport** → WP-CLI → CLI policy (covered)
+
+Authentication is per-request (Application Passwords or WP-CLI `--user`). There
+is no persistent AI agent session concept in WP 7.0. Each tool call is an
+independent authenticated request subject to the existing surface policies.
+
+**If a persistent agent session concept is introduced in a future release** — a
+long-lived token that can perform multiple operations without per-request
+authentication — it would constitute a new trust boundary requiring its own
+policy tier in WP Sudo, comparable to the existing CLI and Cron policies. As of
+WP 7.0 RC2, no such proposal exists in core.
