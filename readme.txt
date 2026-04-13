@@ -83,7 +83,7 @@ Settings and sessions are network-wide. The action registry includes 8 additiona
 
 1. Upload the `wp-sudo` folder to `/wp-content/plugins/`.
 2. Activate the plugin through the **Plugins** screen in WordPress.
-3. Go to **Settings → Sudo** to configure session duration and entry point policies.
+3. Go to **Settings → Sudo** to configure session duration, quick policy presets, and entry-point policies.
 4. (Optional) Install the mu-plugin from the settings page for early hook registration.
 5. (Recommended) Install the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin for two-factor authentication.
 
@@ -151,17 +151,17 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 
 Architecture: a single SPL autoloader maps the WP_Sudo\* namespace to includes/class-*.php. The Gate class detects the entry surface (admin UI, AJAX, REST, WP-CLI, Cron, XML-RPC, Application Passwords, WPGraphQL), matches the incoming request against a registry of 29+ rules, and challenges, soft-blocks, or hard-blocks based on surface and policy. All gating decisions happen server-side in PHP hooks — JavaScript is used only for UX.
 
-Testing: the suite is split into two tiers. Unit tests (494 tests, 1286 assertions) use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests (135 tests) run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, uninstall cleanup, and all 9 audit hooks.
+Testing: the suite is split into two tiers. Unit tests use Brain\Monkey to mock WordPress functions and run in ~0.4s. Integration tests run against real WordPress + MySQL and cover full reauth flows, AJAX and REST gating, Two Factor interaction, multisite isolation, uninstall cleanup, and all 10 audit hooks. Current suite counts are maintained in the GitHub repository.
 
 CI: GitHub Actions runs PHPStan level 6 and PHPCS on every push and PR, the full test matrix across PHP 8.1-8.4 and WordPress latest + trunk, and a nightly scheduled run against WordPress trunk.
 
-Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine audit hooks cover session lifecycle, gated actions, policy decisions, and lockouts. See the GitHub repository for hook reference, CONTRIBUTING.md, and the full developer documentation.
+Extensibility: the action registry is filterable via wp_sudo_gated_actions. Ten audit hooks cover session lifecycle, gated actions, policy decisions, preset application, and lockouts. See the GitHub repository for hook reference, CONTRIBUTING.md, and the full developer documentation.
 
 == Screenshots ==
 
 1. Challenge page — reauthentication interstitial with password field.
 2. Two-factor authentication — after password confirmation, users with 2FA enabled enter their authentication code.
-3. Settings page — configure session duration and entry point policies.
+3. Settings page — configure session duration, quick policy presets, and entry-point policies.
 4. Gate notice (plugins) — when no sudo session is active, a persistent notice links to the challenge page.
 5. Gate notice (themes) — the same gating notice appears on the themes page.
 6. Gated actions — the settings page lists all gated operations with their categories and surfaces.
@@ -170,6 +170,7 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Nine
 == Changelog ==
 
 = Unreleased =
+* **Feature: Lockdown policy presets** — Settings → Sudo now includes one-click **Normal**, **Incident Lockdown**, and **Headless Friendly** presets for the non-interactive surfaces, with explicit apply confirmation, audit logging, and summary notices after application.
 * **Security: Connectors API credential writes now require sudo** — REST updates to `/wp/v2/settings` are challenged when they include `connectors_*_api_key` fields, closing the write-only key replacement path for database-backed connector credentials while leaving unrelated REST settings writes untouched.
 * **Fix: challenge lockout expiry recovery** — the visible countdown and the server-side lockout state now expire in sync, so retries are no longer blocked at the exact second the countdown reaches zero.
 * **Fix: stale challenge and 2FA recovery flows** — hardened recovery when a sudo session is already active or a user is returning from 2FA throttle/lockout flows, with broader browser coverage around replay, resend, cancel, and recovery behavior.

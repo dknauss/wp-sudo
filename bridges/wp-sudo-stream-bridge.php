@@ -118,6 +118,18 @@ if ( ! function_exists( 'wp_sudo_stream_bridge_record_data' ) ) {
 				$record['args']['role']         = (string) ( $args[0] ?? '' );
 				$record['args']['capability']   = (string) ( $args[1] ?? '' );
 				break;
+
+			case 'wp_sudo_policy_preset_applied':
+				$record['message']               = 'WP Sudo policy preset applied';
+				$record['action']                = 'policy_preset_applied';
+				$record['user_id']               = (int) ( $args[0] ?? 0 );
+				$record['object_id']             = $record['user_id'];
+				$record['args']['user_id']       = $record['user_id'];
+				$record['args']['preset_key']    = (string) ( $args[1] ?? '' );
+				$record['args']['previous']      = is_array( $args[2] ?? null ) ? $args[2] : array();
+				$record['args']['current']       = is_array( $args[3] ?? null ) ? $args[3] : array();
+				$record['args']['is_network']    = (bool) ( $args[4] ?? false );
+				break;
 		}
 
 		return $record;
@@ -183,6 +195,7 @@ if ( ! function_exists( 'wp_sudo_stream_bridge_register' ) ) {
 			'wp_sudo_action_allowed'      => 3,
 			'wp_sudo_action_replayed'     => 2,
 			'wp_sudo_capability_tampered' => 2,
+			'wp_sudo_policy_preset_applied' => 5,
 		);
 
 		foreach ( $hook_args_map as $hook => $accepted_args ) {

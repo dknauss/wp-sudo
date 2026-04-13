@@ -38,6 +38,7 @@ class AdminTest extends TestCase {
 		$this->assertArrayHasKey( 'cli_policy', $defaults );
 		$this->assertArrayHasKey( 'cron_policy', $defaults );
 		$this->assertArrayHasKey( 'xmlrpc_policy', $defaults );
+		$this->assertArrayHasKey( 'policy_preset', $defaults );
 	}
 
 	public function test_defaults_policies_are_limited(): void {
@@ -47,6 +48,12 @@ class AdminTest extends TestCase {
 		$this->assertSame( Gate::POLICY_LIMITED, $defaults['cli_policy'] );
 		$this->assertSame( Gate::POLICY_LIMITED, $defaults['cron_policy'] );
 		$this->assertSame( Gate::POLICY_LIMITED, $defaults['xmlrpc_policy'] );
+	}
+
+	public function test_defaults_policy_preset_is_normal(): void {
+		$defaults = Admin::defaults();
+
+		$this->assertSame( Admin::POLICY_PRESET_NORMAL, $defaults['policy_preset'] );
 	}
 
 	public function test_defaults_no_allowed_roles_key(): void {
@@ -157,6 +164,119 @@ class AdminTest extends TestCase {
 		$this->assertSame( 'limited', $result['cron_policy'] );
 		$this->assertSame( 'limited', $result['xmlrpc_policy'] );
 		$this->assertSame( 'limited', $result['rest_app_password_policy'] );
+	}
+
+	public function test_policy_presets_define_expected_surface_values(): void {
+		$presets = Admin::policy_presets();
+
+		$this->assertSame(
+			array(
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_LIMITED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_LIMITED,
+				Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_LIMITED,
+			),
+			$presets[ Admin::POLICY_PRESET_NORMAL ]['policies']
+		);
+
+		$this->assertSame(
+			array(
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_DISABLED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_DISABLED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_DISABLED,
+				Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_DISABLED,
+			),
+			$presets[ Admin::POLICY_PRESET_INCIDENT_LOCKDOWN ]['policies']
+		);
+
+		$this->assertSame(
+			array(
+				Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_UNRESTRICTED,
+				Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+				Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+				Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_DISABLED,
+				Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_UNRESTRICTED,
+			),
+			$presets[ Admin::POLICY_PRESET_HEADLESS_FRIENDLY ]['policies']
+		);
+	}
+
+	public function test_sanitize_applies_selected_policy_preset(): void {
+		Functions\when( 'get_option' )->justReturn( Admin::defaults() );
+
+		$admin  = new Admin();
+		$result = $admin->sanitize_settings(
+			array(
+				'session_duration'         => 15,
+				'rest_app_password_policy' => Gate::POLICY_LIMITED,
+				'cli_policy'               => Gate::POLICY_LIMITED,
+				'cron_policy'              => Gate::POLICY_LIMITED,
+				'xmlrpc_policy'            => Gate::POLICY_LIMITED,
+				'wpgraphql_policy'         => Gate::POLICY_LIMITED,
+				'policy_preset_selection'  => Admin::POLICY_PRESET_HEADLESS_FRIENDLY,
+				'apply_policy_preset'      => '1',
+			)
+		);
+
+		$this->assertSame( Admin::POLICY_PRESET_HEADLESS_FRIENDLY, $result['policy_preset'] );
+		$this->assertSame( Gate::POLICY_UNRESTRICTED, $result['rest_app_password_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $result['cli_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $result['cron_policy'] );
+		$this->assertSame( Gate::POLICY_DISABLED, $result['xmlrpc_policy'] );
+		$this->assertSame( Gate::POLICY_UNRESTRICTED, $result['wpgraphql_policy'] );
+	}
+
+	public function test_sanitize_rejects_invalid_policy_preset_key(): void {
+		Functions\when( 'get_option' )->justReturn( Admin::defaults() );
+
+		$admin  = new Admin();
+		$result = $admin->sanitize_settings(
+			array(
+				'session_duration'         => 15,
+				'rest_app_password_policy' => Gate::POLICY_DISABLED,
+				'cli_policy'               => Gate::POLICY_LIMITED,
+				'cron_policy'              => Gate::POLICY_LIMITED,
+				'xmlrpc_policy'            => Gate::POLICY_LIMITED,
+				'wpgraphql_policy'         => Gate::POLICY_LIMITED,
+				'policy_preset_selection'  => 'not-a-real-preset',
+				'apply_policy_preset'      => '1',
+			)
+		);
+
+		$this->assertSame( Admin::POLICY_PRESET_CUSTOM, $result['policy_preset'] );
+		$this->assertSame( Gate::POLICY_DISABLED, $result['rest_app_password_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $result['cli_policy'] );
+	}
+
+	public function test_manual_policy_edit_after_preset_marks_configuration_custom(): void {
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'session_duration'         => 15,
+				'rest_app_password_policy' => Gate::POLICY_UNRESTRICTED,
+				'cli_policy'               => Gate::POLICY_LIMITED,
+				'cron_policy'              => Gate::POLICY_LIMITED,
+				'xmlrpc_policy'            => Gate::POLICY_DISABLED,
+				'wpgraphql_policy'         => Gate::POLICY_UNRESTRICTED,
+				'policy_preset'            => Admin::POLICY_PRESET_HEADLESS_FRIENDLY,
+				'app_password_policies'    => array(),
+			)
+		);
+
+		$admin  = new Admin();
+		$result = $admin->sanitize_settings(
+			array(
+				'session_duration'         => 15,
+				'rest_app_password_policy' => Gate::POLICY_UNRESTRICTED,
+				'cli_policy'               => Gate::POLICY_DISABLED,
+				'cron_policy'              => Gate::POLICY_LIMITED,
+				'xmlrpc_policy'            => Gate::POLICY_DISABLED,
+				'wpgraphql_policy'         => Gate::POLICY_UNRESTRICTED,
+			)
+		);
+
+		$this->assertSame( Admin::POLICY_PRESET_CUSTOM, $result['policy_preset'] );
 	}
 
 	// -----------------------------------------------------------------
@@ -595,6 +715,9 @@ class AdminTest extends TestCase {
 			'cli_policy'       => Gate::POLICY_UNRESTRICTED,
 		);
 
+		Functions\when( 'is_multisite' )->justReturn( true );
+		Functions\when( 'get_site_option' )->justReturn( Admin::defaults() );
+		Functions\when( '__' )->returnArg();
 		Functions\when( 'check_admin_referer' )->justReturn( true );
 		Functions\expect( 'current_user_can' )
 			->once()
@@ -983,6 +1106,10 @@ class AdminTest extends TestCase {
 		$this->assertArrayHasKey( 'session_duration', $fields_called );
 		$this->assertArrayHasKey( 'label_for', $fields_called['session_duration'] );
 		$this->assertSame( 'session_duration', $fields_called['session_duration']['label_for'] );
+
+		$this->assertArrayHasKey( 'policy_preset_selection', $fields_called );
+		$this->assertArrayHasKey( 'label_for', $fields_called['policy_preset_selection'] );
+		$this->assertSame( 'policy_preset_selection', $fields_called['policy_preset_selection']['label_for'] );
 
 		// All policy fields must have label_for matching their key.
 		$policy_ids = array(

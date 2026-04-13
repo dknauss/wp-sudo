@@ -82,6 +82,7 @@ class StreamBridgeTest extends TestCase {
 			'wp_sudo_action_allowed',
 			'wp_sudo_action_replayed',
 			'wp_sudo_capability_tampered',
+			'wp_sudo_policy_preset_applied',
 		);
 
 		foreach ( $expected as $hook ) {
@@ -130,6 +131,53 @@ class StreamBridgeTest extends TestCase {
 		$this->assertSame( 'wp_sudo_action_blocked', $event['args']['hook'] ?? null );
 		$this->assertSame( 'plugin.activate', $event['args']['rule_id'] ?? null );
 		$this->assertSame( 'cli', $event['args']['surface'] ?? null );
+
+		\Brain\Monkey\tearDown();
+	}
+
+	/**
+	 * Test preset application payloads are mapped into Stream log entries.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
+	public function test_03b_bridge_maps_policy_preset_payload_to_stream_log(): void {
+		\Brain\Monkey\setUp();
+		$this->define_stream_stub();
+
+		$GLOBALS['wp_sudo_stream_test_instance'] = (object) array(
+			'log' => new \WP_Sudo_Stream_Test_Log(),
+		);
+
+		$callbacks = array();
+		Functions\when( 'add_action' )->alias(
+			static function ( string $hook, callable $callback, int $priority = 10, int $accepted_args = 1 ) use ( &$callbacks ): bool {
+				$callbacks[ $hook ] = $callback;
+				return true;
+			}
+		);
+
+		include __DIR__ . '/../../bridges/wp-sudo-stream-bridge.php';
+
+		$this->assertArrayHasKey( 'wp_sudo_policy_preset_applied', $callbacks );
+		$callbacks['wp_sudo_policy_preset_applied'](
+			42,
+			'headless_friendly',
+			array( 'rest_app_password_policy' => 'limited' ),
+			array( 'rest_app_password_policy' => 'unrestricted' ),
+			false
+		);
+
+		$this->assertNotEmpty( \WP_Sudo_Stream_Test_Log::$events );
+
+		$event = \WP_Sudo_Stream_Test_Log::$events[0];
+		$this->assertSame( 'policy_preset_applied', $event['action'] ?? null );
+		$this->assertSame( 42, $event['user_id'] ?? null );
+		$this->assertSame( 'wp_sudo_policy_preset_applied', $event['args']['hook'] ?? null );
+		$this->assertSame( 'headless_friendly', $event['args']['preset_key'] ?? null );
+		$this->assertSame( 'limited', $event['args']['previous']['rest_app_password_policy'] ?? null );
+		$this->assertSame( 'unrestricted', $event['args']['current']['rest_app_password_policy'] ?? null );
+		$this->assertFalse( $event['args']['is_network'] ?? true );
 
 		\Brain\Monkey\tearDown();
 	}

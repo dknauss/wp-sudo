@@ -32,6 +32,12 @@ abstract class TestCase extends PHPUnitTestCase {
 					'sanitize_text_field' => static function ( $str ) {
 						return (string) $str;
 					},
+					'__'                  => static function ( $text ) {
+						return (string) $text;
+					},
+					'get_current_user_id' => static function () {
+						return 0;
+					},
 				)
 			);
 

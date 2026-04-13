@@ -56,6 +56,62 @@ class Admin {
 	public const AJAX_MU_UNINSTALL = 'wp_sudo_mu_uninstall';
 
 	/**
+	 * Stored marker for the currently active preset.
+	 *
+	 * @var string
+	 */
+	public const SETTING_POLICY_PRESET = 'policy_preset';
+
+	/**
+	 * Form-only setting key for selecting a preset.
+	 *
+	 * @var string
+	 */
+	public const SETTING_POLICY_PRESET_SELECTION = 'policy_preset_selection';
+
+	/**
+	 * Form-only flag requiring explicit confirmation before applying a preset.
+	 *
+	 * @var string
+	 */
+	public const SETTING_APPLY_POLICY_PRESET = 'apply_policy_preset';
+
+	/**
+	 * Preset key for the documented defaults.
+	 *
+	 * @var string
+	 */
+	public const POLICY_PRESET_NORMAL = 'normal';
+
+	/**
+	 * Preset key for the emergency lockdown mode.
+	 *
+	 * @var string
+	 */
+	public const POLICY_PRESET_INCIDENT_LOCKDOWN = 'incident_lockdown';
+
+	/**
+	 * Preset key for API-centric environments.
+	 *
+	 * @var string
+	 */
+	public const POLICY_PRESET_HEADLESS_FRIENDLY = 'headless_friendly';
+
+	/**
+	 * Marker used when current settings no longer match an applied preset.
+	 *
+	 * @var string
+	 */
+	public const POLICY_PRESET_CUSTOM = 'custom';
+
+	/**
+	 * Transient prefix for one-shot preset summary notices.
+	 *
+	 * @var string
+	 */
+	private const PRESET_NOTICE_TRANSIENT_PREFIX = 'wp_sudo_preset_notice_';
+
+	/**
 	 * Per-request cache for the full settings array.
 	 *
 	 * Prevents redundant is_multisite() + get_option/get_site_option
@@ -349,6 +405,7 @@ class Admin {
 					. '<li><code>wp_sudo_action_blocked</code> — ' . __( 'Denied by Limited policy.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_allowed</code> — ' . __( 'Permitted by Unrestricted policy.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_action_replayed</code> — ' . __( 'Stashed request replayed.', 'wp-sudo' ) . '</li>'
+					. '<li><code>wp_sudo_policy_preset_applied</code> — ' . __( 'Named surface-policy preset applied.', 'wp-sudo' ) . '</li>'
 					. '<li><code>wp_sudo_capability_tampered</code> — ' . __( 'Removed capability re-detected (possible database tampering).', 'wp-sudo' ) . '</li>'
 					. '</ul>',
 			)
@@ -397,6 +454,25 @@ class Admin {
 	 * @return void
 	 */
 	public function register_sections(): void {
+		// Policy presets section.
+		add_settings_section(
+			'wp_sudo_policy_presets',
+			__( 'Policy Presets', 'wp-sudo' ),
+			array( $this, 'render_section_policy_presets' ),
+			self::PAGE_SLUG
+		);
+
+		add_settings_field(
+			self::SETTING_POLICY_PRESET_SELECTION,
+			__( 'Quick Presets', 'wp-sudo' ),
+			array( $this, 'render_field_policy_presets' ),
+			self::PAGE_SLUG,
+			'wp_sudo_policy_presets',
+			array(
+				'label_for' => self::SETTING_POLICY_PRESET_SELECTION,
+			)
+		);
+
 		// Session section.
 		add_settings_section(
 			'wp_sudo_session',
@@ -500,13 +576,76 @@ class Admin {
 	 */
 	public static function defaults(): array {
 		return array(
-			'session_duration'         => 15,
-			'rest_app_password_policy' => Gate::POLICY_LIMITED,
-			'cli_policy'               => Gate::POLICY_LIMITED,
-			'cron_policy'              => Gate::POLICY_LIMITED,
-			'xmlrpc_policy'            => Gate::POLICY_LIMITED,
-			'wpgraphql_policy'         => Gate::POLICY_LIMITED,
-			'app_password_policies'    => array(),
+			'session_duration'          => 15,
+			'rest_app_password_policy'  => Gate::POLICY_LIMITED,
+			'cli_policy'                => Gate::POLICY_LIMITED,
+			'cron_policy'               => Gate::POLICY_LIMITED,
+			'xmlrpc_policy'             => Gate::POLICY_LIMITED,
+			'wpgraphql_policy'          => Gate::POLICY_LIMITED,
+			self::SETTING_POLICY_PRESET => self::POLICY_PRESET_NORMAL,
+			'app_password_policies'     => array(),
+		);
+	}
+
+	/**
+	 * Return supported policy-setting keys in display/storage order.
+	 *
+	 * @return string[]
+	 */
+	public static function policy_setting_keys(): array {
+		return array(
+			Gate::SETTING_REST_APP_PASS_POLICY,
+			Gate::SETTING_CLI_POLICY,
+			Gate::SETTING_CRON_POLICY,
+			Gate::SETTING_XMLRPC_POLICY,
+			Gate::SETTING_WPGRAPHQL_POLICY,
+		);
+	}
+
+	/**
+	 * Return supported preset definitions.
+	 *
+	 * @return array<string, array{
+	 *     label: string,
+	 *     description: string,
+	 *     policies: array<string, string>
+	 * }>
+	 */
+	public static function policy_presets(): array {
+		return array(
+			self::POLICY_PRESET_NORMAL            => array(
+				'label'       => __( 'Normal', 'wp-sudo' ),
+				'description' => __( 'Restore the recommended baseline: every remote surface remains available, but only gated operations are blocked.', 'wp-sudo' ),
+				'policies'    => array(
+					Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_LIMITED,
+					Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+					Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+					Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_LIMITED,
+					Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_LIMITED,
+				),
+			),
+			self::POLICY_PRESET_INCIDENT_LOCKDOWN => array(
+				'label'       => __( 'Incident Lockdown', 'wp-sudo' ),
+				'description' => __( 'Clamp down remote entry points during incident response while keeping scheduled jobs in Limited mode so routine maintenance can continue.', 'wp-sudo' ),
+				'policies'    => array(
+					Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_DISABLED,
+					Gate::SETTING_CLI_POLICY           => Gate::POLICY_DISABLED,
+					Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+					Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_DISABLED,
+					Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_DISABLED,
+				),
+			),
+			self::POLICY_PRESET_HEADLESS_FRIENDLY => array(
+				'label'       => __( 'Headless Friendly', 'wp-sudo' ),
+				'description' => __( 'Keep intentional API-driven workflows open while tightening legacy or optional remote surfaces.', 'wp-sudo' ),
+				'policies'    => array(
+					Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_UNRESTRICTED,
+					Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
+					Gate::SETTING_CRON_POLICY          => Gate::POLICY_LIMITED,
+					Gate::SETTING_XMLRPC_POLICY        => Gate::POLICY_DISABLED,
+					Gate::SETTING_WPGRAPHQL_POLICY     => Gate::POLICY_UNRESTRICTED,
+				),
+			),
 		);
 	}
 
@@ -551,6 +690,7 @@ class Admin {
 	 */
 	public function sanitize_settings( array $input ): array {
 		$sanitized = array();
+		$current   = $this->get_stored_settings();
 
 		// Session duration: 1–15 minutes.
 		$sanitized['session_duration'] = (int) ( $input['session_duration'] ?? 15 );
@@ -559,13 +699,7 @@ class Admin {
 		}
 
 		// Entry point policies: disabled, limited, or unrestricted.
-		$policy_keys = array(
-			Gate::SETTING_REST_APP_PASS_POLICY,
-			Gate::SETTING_CLI_POLICY,
-			Gate::SETTING_CRON_POLICY,
-			Gate::SETTING_XMLRPC_POLICY,
-			Gate::SETTING_WPGRAPHQL_POLICY,
-		);
+		$policy_keys = self::policy_setting_keys();
 
 		$valid_policies = array( Gate::POLICY_DISABLED, Gate::POLICY_LIMITED, Gate::POLICY_UNRESTRICTED );
 
@@ -588,6 +722,62 @@ class Admin {
 			}
 		}
 		$sanitized['app_password_policies'] = $app_password_policies;
+
+		$selected_preset = $this->sanitize_policy_preset_key( $input[ self::SETTING_POLICY_PRESET_SELECTION ] ?? '' );
+		$apply_preset    = ! empty( $input[ self::SETTING_APPLY_POLICY_PRESET ] );
+
+		if ( '' !== $selected_preset && $apply_preset ) {
+			$previous_policies = $this->extract_policy_values( $current );
+			$preset_policies   = self::policy_presets()[ $selected_preset ]['policies'];
+
+			foreach ( $preset_policies as $key => $value ) {
+				$sanitized[ $key ] = $value;
+			}
+
+			$sanitized[ self::SETTING_POLICY_PRESET ] = $selected_preset;
+
+			$this->store_policy_preset_notice( $selected_preset, $previous_policies, $preset_policies );
+			$user_id = function_exists( 'get_current_user_id' ) ? get_current_user_id() : 0;
+			$network = function_exists( 'is_multisite' ) ? is_multisite() : false;
+
+			/**
+			 * Fires when an operator applies a named policy preset.
+			 *
+			 * @since 2.15.0
+			 *
+			 * @param int    $user_id   Current user applying the preset.
+			 * @param string $preset    Preset key.
+			 * @param array  $previous  Previous policy values keyed by setting name.
+			 * @param array  $current   New policy values keyed by setting name.
+			 * @param bool   $network   Whether the current save context is network-wide.
+			 */
+			do_action(
+				'wp_sudo_policy_preset_applied',
+				$user_id,
+				$selected_preset,
+				$previous_policies,
+				$preset_policies,
+				$network
+			);
+
+			return $sanitized;
+		}
+
+		$current_marker = $this->sanitize_policy_preset_key( $current[ self::SETTING_POLICY_PRESET ] ?? self::POLICY_PRESET_NORMAL );
+		$matched_preset = $this->detect_matching_policy_preset( $sanitized );
+		$stored_preset  = self::POLICY_PRESET_CUSTOM;
+
+		if ( self::POLICY_PRESET_CUSTOM === $current_marker ) {
+			$stored_preset = $matched_preset ?? self::POLICY_PRESET_CUSTOM;
+		} elseif ( '' !== $current_marker ) {
+			$stored_preset = $this->policies_match_preset( $sanitized, $current_marker )
+				? $current_marker
+				: self::POLICY_PRESET_CUSTOM;
+		} elseif ( null !== $matched_preset ) {
+			$stored_preset = $matched_preset;
+		}
+
+		$sanitized[ self::SETTING_POLICY_PRESET ] = $stored_preset;
 
 		return $sanitized;
 	}
@@ -679,6 +869,7 @@ class Admin {
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+			<?php $this->render_policy_preset_notice(); ?>
 			<?php if ( $is_network && isset( $_GET['updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 				<div class="notice notice-success is-dismissible wp-sudo-notice">
 					<p><?php esc_html_e( 'Settings saved.', 'wp-sudo' ); ?></p>
@@ -1003,6 +1194,15 @@ class Admin {
 	}
 
 	/**
+	 * Render the policy presets section description.
+	 *
+	 * @return void
+	 */
+	public function render_section_policy_presets(): void {
+		echo '<p>' . esc_html__( 'Apply one-click policy bundles for incident response or headless environments. Presets only affect the remote and non-interactive surface settings below.', 'wp-sudo' ) . '</p>';
+	}
+
+	/**
 	 * Render the policies section description.
 	 *
 	 * @return void
@@ -1024,6 +1224,56 @@ class Admin {
 			absint( $value )
 		);
 		echo '<p class="description">' . esc_html__( 'How long a sudo session lasts before automatically expiring. Range: 1–15 minutes. Default: 15 minutes.', 'wp-sudo' ) . '</p>';
+	}
+
+	/**
+	 * Render the policy preset chooser.
+	 *
+	 * @return void
+	 */
+	public function render_field_policy_presets(): void {
+		$current_preset = $this->detect_matching_policy_preset( $this->get_stored_settings() ) ?? self::POLICY_PRESET_CUSTOM;
+		$presets        = self::policy_presets();
+
+		printf(
+			'<p class="description"><strong>%s</strong> %s</p>',
+			esc_html__( 'Current configuration:', 'wp-sudo' ),
+			esc_html( $this->policy_preset_label( $current_preset ) )
+		);
+
+		echo '<fieldset id="' . esc_attr( self::SETTING_POLICY_PRESET_SELECTION ) . '">';
+		echo '<legend class="screen-reader-text">' . esc_html__( 'Policy presets', 'wp-sudo' ) . '</legend>';
+
+		foreach ( $presets as $preset_key => $preset ) {
+			echo '<div class="wp-sudo-policy-preset" style="margin-bottom: 1em;">';
+			printf(
+				'<label><input type="radio" name="%1$s[%2$s]" value="%3$s" %4$s /> <strong>%5$s</strong></label>',
+				esc_attr( self::OPTION_KEY ),
+				esc_attr( self::SETTING_POLICY_PRESET_SELECTION ),
+				esc_attr( $preset_key ),
+				checked( $current_preset, $preset_key, false ),
+				esc_html( $preset['label'] )
+			);
+			echo '<p class="description" style="margin: 0.25em 0 0.5em;">' . esc_html( $preset['description'] ) . '</p>';
+			echo '<ul style="margin: 0 0 0 1.5em; list-style: disc;">';
+			foreach ( $preset['policies'] as $key => $value ) {
+				printf(
+					'<li><code>%1$s</code>: %2$s</li>',
+					esc_html( $key ),
+					esc_html( $this->policy_value_label( $value ) )
+				);
+			}
+			echo '</ul>';
+			echo '</div>';
+		}
+
+		printf(
+			'<label><input type="checkbox" name="%1$s[%2$s]" value="1" /> %3$s</label>',
+			esc_attr( self::OPTION_KEY ),
+			esc_attr( self::SETTING_APPLY_POLICY_PRESET ),
+			esc_html__( 'Apply the selected preset when saving. This will overwrite the entry-point policy fields below.', 'wp-sudo' )
+		);
+		echo '</fieldset>';
 	}
 
 	/**
@@ -1061,6 +1311,199 @@ class Admin {
 		if ( ! empty( $args['description'] ) ) {
 			echo '<p class="description">' . esc_html( $args['description'] ) . '</p>';
 		}
+	}
+
+	/**
+	 * Get the currently stored settings array.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function get_stored_settings(): array {
+		if ( ! function_exists( 'get_option' ) || ! function_exists( 'get_site_option' ) ) {
+			return self::defaults();
+		}
+
+		$settings = is_multisite()
+			? get_site_option( self::OPTION_KEY, self::defaults() )
+			: get_option( self::OPTION_KEY, self::defaults() );
+
+		return is_array( $settings ) ? array_merge( self::defaults(), $settings ) : self::defaults();
+	}
+
+	/**
+	 * Extract only surface policy values from a settings array.
+	 *
+	 * @param array<string, mixed> $settings Settings array.
+	 * @return array<string, string>
+	 */
+	private function extract_policy_values( array $settings ): array {
+		$values = array();
+		foreach ( self::policy_setting_keys() as $key ) {
+			$value          = $settings[ $key ] ?? Gate::POLICY_LIMITED;
+			$values[ $key ] = is_string( $value ) ? $value : Gate::POLICY_LIMITED;
+		}
+
+		return $values;
+	}
+
+	/**
+	 * Sanitize a preset key.
+	 *
+	 * @param mixed $preset_key Raw preset key.
+	 * @return string
+	 */
+	private function sanitize_policy_preset_key( mixed $preset_key ): string {
+		$preset_key = is_string( $preset_key ) ? sanitize_text_field( $preset_key ) : '';
+		if ( self::POLICY_PRESET_CUSTOM === $preset_key ) {
+			return self::POLICY_PRESET_CUSTOM;
+		}
+
+		return array_key_exists( $preset_key, self::policy_presets() ) ? $preset_key : '';
+	}
+
+	/**
+	 * Detect which preset matches the given policy values.
+	 *
+	 * @param array<string, mixed> $settings Settings array.
+	 * @return string|null
+	 */
+	private function detect_matching_policy_preset( array $settings ): ?string {
+		foreach ( array_keys( self::policy_presets() ) as $preset_key ) {
+			if ( $this->policies_match_preset( $settings, $preset_key ) ) {
+				return $preset_key;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Check whether the provided settings match a preset exactly.
+	 *
+	 * @param array<string, mixed> $settings   Settings array.
+	 * @param string               $preset_key Preset key.
+	 * @return bool
+	 */
+	private function policies_match_preset( array $settings, string $preset_key ): bool {
+		$presets = self::policy_presets();
+		if ( ! isset( $presets[ $preset_key ] ) ) {
+			return false;
+		}
+
+		foreach ( $presets[ $preset_key ]['policies'] as $key => $value ) {
+			if ( ! isset( $settings[ $key ] ) || $value !== $settings[ $key ] ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Store a one-shot summary notice for the next settings page load.
+	 *
+	 * @param string               $preset_key        Preset key.
+	 * @param array<string, mixed> $previous_policies Previous values.
+	 * @param array<string, mixed> $new_policies      New values.
+	 * @return void
+	 */
+	private function store_policy_preset_notice( string $preset_key, array $previous_policies, array $new_policies ): void {
+		if ( ! function_exists( 'set_transient' ) ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		set_transient(
+			self::PRESET_NOTICE_TRANSIENT_PREFIX . $user_id,
+			array(
+				'preset'   => $preset_key,
+				'previous' => $previous_policies,
+				'current'  => $new_policies,
+			),
+			MINUTE_IN_SECONDS
+		);
+	}
+
+	/**
+	 * Render the one-shot preset summary notice, if present.
+	 *
+	 * @return void
+	 */
+	private function render_policy_preset_notice(): void {
+		if ( ! function_exists( 'get_transient' ) || ! function_exists( 'delete_transient' ) ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		$notice = get_transient( self::PRESET_NOTICE_TRANSIENT_PREFIX . $user_id );
+		if ( ! is_array( $notice ) ) {
+			return;
+		}
+
+		delete_transient( self::PRESET_NOTICE_TRANSIENT_PREFIX . $user_id );
+
+		$current = is_array( $notice['current'] ?? null ) ? $notice['current'] : array();
+		$parts   = array();
+		foreach ( self::policy_setting_keys() as $key ) {
+			if ( ! isset( $current[ $key ] ) || ! is_string( $current[ $key ] ) ) {
+				continue;
+			}
+
+			$parts[] = sprintf(
+				'%1$s: %2$s',
+				$key,
+				$this->policy_value_label( $current[ $key ] )
+			);
+		}
+
+		printf(
+			'<div class="notice notice-success is-dismissible wp-sudo-notice"><p>%1$s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: 1: preset label, 2: comma-separated policy summary. */
+					__( 'Applied the %1$s preset. New surface policies: %2$s', 'wp-sudo' ),
+					$this->policy_preset_label( is_string( $notice['preset'] ?? '' ) ? $notice['preset'] : self::POLICY_PRESET_CUSTOM ),
+					implode( ', ', $parts )
+				)
+			)
+		);
+	}
+
+	/**
+	 * Convert a preset key to a display label.
+	 *
+	 * @param string $preset_key Preset key.
+	 * @return string
+	 */
+	private function policy_preset_label( string $preset_key ): string {
+		if ( self::POLICY_PRESET_CUSTOM === $preset_key ) {
+			return __( 'Custom', 'wp-sudo' );
+		}
+
+		$presets = self::policy_presets();
+		return $presets[ $preset_key ]['label'] ?? __( 'Custom', 'wp-sudo' );
+	}
+
+	/**
+	 * Convert a policy value to a concise display label.
+	 *
+	 * @param string $value Policy value.
+	 * @return string
+	 */
+	private function policy_value_label( string $value ): string {
+		return match ( $value ) {
+			Gate::POLICY_DISABLED => __( 'Disabled', 'wp-sudo' ),
+			Gate::POLICY_UNRESTRICTED => __( 'Unrestricted', 'wp-sudo' ),
+			default => __( 'Limited', 'wp-sudo' ),
+		};
 	}
 
 	/**

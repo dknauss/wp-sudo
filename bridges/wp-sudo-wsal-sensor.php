@@ -74,6 +74,14 @@ if ( ! function_exists( 'wp_sudo_wsal_bridge_event_payload' ) ) {
 				$payload['role']       = (string) ( $args[0] ?? '' );
 				$payload['capability'] = (string) ( $args[1] ?? '' );
 				break;
+
+			case 'wp_sudo_policy_preset_applied':
+				$payload['user_id']    = (int) ( $args[0] ?? 0 );
+				$payload['preset_key'] = (string) ( $args[1] ?? '' );
+				$payload['previous']   = is_array( $args[2] ?? null ) ? $args[2] : array();
+				$payload['current']    = is_array( $args[3] ?? null ) ? $args[3] : array();
+				$payload['is_network'] = (bool) ( $args[4] ?? false );
+				break;
 		}
 
 		return $payload;
@@ -128,6 +136,7 @@ $wp_sudo_wsal_event_map = array(
 	'wp_sudo_action_allowed'      => array( 'event_id' => 1900007, 'accepted_args' => 3 ),
 	'wp_sudo_action_replayed'     => array( 'event_id' => 1900008, 'accepted_args' => 2 ),
 	'wp_sudo_capability_tampered' => array( 'event_id' => 1900009, 'accepted_args' => 2 ),
+	'wp_sudo_policy_preset_applied' => array( 'event_id' => 1900010, 'accepted_args' => 5 ),
 );
 
 foreach ( $wp_sudo_wsal_event_map as $hook => $meta ) {

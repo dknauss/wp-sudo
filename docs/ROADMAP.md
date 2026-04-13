@@ -81,7 +81,7 @@ All 5 phases shipped. Identified by independent assessments from Codex, Gemini, 
 - ~~Action Registry schema validation~~ — `normalize_filtered_rules()` validates and normalizes `wp_sudo_gated_actions` filter output; malformed rules dropped fail-closed.
 - ~~MU loader resilience~~ — basename/path resolution uses explicit fallback chain (`WP_SUDO_PLUGIN_BASENAME` → derived → canonical); diagnostic action on unresolved paths.
 - ~~WPGraphQL persisted-query strategy~~ — `wp_sudo_wpgraphql_classification` filter enables external mutation classification for persisted-query setups; `str_contains` heuristic preserved as fallback.
-- ~~WSAL sensor bridge~~ — `bridges/wp-sudo-wsal-sensor.php` maps all 9 audit hooks to structured WSAL events (IDs 1900001–1900009); inert when WSAL absent.
+- ~~WSAL sensor bridge~~ — `bridges/wp-sudo-wsal-sensor.php` now maps all 10 audit hooks to structured WSAL events (IDs 1900001–1900010); inert when WSAL absent.
 
 ### ✓ Completed in v2.10.0
 
@@ -773,7 +773,7 @@ fully implemented in WP Sudo (through v2.5.2):
 - GET request gating (theme switch, network site operations, data export)
 - Network-wide multisite sessions and 8 multisite-specific rules
 - Per-application-password policy overrides
-- 9 audit hooks for external logging
+- 10 audit hooks for external logging
 - Proactive session-only authentication (no pending action required)
 - `unfiltered_html` capability tamper detection
 - WPGraphQL surface gating — three-tier policy for GraphQL mutations (Disabled / Limited / Unrestricted), mutation detection heuristic, headless authentication boundary documented (v2.5.0–v2.5.2)
@@ -786,7 +786,7 @@ fully implemented in WP Sudo (through v2.5.2):
 |---------|-----------|--------|
 | ~~**WP-CLI `wp sudo` subcommands**~~ ✅ | `wp sudo status`, `wp sudo revoke [--user=<id>]`, `wp sudo revoke --all` implemented for operator workflows. | Medium |
 | ~~**Public `wp_sudo_check()` / `wp_sudo_require()` API**~~ ✅ | Third-party plugins can now require sudo without registering full Gate rules. | Medium |
-| ~~**Stream bridge**~~ ✅ | Optional bridge `bridges/wp-sudo-stream-bridge.php` maps 9 WP Sudo audit hooks into Stream records. | Low |
+| ~~**Stream bridge**~~ ✅ | Optional bridge `bridges/wp-sudo-stream-bridge.php` maps 10 WP Sudo audit hooks into Stream records. | Low |
 
 ### Features to consider (need design work)
 
@@ -855,8 +855,8 @@ SBOM, accessibility roadmap) are documented in the [CHANGELOG](CHANGELOG.md).
 
 ### ✓ Shipped
 
-**~~WP Activity Log (WSAL) Sensor Extension~~** — shipped v2.11.0 as `bridges/wp-sudo-wsal-sensor.php`. Maps all 9 audit hooks to WSAL events (IDs 1900001–1900009). Inert when WSAL absent.
-**~~Stream bridge~~** — implemented on `main` for v2.12.0 as `bridges/wp-sudo-stream-bridge.php`. Optional mu-plugin mapping for all 9 audit hooks.
+**~~WP Activity Log (WSAL) Sensor Extension~~** — shipped v2.11.0 as `bridges/wp-sudo-wsal-sensor.php`. It now maps all 10 audit hooks to WSAL events (IDs 1900001–1900010). Inert when WSAL absent.
+**~~Stream bridge~~** — implemented on `main` for v2.12.0 as `bridges/wp-sudo-stream-bridge.php`. Optional mu-plugin mapping for all 10 audit hooks.
 **~~WP-CLI `wp sudo` commands~~** — implemented on `main` for v2.12.0 (`status`, `revoke --user`, `revoke --all`).
 **~~Public `wp_sudo_check()` / `wp_sudo_require()` API~~** — implemented on `main` for v2.12.0 for third-party action gating integrations.
 **~~Multi-Dimensional Rate Limiting (IP + User)~~** — shipped v2.13.0. Per-IP tracking via transients alongside per-user tracking, combined lockout policy, enriched `wp_sudo_lockout` hook payload.
@@ -985,9 +985,9 @@ These ideas are inspired by REST-surface management tooling, but only the parts 
 
 #### Priority 1 — High-value operator tools
 
-**Priority Lockdown Presets**
+**Priority Lockdown Presets — MVP shipped on `main` (unreleased)**
 
-One-click emergency presets for remote or non-interactive surfaces:
+One-click emergency presets for remote or non-interactive surfaces are now implemented in the settings UI for:
 
 - `REST App Passwords`
 - `XML-RPC`
@@ -995,106 +995,28 @@ One-click emergency presets for remote or non-interactive surfaces:
 - `Cron`
 - `WPGraphQL`
 
-The first pass should ship as a small set of opinionated presets, not a policy wizard. Example presets:
+The shipped MVP uses a small set of opinionated presets, not a policy wizard:
 
 - **Normal** — current recommended defaults
 - **Incident Lockdown** — tighten all remote surfaces to the most restrictive safe policy
 - **Headless Friendly** — preserve intentional API surfaces while tightening legacy or rarely used ones
 
-**Implementation details**
-- Add a preset layer above the existing per-surface settings in `class-admin.php`
-- Store the selected preset in `wp_sudo_settings`, but keep explicit per-surface values as the source of truth after application
-- Show a confirmation screen summarizing exactly which policies will change
-- Fire a dedicated audit hook or enrich the existing settings-change event so logging plugins can record preset application
-- Do not add per-user, per-role, or per-IP bypasses as part of this work
+**Current implementation**
+- Adds a preset layer above the existing per-surface settings in `class-admin.php`
+- Stores a `policy_preset` marker in `wp_sudo_settings`, while concrete per-surface values remain the source of truth after application
+- Requires explicit apply confirmation on save before a preset overwrites the per-surface controls
+- Fires a dedicated `wp_sudo_policy_preset_applied` audit hook so logging plugins can record preset application
+- Includes unit, integration, Stream/WSAL bridge, and browser happy-path coverage for preset application
+- Does not add per-user, per-role, or per-IP bypasses
 
 *Impact:* High during incident response and support. Low implementation risk because it reuses the existing policy model.
 
-**Proposed MVP implementation plan**
+**Follow-on improvements**
 
-**Goal**
-- Give administrators a fast, safe way to tighten remote/non-interactive surfaces during incidents without editing each policy individually.
-
-**Phase 1 scope**
-- Add preset application for these existing settings only:
-  - `rest_app_passwords`
-  - `xmlrpc`
-  - `cli`
-  - `cron`
-  - `wpgraphql`
-- Do **not** change browser-admin gating, session duration, challenge UX, or rule definitions.
-- Do **not** add per-route, per-role, per-user, or per-IP exceptions.
-
-**Recommended preset definitions**
-- **Normal**
-  - reflects the documented recommended defaults already used by WP Sudo
-  - safe "restore baseline" action
-- **Incident Lockdown**
-  - set every supported remote/non-interactive surface to the most restrictive safe mode
-  - intended for active compromise response or temporary containment
-- **Headless Friendly**
-  - preserve expected API-driven workflows where reasonable while tightening legacy or optional remote surfaces
-  - keep this preset narrowly defined and documented so it does not become a generic compatibility escape hatch
-
-**Settings model**
-- Keep per-surface values in `wp_sudo_settings` as the authoritative stored configuration.
-- Add a lightweight preset marker such as `policy_preset` only for UX/audit display.
-- Applying a preset should write the concrete per-surface values immediately so all existing enforcement code keeps working unchanged.
-- If a user manually changes a surface after applying a preset, treat the config as `custom` in the UI.
-
-**Admin UX**
-- Add a new "Policy Presets" section near the existing surface-policy controls in `class-admin.php`.
-- Each preset should show:
-  - short label
-  - one-sentence intended use
-  - exact per-surface changes before confirmation
-- Applying a preset should require an explicit confirmation step because it changes security posture.
-- After application, show an admin notice summarizing what changed and how to revert.
-
-**Audit / observability**
-- Record preset application through either:
-  - a new dedicated action such as `wp_sudo_policy_preset_applied`, or
-  - an enriched existing settings-change event payload
-- Payload should include:
-  - preset key
-  - previous per-surface values
-  - new per-surface values
-  - current user ID
-  - site/network context
-
-**Implementation notes**
-- Add a small internal preset-definition method or class that maps preset keys to setting arrays.
-- Keep enforcement code unaware of presets; presets should remain an admin/settings concern.
-- Centralize validation so only supported preset keys and supported per-surface values can be written.
-- On multisite, confirm whether presets should be network-only to match the current network-wide policy model.
-
-**Testing plan**
-- **Unit tests**
-  - preset definition coverage
-  - preset application writes the expected surface values
-  - invalid preset keys are rejected
-  - manual per-surface edits after preset application mark config as `custom`
-- **Integration tests**
-  - settings save path applies each preset correctly in real WordPress
-  - multisite/network settings behavior
-  - audit hook payload correctness
-- **Browser/E2E tests**
-  - admin applies preset and sees confirmation/summary notice
-  - resulting surface policy summary updates correctly
-
-**Suggested implementation order**
-1. Add preset definitions + validation layer
-2. Add settings save/apply path
-3. Add admin UI + confirmation
-4. Add audit hook/event payload
-5. Add unit/integration coverage
-6. Add one browser test for the happy path
-
-**Risks / watchpoints**
-- avoid silent changes to current recommended defaults
-- avoid turning `Headless Friendly` into an underspecified compatibility bucket
-- avoid duplicating surface-policy logic in multiple places
-- keep rollback obvious: preset application must be easily reversible
+- Add one network-admin preset application path.
+- Consider a richer diff/confirmation experience only if operators ask for more than the current explicit apply checkbox + summary notice.
+- Evaluate whether future Site Health output should surface the active preset marker.
+- Keep avoiding silent changes to current recommended defaults, underspecified preset semantics, and duplicated policy logic.
 
 **Request / Rule Tester**
 

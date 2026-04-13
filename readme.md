@@ -86,7 +86,7 @@ For the full threat model, boundaries, and environmental considerations, see [Se
 ### Recommended Plugins
 
 - **[Two Factor](https://wordpress.org/plugins/two-factor/)** — Strongly recommended. Makes the sudo challenge a two-step process: password + authentication code (TOTP, email, backup codes). Add **[WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/)** for passkey and security key support.
-- **[WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/)** or **[Stream](https://wordpress.org/plugins/stream/)** — Recommended for audit visibility. Sudo fires 9 action hooks covering session lifecycle, gated actions, policy decisions, and lockouts.
+- **[WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/)** or **[Stream](https://wordpress.org/plugins/stream/)** — Recommended for audit visibility. Sudo fires 10 action hooks covering session lifecycle, gated actions, policy decisions, preset application, and lockouts.
 
 ### User Experience
 
@@ -107,7 +107,7 @@ Settings and sessions are network-wide. The action registry includes 8 additiona
 
 1. Upload the `wp-sudo` folder to `/wp-content/plugins/`.
 2. Activate the plugin through the **Plugins** screen in WordPress.
-3. Go to **Settings > Sudo** to configure session duration and entry point policies.
+3. Go to **Settings > Sudo** to configure session duration, quick policy presets, and entry-point policies.
 4. (Optional) Install the mu-plugin from the settings page for early hook registration.
 5. (Recommended) Install the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin for two-factor authentication.
 
@@ -195,13 +195,13 @@ WP Sudo is built for correctness and contributor legibility, not just functional
 **Test-driven development.** New code requires a failing test before production code is written. The suite is split into two deliberate tiers:
 
 - **Unit tests** — use [Brain\Monkey](https://brain-wp.github.io/BrainMonkey/) to mock all WordPress functions. Run in ~0.5s with no database. Cover request matching, session state machine, policy enforcement, and hook registration.
-- **Integration tests** — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 9 audit hooks.
+- **Integration tests** — run against real WordPress + MySQL via `WP_UnitTestCase`. Cover full reauth flows, bcrypt verification, transient TTL, REST and AJAX gating, Two Factor interaction, multisite session isolation, upgrader migrations, and all 10 audit hooks.
 
 Current test counts and sizes are maintained in [Current Metrics](docs/current-metrics.md).
 
 **Static analysis and code style.** PHPStan, Psalm (with WordPress stubs/plugin), and PHPCS (WordPress-Extra + WordPress-Docs + WordPressVIPMinimum) run on every push and pull request via GitHub Actions, alongside the full test matrix (PHP 8.1–8.4, WordPress latest + trunk). A nightly scheduled run catches WordPress trunk regressions early. Type coverage is published to Shepherd on default-branch pushes (`main`/`master`).
 
-**Extensibility.** The action registry is filterable via `wp_sudo_gated_actions`. The plugin fires 9 audit hooks covering session lifecycle, gated actions, policy decisions, and lockouts — designed for integration with activity log plugins. Third-party 2FA plugins integrate via four filter hooks. See [docs/developer-reference.md](docs/developer-reference.md) for the full hook reference.
+**Extensibility.** The action registry is filterable via `wp_sudo_gated_actions`. The plugin fires 10 audit hooks covering session lifecycle, gated actions, policy decisions, preset application, and lockouts — designed for integration with activity log plugins. Third-party 2FA plugins integrate via four filter hooks. See [docs/developer-reference.md](docs/developer-reference.md) for the full hook reference.
 
 **Contributing.** See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the TDD workflow, and code style requirements.
 
@@ -211,7 +211,7 @@ Current project-size counts are centralized in [Current Metrics](docs/current-me
 
 No production dependencies. Dev dependencies (PHPUnit, PHPStan, Psalm, PHPCS, Brain\Monkey, Mockery) live in `vendor/` and are not shipped.
 
-*Last updated: 2026-03-08. Current counts are centralized in `docs/current-metrics.md`.*
+*Last updated: 2026-04-13. Current counts are centralized in `docs/current-metrics.md`.*
 
 ## Screenshots
 
@@ -223,7 +223,7 @@ No production dependencies. Dev dependencies (PHPUnit, PHPStan, Psalm, PHPCS, Br
 
    ![Two-factor authentication](assets/screenshot-2.png?v=3)
 
-3. **Settings page** — configure session duration and entry point policies.
+3. **Settings page** — configure session duration, quick policy presets, and entry-point policies.
 
    ![Settings page](assets/screenshot-3.png?v=2)
 

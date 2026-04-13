@@ -31,7 +31,8 @@ Every destructive WordPress admin action requires proof that the person at the k
 - WSAL sensor bridge and Stream audit bridge — v2.11.0, v2.12.0
 - WP-CLI subcommands (status, revoke) — v2.12.0
 - Public API (wp_sudo_check/wp_sudo_require) — v2.12.0
-- 9 audit hooks for external logging — v2.0+
+- 10 audit hooks for external logging — v2.0+ (10th hook added unreleased for policy preset application)
+- Lockdown policy presets for remote/non-interactive surfaces — unreleased
 - Editor unfiltered_html restriction + tamper detection — v2.0+
 - Comprehensive automated test coverage (current counts in `../docs/current-metrics.md`) — v2.13.0+
 

@@ -175,7 +175,7 @@ behavior that the model cannot hold in working memory.
 - **Challenge** — Interstitial reauthentication page. Handles password authentication, 2FA integration, request stash/replay.
 - **Sudo_Session** — Session management. Cryptographic token (user meta + httponly cookie), rate limiting (5 attempts → 5-min lockout), session binding. Two-tier expiry: `is_active()` for true session state; `is_within_grace()` for the 120 s grace window after expiry (token-verified). Cleanup deferred until grace window closes.
 - **Request_Stash** — Stashes and replays intercepted admin requests using transients.
-- **Admin** — Settings page at Settings → Sudo. Settings: session duration (1–15 min), entry point policies (Disabled/Limited/Unrestricted for REST App Passwords, CLI, Cron, XML-RPC, and WPGraphQL when active). Option key: `wp_sudo_settings`.
+- **Admin** — Settings page at Settings → Sudo. Settings: session duration (1–15 min), quick policy presets, and entry-point policies (Disabled/Limited/Unrestricted for REST App Passwords, CLI, Cron, XML-RPC, and WPGraphQL when active). Option key: `wp_sudo_settings`.
 - **Admin_Bar** — Live countdown timer in admin bar during active sessions.
 - **Site_Health** — WordPress Site Health integration (status tests and debug info).
 - **Upgrader** — Version-aware migration runner. Runs sequential upgrade routines when the stored version is older than the plugin version.

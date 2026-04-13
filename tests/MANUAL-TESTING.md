@@ -946,6 +946,28 @@ Before marking RC2, RC3, or GA complete, also re-run the standard local verifica
 3. **Result:** PASS — 2026-02-20 (WP 7.0-alpha-61698, Studio)
 4. **Result:** PASS — 2026-03-24 (WP 7.0-RC1, `wp-env` + Playwright browser verification)
 
+### 15.1a Policy Presets
+
+1. Load **Settings > Sudo**.
+2. **Expected:** A **Policy Presets** section appears above the per-surface
+   policy dropdowns.
+   - The current configuration label is visible.
+   - The preset list includes **Normal**, **Incident Lockdown**, and
+     **Headless Friendly** with short descriptions and per-surface summaries.
+   - Applying a preset requires checking the explicit confirmation checkbox.
+3. Select **Incident Lockdown**, check the apply-confirmation checkbox, and
+   save.
+4. **Expected:** A success notice confirms that the **Incident Lockdown**
+   preset was applied.
+   - REST App Passwords, WP-CLI, and XML-RPC show the expected locked-down
+     values.
+   - Cron remains **Limited**.
+   - If WPGraphQL is installed, its policy reflects the preset as well.
+5. Re-open the page, select **Normal**, check the apply-confirmation checkbox,
+   and save.
+6. **Expected:** A success notice confirms that the **Normal** preset was
+   applied and the per-surface policies return to the documented defaults.
+
 ### 15.2 Challenge Page
 
 1. Ensure no sudo session is active.

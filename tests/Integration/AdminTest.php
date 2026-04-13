@@ -151,6 +151,67 @@ class AdminTest extends TestCase {
 		$this->assertSame( Gate::POLICY_LIMITED, $sanitized['wpgraphql_policy'] );
 	}
 
+	/**
+	 * Test applying a preset writes the expected policy values and marker.
+	 */
+	public function test_policy_preset_applies_expected_values(): void {
+		$raw = array(
+			'session_duration'        => 10,
+			'policy_preset_selection' => Admin::POLICY_PRESET_INCIDENT_LOCKDOWN,
+			'apply_policy_preset'     => '1',
+		);
+
+		$sanitized = $this->admin->sanitize_settings( $raw );
+
+		$this->assertSame( Admin::POLICY_PRESET_INCIDENT_LOCKDOWN, $sanitized['policy_preset'] );
+		$this->assertSame( Gate::POLICY_DISABLED, $sanitized['rest_app_password_policy'] );
+		$this->assertSame( Gate::POLICY_DISABLED, $sanitized['cli_policy'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $sanitized['cron_policy'] );
+		$this->assertSame( Gate::POLICY_DISABLED, $sanitized['xmlrpc_policy'] );
+		$this->assertSame( Gate::POLICY_DISABLED, $sanitized['wpgraphql_policy'] );
+
+		$this->update_wp_sudo_option( Admin::OPTION_KEY, $sanitized );
+		Admin::reset_cache();
+
+		$this->assertSame( Admin::POLICY_PRESET_INCIDENT_LOCKDOWN, Admin::get( 'policy_preset' ) );
+		$this->assertSame( Gate::POLICY_DISABLED, Admin::get( 'rest_app_password_policy' ) );
+		$this->assertSame( Gate::POLICY_LIMITED, Admin::get( 'cron_policy' ) );
+	}
+
+	/**
+	 * Test preset application fires an audit hook with previous and new values.
+	 */
+	public function test_policy_preset_application_fires_audit_hook(): void {
+		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
+
+		$captured = null;
+		add_action(
+			'wp_sudo_policy_preset_applied',
+			static function ( int $user_id, string $preset_key, array $previous, array $new, bool $is_network ) use ( &$captured ): void {
+				$captured = compact( 'user_id', 'preset_key', 'previous', 'new', 'is_network' );
+			},
+			10,
+			5
+		);
+
+		$this->admin->sanitize_settings(
+			array(
+				'session_duration'        => 15,
+				'policy_preset_selection' => Admin::POLICY_PRESET_HEADLESS_FRIENDLY,
+				'apply_policy_preset'     => '1',
+			)
+		);
+
+		$this->assertIsArray( $captured );
+		$this->assertSame( $user->ID, $captured['user_id'] );
+		$this->assertSame( Admin::POLICY_PRESET_HEADLESS_FRIENDLY, $captured['preset_key'] );
+		$this->assertSame( is_multisite(), $captured['is_network'] );
+		$this->assertSame( Gate::POLICY_LIMITED, $captured['previous'][ Gate::SETTING_REST_APP_PASS_POLICY ] );
+		$this->assertSame( Gate::POLICY_UNRESTRICTED, $captured['new'][ Gate::SETTING_REST_APP_PASS_POLICY ] );
+		$this->assertSame( Gate::POLICY_DISABLED, $captured['new'][ Gate::SETTING_XMLRPC_POLICY ] );
+	}
+
 	// ── App-password per-password policy overrides ───────────────────
 
 	/**
@@ -255,5 +316,49 @@ class AdminTest extends TestCase {
 		$this->assertSame( 8, Admin::get( 'session_duration' ) );
 		$this->assertSame( Gate::POLICY_DISABLED, Admin::get( 'rest_app_password_policy' ) );
 		$this->assertSame( Gate::POLICY_UNRESTRICTED, Admin::get( 'cli_policy' ) );
+	}
+
+	/**
+	 * Test the network settings save handler applies a preset to site options.
+	 *
+	 * @group multisite
+	 */
+	public function test_network_settings_save_handler_applies_policy_preset(): void {
+		if ( ! is_multisite() ) {
+			$this->markTestSkipped( 'Multisite only.' );
+		}
+
+		$user = $this->make_admin();
+		grant_super_admin( $user->ID );
+		wp_set_current_user( $user->ID );
+
+		$_POST[ Admin::OPTION_KEY ] = array(
+			'session_duration'        => 12,
+			'policy_preset_selection' => Admin::POLICY_PRESET_HEADLESS_FRIENDLY,
+			'apply_policy_preset'     => '1',
+		);
+
+		$_REQUEST['_wpnonce'] = wp_create_nonce( Admin::PAGE_SLUG . '-options' );
+
+		add_filter(
+			'wp_redirect',
+			function ( $location ) {
+				throw new \Exception( 'redirect:' . $location );
+			}
+		);
+
+		try {
+			$this->admin->handle_network_settings_save();
+			$this->fail( 'Expected redirect exception.' );
+		} catch ( \Exception $e ) {
+			$this->assertStringContainsString( 'redirect:', $e->getMessage() );
+		}
+
+		Admin::reset_cache();
+		$this->assertSame( Admin::POLICY_PRESET_HEADLESS_FRIENDLY, Admin::get( 'policy_preset' ) );
+		$this->assertSame( Gate::POLICY_UNRESTRICTED, Admin::get( 'rest_app_password_policy' ) );
+		$this->assertSame( Gate::POLICY_LIMITED, Admin::get( 'cli_policy' ) );
+		$this->assertSame( Gate::POLICY_DISABLED, Admin::get( 'xmlrpc_policy' ) );
+		$this->assertSame( Gate::POLICY_UNRESTRICTED, Admin::get( 'wpgraphql_policy' ) );
 	}
 }

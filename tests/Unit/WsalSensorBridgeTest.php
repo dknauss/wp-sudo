@@ -59,6 +59,7 @@ class WsalSensorBridgeTest extends TestCase {
 			'wp_sudo_action_allowed',
 			'wp_sudo_action_replayed',
 			'wp_sudo_capability_tampered',
+			'wp_sudo_policy_preset_applied',
 		);
 
 		foreach ( $expected as $hook ) {
@@ -123,6 +124,44 @@ class WsalSensorBridgeTest extends TestCase {
 		$this->assertSame( 7, $user_id );
 		$this->assertSame( 'plugin.delete', $rule_id );
 		$this->assertSame( 'ajax', $surface );
+	}
+
+	/**
+	 * Test preset application payloads map into a dedicated WSAL event.
+	 */
+	public function test_05_bridge_maps_policy_preset_payload_to_structured_wsal_event_data(): void {
+		$this->define_wsal_alert_manager_stub();
+
+		$callbacks = array();
+		Functions\when( 'add_action' )->alias(
+			static function ( string $hook, callable $callback ) use ( &$callbacks ): bool {
+				$callbacks[ $hook ] = $callback;
+				return true;
+			}
+		);
+
+		include __DIR__ . '/../../bridges/wp-sudo-wsal-sensor.php';
+
+		$this->assertArrayHasKey( 'wp_sudo_policy_preset_applied', $callbacks );
+
+		$callbacks['wp_sudo_policy_preset_applied'](
+			7,
+			'incident_lockdown',
+			array( 'cli_policy' => 'limited' ),
+			array( 'cli_policy' => 'disabled' ),
+			true
+		);
+
+		$this->assertNotEmpty( \WSAL\Controllers\Alert_Manager::$events );
+
+		$event = \WSAL\Controllers\Alert_Manager::$events[0];
+		$this->assertSame( 1900010, $event[0] );
+		$this->assertSame( 'wp_sudo_policy_preset_applied', $event[1]['hook'] ?? null );
+		$this->assertSame( 7, $event[1]['user_id'] ?? null );
+		$this->assertSame( 'incident_lockdown', $event[1]['preset_key'] ?? null );
+		$this->assertSame( 'limited', $event[1]['previous']['cli_policy'] ?? null );
+		$this->assertSame( 'disabled', $event[1]['current']['cli_policy'] ?? null );
+		$this->assertTrue( $event[1]['is_network'] ?? false );
 	}
 
 	/**
