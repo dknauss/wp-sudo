@@ -159,6 +159,8 @@ class SudoSessionTest extends TestCase
 		$future = time() + 300;
 		$token = 'valid-token-456';
 
+		Functions\when('get_current_user_id')->justReturn(1);
+
 		Functions\when('get_user_meta')->alias(function ($uid, $key, $single) use ($future, $token) {
 			if (Sudo_Session::META_KEY === $key) {
 				return $future;
@@ -919,6 +921,8 @@ class SudoSessionTest extends TestCase
 	{
 		$past = time() - 30;
 		$token = 'grace-valid-token';
+
+		Functions\when('get_current_user_id')->justReturn(1);
 
 		Functions\when('get_user_meta')->alias(function ($uid, $key, $single) use ($past, $token) {
 			if (Sudo_Session::META_KEY === $key) {

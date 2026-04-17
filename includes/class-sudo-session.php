@@ -757,6 +757,12 @@ class Sudo_Session {
 	 * @return bool
 	 */
 	private static function verify_token( int $user_id ): bool {
+		// Defense-in-depth: ensure the token belongs to the current request's user.
+		$current_user_id = get_current_user_id();
+		if ( $current_user_id !== $user_id ) {
+			return false;
+		}
+
 		$stored_hash = get_user_meta( $user_id, self::TOKEN_META_KEY, true );
 
 		if ( ! $stored_hash ) {

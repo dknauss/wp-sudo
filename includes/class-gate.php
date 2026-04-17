@@ -1200,9 +1200,10 @@ class Gate {
 			: admin_url( 'admin.php' );
 
 		// Build the return URL so the cancel button returns to the originating page.
-		$return_url = isset( $_SERVER['HTTP_REFERER'] )
-			? sanitize_url( wp_unslash( $_SERVER['HTTP_REFERER'] ) )
-			: '';
+		$return_url = wp_get_referer();
+		if ( false === $return_url ) {
+			$return_url = '';
+		}
 
 		$query_args = array(
 			'page'      => 'wp-sudo-challenge',

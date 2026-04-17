@@ -38,6 +38,9 @@ abstract class TestCase extends PHPUnitTestCase {
 					'get_current_user_id' => static function () {
 						return 0;
 					},
+					'wp_get_referer'      => static function () {
+						return false;
+					},
 				)
 			);
 

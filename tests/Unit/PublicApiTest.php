@@ -37,6 +37,8 @@ class PublicApiTest extends TestCase {
 		$user_id = 12;
 		$token   = 'public-api-token';
 
+		Functions\when('get_current_user_id')->justReturn($user_id);
+
 		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
 
 		Functions\when( 'get_user_meta' )->alias(
