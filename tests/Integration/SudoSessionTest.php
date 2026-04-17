@@ -97,6 +97,7 @@ class SudoSessionTest extends TestCase {
 	 */
 	public function test_is_active_returns_true_with_valid_binding(): void {
 		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
 
 		Sudo_Session::activate( $user->ID );
 
@@ -108,6 +109,7 @@ class SudoSessionTest extends TestCase {
 	 */
 	public function test_is_active_returns_false_with_tampered_cookie(): void {
 		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
 
 		Sudo_Session::activate( $user->ID );
 		$this->assertTrue( Sudo_Session::is_active( $user->ID ) );
@@ -124,6 +126,7 @@ class SudoSessionTest extends TestCase {
 	 */
 	public function test_is_active_returns_false_when_expired(): void {
 		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
 
 		Sudo_Session::activate( $user->ID );
 		$this->assertTrue( Sudo_Session::is_active( $user->ID ) );
@@ -140,6 +143,7 @@ class SudoSessionTest extends TestCase {
 	 */
 	public function test_deactivate_clears_meta_and_cookie(): void {
 		$user = $this->make_admin();
+		wp_set_current_user( $user->ID );
 
 		Sudo_Session::activate( $user->ID );
 		$this->assertTrue( Sudo_Session::is_active( $user->ID ) );
@@ -151,6 +155,46 @@ class SudoSessionTest extends TestCase {
 		$this->assertEmpty( get_user_meta( $user->ID, Sudo_Session::META_KEY, true ) );
 		$this->assertArrayNotHasKey( Sudo_Session::TOKEN_COOKIE, $_COOKIE );
 		$this->assertFalse( Sudo_Session::is_active( $user->ID ) );
+	}
+
+	/**
+	 * INTG-02: verify_token() refuses cross-user checks end-to-end.
+	 *
+	 * Locks in the defense-in-depth user-ID check added in ca53797 under real
+	 * WordPress conditions (user meta + cookie + wp_set_current_user). Even when
+	 * another user's session is fully active and the browser still holds that
+	 * user's TOKEN_COOKIE, Sudo_Session::is_active() and is_within_grace() must
+	 * return false for anyone other than the current request's user.
+	 */
+	public function test_verify_token_refuses_cross_user_checks(): void {
+		$user_a = $this->make_admin();
+		$user_b = $this->make_admin();
+
+		// Activate a real session for user B while B is the current user.
+		wp_set_current_user( $user_b->ID );
+		Sudo_Session::activate( $user_b->ID );
+		$this->assertTrue( Sudo_Session::is_active( $user_b->ID ), 'Precondition: B has an active session.' );
+		Sudo_Session::reset_cache();
+
+		// Switch current user to A. The cookie and B's stored token hash both
+		// still exist and would hash-match — only the current_user context has
+		// changed. Without the defense-in-depth check in verify_token(), this
+		// assertion would fail (is_active would return true for B).
+		wp_set_current_user( $user_a->ID );
+		$this->assertFalse(
+			Sudo_Session::is_active( $user_b->ID ),
+			'is_active() must refuse a check for a user who is not the current request user.'
+		);
+		Sudo_Session::reset_cache();
+
+		// Expire the meta into the grace window and repeat — is_within_grace()
+		// shares the same verify_token() path and must also refuse.
+		update_user_meta( $user_b->ID, Sudo_Session::META_KEY, time() - 30 );
+		Sudo_Session::reset_cache();
+		$this->assertFalse(
+			Sudo_Session::is_within_grace( $user_b->ID ),
+			'is_within_grace() must also refuse cross-user checks.'
+		);
 	}
 
 	/**
