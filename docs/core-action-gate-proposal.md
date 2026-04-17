@@ -192,6 +192,12 @@ This document therefore treats the work as a stack:
 
 Keeping those layers distinct is not just editorial hygiene. It is the main design discipline that makes the proposal plausibly landable in core.
 
+### 4.0 Terminology note: “action” here does not mean a hook action
+
+This proposal deliberately uses the word **action** to mean a **registered consequential operation**, not a WordPress Actions API hook such as `do_action()` or `add_action()`. That overlap is a real source of possible confusion, and readers should keep it in mind throughout the document.
+
+The reason to keep the term for now is that it conveys what the registry is trying to capture: meaningful, named operations such as activating a plugin, deleting a user, or rotating external credentials. Still, if core contributors conclude that “Actions API” is too easily confused with the existing hook system, the name should change before any real proposal moves forward. Viable alternatives would include **Action Catalog API**, **Consequential Operations API**, or **Operation Registry API**.
+
 ### 4.1 Phase 1: Actions API
 
 The Actions API is the smaller, more landable primitive. Its purpose is to let WordPress name consequential operations explicitly, attach metadata to them, and expose a stable registry that multiple systems can consume. In practical terms, it provides:
@@ -262,6 +268,19 @@ This is the strongest wedge because even people who are skeptical of core-manage
 
 The Actions API is therefore the proposal’s lowest-risk, highest-leverage starting point.
 
+### Why not ship only a recent-auth primitive?
+
+A reasonable objection is that WordPress may not need an action registry first at all. Core could, in theory, introduce a small helper such as `wp_require_recent_auth()` and apply it selectively to a few high-risk browser flows.
+
+That would be a valid direction for a much narrower proposal, but it would leave several important benefits on the table:
+
+- it would not create a shared taxonomy of consequential operations
+- it would not help audit or logging systems converge on stable identifiers
+- it would not give plugins a standard way to declare that their own operations are consequential
+- it would not help future plugin-manifest systems or AI-agent boundaries classify sensitive operations consistently
+
+A recent-auth primitive is therefore a plausible **consumer** of this proposal’s Phase 1 registry, but it is a weaker substitute for the registry itself. The registry yields value whether or not core standardizes recent-auth behavior immediately. A recent-auth helper does not provide the same ecosystem-wide naming and interoperability benefits on its own.
+
 ---
 
 ## 6. Naming, Taxonomy, and Relationship to the Abilities API
@@ -307,6 +326,19 @@ The Abilities API remains relevant in two ways:
 2. Some future actions may map directly to ability execution paths.
 
 But actions and abilities should not be forced into one object model too early. An ability is an executable unit with input, permission, and output behavior. An action, in this proposal, is a consequential operation worth naming, observing, and potentially gating. Some abilities may correspond directly to actions; some actions may wrap non-ability code paths; some may eventually be backed by ability execution. The important thing is that the proposal acknowledges the relationship without pretending the two concepts are already identical.
+
+### Why not just use the Abilities API?
+
+Another likely objection is that WordPress already has an Abilities API, so a second registry may look redundant. That objection deserves a direct answer.
+
+The best answer is not that abilities are irrelevant. They are highly relevant. But they serve a different primary purpose:
+
+- **Abilities** are executable units with registration, validation, permission, and execution semantics.
+- **Actions**, as used in this proposal, are a taxonomy of consequential operations that core and plugins may want to name, observe, audit, decorate, and later gate—even when those operations are not naturally modeled as one self-contained ability object.
+
+Some future consequential actions may map one-to-one to abilities. Others may wrap long-standing core functions or mixed legacy flows that do not yet fit the ability model cleanly. That means the proposal should align with Abilities where possible without requiring every consequential operation to be reduced to an ability first.
+
+If WordPress later decides that the Abilities API can absorb this entire use case cleanly, then this proposal should collapse into that direction rather than create needless duplication. But today, the safer position is to acknowledge that Abilities are adjacent prior art, not yet a complete substitute.
 
 ---
 
@@ -385,6 +417,19 @@ $result = wp_execute_action(
 ## 8. Initial Core Catalog for Phase 1
 
 The initial catalog should be small, explicit, and focused on clearly human-driven, high-consequence actions. It should avoid generic low-level setters and speculative catch-all entries.
+
+### Selection criteria for the initial catalog
+
+An operation is a good Phase 1 catalog candidate if most of the following are true:
+
+- it is **clearly human-initiated** in ordinary WordPress administration
+- it has **high consequence** if misused, replayed, or triggered by a stolen session
+- it is backed by a **stable privileged boundary** in core rather than a generic low-level primitive
+- it is **broadly understandable** to operators and plugin authors without deep internal context
+- it is realistic to **observe consistently** across requests and UI surfaces
+- it is useful even before enforcement exists because it benefits logging, UI, diagnostics, or future policy systems
+
+These criteria are intentionally narrower than “anything security-sensitive.” The first catalog should establish a durable pattern, not aim for total coverage.
 
 ### Recommended initial core catalog
 
