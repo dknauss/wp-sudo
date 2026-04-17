@@ -469,6 +469,7 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'WebAuthn Provider', $content );
 		$this->assertStringContainsString( 'WP Activity Log', $content );
 		$this->assertStringContainsString( 'Stream', $content );
+		$this->assertStringContainsString( '10 action hooks', $content );
 	}
 
 	public function test_how_it_works_tab_mentions_keyboard_shortcut(): void {

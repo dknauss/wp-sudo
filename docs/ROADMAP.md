@@ -1,13 +1,13 @@
 # Roadmap: Past and Future Planning — Integration Tests, WP 7.0 Prep, Collaboration, TDD, and Core Design
 
-*Updated March 8, 2026*
+*Updated April 17, 2026*
 
 ## Table of Contents
 
 - **[Planned Development Timeline](#planned-development-timeline)** — Immediate, short-term, medium-term, and later work phases
 - **[Context](#context)** — current state, CI matrix, and WP 7.0 status (counts in `docs/current-metrics.md`)
 - **[1. Integration Tests](#1-integration-tests--scope-and-value)** — Complete ✓ (80 tests), coverage analysis, remaining gaps
-- **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-ga-april-9-2026)** — Beta 1 tested ✓, one task remaining: "Tested up to" bump on GA day
+- **[2. WordPress 7.0 Prep](#2-wordpress-70-prep-final-date-tbd)** — Beta/RC checks recorded; final readme bump and Connectors parity check remain after 7.0 final ships
 - **[3. Collaboration & Sudo](#3-collaboration-and-sudo--multi-user-editing-scenarios)** — Multi-user editing, conflict resolution
 - **[4. Context Collapse & TDD](#4-context-collapse-and-tdd)** — LLM confabulation defense, test-driven development
 - **[Recommended Next Steps](#recommended-next-steps-priority-order)** — Immediate, short-term, medium-term priorities
@@ -41,7 +41,7 @@ The operator tooling tranche shipped in v2.12.0.
 
 ### ✅ Shipped: IP + User Multidimensional Rate Limiting (v2.13.0)
 
-- ~~**Multi-dimensional rate limiting (IP + user)**~~ ✅ implemented — Per-IP tracking via transients alongside per-user tracking, combined lockout policy, enriched `wp_sudo_lockout` hook payload with `type` and IP address.
+- ~~**Multi-dimensional rate limiting (IP + user)**~~ ✅ implemented — Per-IP tracking via transients alongside per-user tracking, combined lockout policy, and the triggering IP address added as the third `wp_sudo_lockout` hook argument.
 
 ### Short-term: Testing Infrastructure (v2.14+)
 
@@ -121,10 +121,10 @@ All 5 phases shipped. Identified by independent assessments from Codex, Gemini, 
 This is a living document covering accumulated input and thinking about the strategic
 challenges and priorities for WP Sudo. 
 
-Current project state (as of March 8, 2026):
+Current project state (as of April 17, 2026):
 - Current test and size counts are centralized in [`docs/current-metrics.md`](docs/current-metrics.md).
 - CI pipeline: unit tests on PHP 8.0–8.4; integration tests on PHP 8.0/8.1/8.3; WordPress 6.2, 6.7, and 7.0-RC1; single-site + multisite; MySQL 8.0 plus one MariaDB lane; PCOV coverage job
-- WordPress 7.0 RC1 signoff recorded (March 24, 2026); GA is April 9, 2026
+- WordPress 7.0 RC1 signoff recorded (March 24, 2026); the scheduled April 9 final was delayed on March 31, 2026 and no replacement final date is published yet. See `docs/release-status.md`.
 
 ---
 
@@ -198,9 +198,9 @@ These gaps have been closed by the integration suite:
 
 ---
 
-## 2. WordPress 7.0 Prep (GA April 9, 2026)
+## 2. WordPress 7.0 Prep (final date TBD)
 
-> **Status:** WP 7.0 beta-era automation and manual beta checks are green, and RC1 signoff is recorded on 2026-03-24. Repeat the manual verification pass on each later RC build, including an RC3 checkpoint on April 2, 2026, log each result in `tests/MANUAL-TESTING.md`, keep the standard local verification set green, then do the final readme "Tested up to" bump on GA.
+> **Status:** WP 7.0 beta-era automation and manual beta checks are green, and RC1 signoff is recorded on 2026-03-24. Repeat the manual verification pass on each later RC build and on the final 7.0 release, log each result in `tests/MANUAL-TESTING.md`, keep the standard local verification set green, then do the final readme `Tested up to` bump only after the final release ships.
 
 ### Verified changes that affect WP Sudo
 
@@ -222,14 +222,14 @@ These gaps have been closed by the integration suite:
 2. ~~**Run the manual testing guide** against 7.0-beta~~ — done; all 15 sections PASS
 3. ~~**Visual check:** settings page, help tabs, admin bar timer, challenge interstitial, admin notices~~ — done; all pass against refreshed admin chrome
 4. ~~**Run `composer test`**~~ — passing on WP 7.0-alpha / 7.0-beta; CI covers WP trunk
-5. **Repeat manual verification on each RC build** (RC1, RC2, etc.), with an explicit RC3 checkpoint on **April 2, 2026**, and record date + build in the `15.0 Release Signoff Log` table in `tests/MANUAL-TESTING.md`.
+5. **Repeat manual verification on each later RC build and on the final release**, and record date + build in the `15.0 Release Signoff Log` table in `tests/MANUAL-TESTING.md`.
 6. **Keep the standard local verification set green for each RC/GA checkpoint**:
    - `composer test:integration`
    - `WP_MULTISITE=1 composer test:integration`
    - `composer analyse:phpstan`
    - `composer analyse:psalm`
    - `composer lint`
-7. **Update version references** when 7.0 ships (April 9):
+7. **Update version references** when WordPress 7.0 final ships (date currently TBD):
    - `readme.txt` / `readme.md` — "Tested up to" bump
    - Any docs still referencing "WordPress 6.9" as latest
 8. **Remove `handle_err_admin_role()` workaround** once WP 7.0 GA ships (Trac #64690 lands in core — see table row above).
@@ -248,9 +248,10 @@ would need to intercept it.
 **Recommended approach:** Add a REST rule to `Action_Registry` matching destructive
 ability runs. The existing `Gate::intercept_rest()` already intercepts all REST
 requests via `rest_request_before_callbacks` — no new surface type is needed. A new
-`ability` surface type would only be warranted if abilities gain a non-REST, non-CLI
-execution path (e.g., a PHP-level `do_ability()` function) — no such path exists in
-WP 7.0.
+`ability` surface type would only be warranted if abilities become a separate
+first-class non-REST execution surface in plugin/core practice. Core already has a PHP
+execution path via `WP_Ability::execute()`, but that remains a monitor-only concern for
+now rather than justification for a new surface type.
 
 For full analysis, trigger conditions, and example rules, see
 [`docs/abilities-api-assessment.md`](docs/abilities-api-assessment.md).
@@ -388,7 +389,7 @@ not context retrieval.
 5. ~~Visual review against 7.0 admin refresh~~ — done (v2.4.0)
 6. ~~WPGraphQL surface gating~~ — done (v2.5.0–v2.5.2)
 7. ~~Abilities API coverage documented~~ — done (v2.5.1)
-8. **Update "Tested up to"** when WP 7.0 ships (April 9, 2026)
+8. **Update `Tested up to`** when WordPress 7.0 final ships (date currently TBD)
 9. ~~**Core design features** — login=sudo, gate password changes, grace period~~ — done (v2.6.0)
 10. ~~**Security hardening sprint** — stash redaction, upload-action gating, non-blocking rate limiting~~ — done (v2.10.2–v2.11.0)
 11. ~~**Rule-schema validation and MU loader resilience**~~ — done (v2.11.0)
@@ -859,7 +860,7 @@ SBOM, accessibility roadmap) are documented in the [CHANGELOG](CHANGELOG.md).
 **~~Stream bridge~~** — implemented on `main` for v2.12.0 as `bridges/wp-sudo-stream-bridge.php`. Optional mu-plugin mapping for all 10 audit hooks.
 **~~WP-CLI `wp sudo` commands~~** — implemented on `main` for v2.12.0 (`status`, `revoke --user`, `revoke --all`).
 **~~Public `wp_sudo_check()` / `wp_sudo_require()` API~~** — implemented on `main` for v2.12.0 for third-party action gating integrations.
-**~~Multi-Dimensional Rate Limiting (IP + User)~~** — shipped v2.13.0. Per-IP tracking via transients alongside per-user tracking, combined lockout policy, enriched `wp_sudo_lockout` hook payload.
+**~~Multi-Dimensional Rate Limiting (IP + User)~~** — shipped v2.13.0. Per-IP tracking via transients alongside per-user tracking, combined lockout policy, and the triggering IP address added as the third `wp_sudo_lockout` hook argument.
 
 ### Open — Medium Effort
 
@@ -1214,7 +1215,7 @@ WP Sudo ran a focused hardening sprint before new UX or architecture expansion. 
 
 **Problem:** Audit hooks exist but have no integration with enterprise logging tools.
 
-**Fix (shipped):** Added optional bridge `bridges/wp-sudo-wsal-sensor.php` mapping 9 WP Sudo audit hooks into structured WSAL events. Bridge remains inert when WSAL APIs are unavailable. Stream adapter remains the follow-on parity task.
+**Fix (shipped):** Added optional bridge `bridges/wp-sudo-wsal-sensor.php` mapping WP Sudo audit hooks into structured WSAL events. The bridge remains inert when WSAL APIs are unavailable. Stream parity also shipped later via `bridges/wp-sudo-stream-bridge.php`; see `docs/current-metrics.md` / `docs/developer-reference.md` for the current audit-hook total.
 
 **Tests:** Unit tests for WSAL presence/absence behavior, listener registration, payload mapping, and pass-through hook contract safety.
 
@@ -1233,7 +1234,7 @@ WP Sudo ran a focused hardening sprint before new UX or architecture expansion. 
 2. ~~**Sprint A** (Security core): Stash redaction + per-user cap, upload-action coverage.~~ ✅ Complete.
 3. ~~**Sprint B** (Auth resilience): Non-blocking rate limiting.~~ ✅ Complete.
 4. **Sprint C** (Reliability): Rule-schema validation, MU loader hardening.
-5. On/after April 9, 2026: Phase 5 `05-03` "Tested up to: 7.0" readme bump.
+5. After WordPress 7.0 final ships: Phase 5 `05-03` `Tested up to: 7.0` readme bump.
 6. **Sprint D** (Surface + Observability): WPGraphQL persisted-query strategy, WSAL sensor.
 
 ### Release Gates

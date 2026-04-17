@@ -1,5 +1,8 @@
 # External Integrations
 
+> **Historical planning snapshot:** This file preserves milestone-era planning context and may contain stale counts, dates, or release assumptions. Do **not** treat it as the canonical current project state. Use `docs/current-metrics.md`, `docs/release-status.md`, and `docs/ROADMAP.md` for current facts.
+
+
 **Analysis Date:** 2026-02-19
 
 ## APIs & External Services

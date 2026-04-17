@@ -1,5 +1,8 @@
 ## Current Position
 
+> **Historical planning snapshot:** This file preserves milestone-era planning context and may contain stale counts, dates, or release assumptions. Do **not** treat it as the canonical current project state. Use `docs/current-metrics.md`, `docs/release-status.md`, and `docs/ROADMAP.md` for current facts.
+
+
 Phase: 8 (Keyboard Navigation + Admin Bar Interaction E2E) — COMPLETE
 Plan: 02 complete (2/2 plans done)
 Status: ALL COMPLETE — v2.14 Playwright E2E milestone plus post-milestone multisite hardening: 32/32 v1 requirements verified, 30 E2E tests defined, default single-site verification path passes 29 with 1 Local-only multisite skip

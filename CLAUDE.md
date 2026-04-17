@@ -72,6 +72,8 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 - `docs/abilities-api-assessment.md` — WordPress Abilities API (6.9+) assessment.
 - `docs/sudo-architecture-comparison-matrix.md` — competitive comparison with other sudo/reauth approaches.
 - `docs/ROADMAP.md` — unified roadmap: integration tests, WP 7.0 prep, collaboration analysis, TDD strategy, core design features, feature backlog, accessibility appendix.
+- `docs/release-status.md` — canonical current release status: stable tag, unreleased `main` work, and WordPress forward-lane posture.
+- `docs/documentation-remediation-checklist.md` — audit-driven cleanup checklist for doc drift and archival labeling.
 
 ## Verification Requirements
 
@@ -97,15 +99,16 @@ See `docs/llm-lies-log.md` for the full record. These rules exist to prevent rec
 
 ### Internal architectural counts (surfaces, rules, fields, tabs, hooks)
 
-- **MUST** check `docs/current-metrics.md` "Architectural Facts" table before
-  writing any count that appears there (surfaces, gated rules, help tabs,
-  settings fields, audit hooks, E2E tests).
-- When adding a feature that changes a count, update `current-metrics.md`
-  FIRST, then update all files listed in its "Files that reference these
-  counts" section.
-- Never hardcode a count in prose without a verification command. If the
-  count cannot be trivially verified, add a verification command to the
-  Architectural Facts table.
+- **MUST** check `docs/current-metrics.md` before writing any current count
+  that appears there (surfaces, gated rules, help tabs, settings fields,
+  audit hooks, E2E tests, etc.).
+- When adding a feature that changes a count, update `docs/current-metrics.md`
+  FIRST. Prefer linking to that file instead of copying counts into prose.
+- **MUST** check `docs/release-status.md` before writing current release-state
+  claims (stable tag, unreleased `main` work, latest supported WordPress
+  release, forward-lane version, or delayed/final release dates).
+- Never hardcode a volatile count or release date in prose unless the file is
+  itself the canonical source for that fact.
 
 ### Verification commands for this project
 
@@ -171,7 +174,7 @@ behavior that the model cannot hold in working memory.
 
 - **Plugin** — Orchestrator. Creates and owns the component instances. Handles activation/deactivation hooks. Strips `unfiltered_html` from editors on activation and restores it on deactivation. Expires sudo session on password change (`after_password_reset`, `profile_update`).
 - **Gate** — Multi-surface interceptor. Matches incoming requests against the Action Registry and gates them via reauthentication (admin UI), error response (AJAX/REST), or policy (CLI/Cron/XML-RPC/App Passwords).
-- **Action_Registry** — Defines all gated rules (23 single-site rules across 7 categories + 9 multisite rules = 32 total). Extensible via `wp_sudo_gated_actions` filter.
+- **Action_Registry** — Defines all built-in gated rules and rule categories. Extensible via `wp_sudo_gated_actions` filter. See `docs/current-metrics.md` for the current single-site/multisite totals.
 - **Challenge** — Interstitial reauthentication page. Handles password authentication, 2FA integration, request stash/replay.
 - **Sudo_Session** — Session management. Cryptographic token (user meta + httponly cookie), rate limiting (5 attempts → 5-min lockout), session binding. Two-tier expiry: `is_active()` for true session state; `is_within_grace()` for the 120 s grace window after expiry (token-verified). Cleanup deferred until grace window closes.
 - **Request_Stash** — Stashes and replays intercepted admin requests using transients.
@@ -188,7 +191,7 @@ As a tamper-detection canary, `Plugin::enforce_editor_unfiltered_html()` runs at
 
 ### Audit Hooks
 
-The plugin fires 9 action hooks for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_blocked`, `wp_sudo_action_allowed`, `wp_sudo_action_replayed`, `wp_sudo_capability_tampered`.
+The plugin fires audit hooks for external logging, lifecycle tracing, policy preset application, and tamper detection. See `docs/current-metrics.md` for the current hook count and `docs/developer-reference.md` for the canonical hook list/signatures.
 
 ## Testing
 

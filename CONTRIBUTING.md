@@ -46,7 +46,7 @@ Runs in ~0.3s. No external dependencies — all WordPress functions are mocked w
 export WP_TESTS_DIR="$PWD/.tmp/wordpress-tests-lib"
 export WP_CORE_DIR="$PWD/.tmp/wordpress"
 
-# One-time setup: installs the WordPress 7.0 beta 4 test library and creates test DB
+# One-time setup: installs the current forward-lane WordPress 7.0-RC1 test library and creates test DB
 bash bin/install-wp-tests.sh wordpress_test root root 127.0.0.1 7.0-RC1
 
 # Run tests
@@ -294,6 +294,14 @@ composer verify:metrics
 
 If it reports drift, update `docs/current-metrics.md` first, then re-run `composer verify:metrics` until it passes.
 
+### Documentation drift checklist
+
+- Update `docs/current-metrics.md` first whenever counts change.
+- Update `docs/release-status.md` first whenever release state changes (stable tag, unreleased `main` work, latest supported WordPress release, forward-lane pin, or delayed release date assumptions).
+- Prefer linking to `docs/current-metrics.md` and `docs/release-status.md` instead of copying volatile counts or dates into prose.
+- When WordPress release timing changes, grep for stale fixed-date references (for example `April 9, 2026`, `7.0-RC1`, or `GA`) across `docs/`, readmes, and maintainer instruction files.
+- Treat `.planning/` as historical working material unless a file explicitly says it is current.
+
 ## Test Strategy
 
 Two environments are used deliberately — choose based on what you are testing:
@@ -330,19 +338,9 @@ Static analysis is part of the assurance target, not optional polish. `composer 
 
 ## Current Coverage Snapshot
 
-Current live counts and matrix details are centralized in [`docs/current-metrics.md`](docs/current-metrics.md). As of the latest verification:
+Current live counts and matrix details are centralized in [`docs/current-metrics.md`](docs/current-metrics.md). Current stable-vs-forward release posture is centralized in [`docs/release-status.md`](docs/release-status.md). Keep this section qualitative to avoid stale duplication.
 
-- `514` unit tests and `1348` assertions cover core business logic, bridges, and state-machine behavior.
-- `139` integration test methods cover real-WordPress flows across admin, REST, AJAX, request stash/replay, multisite, and Two Factor interaction.
-- `58` Playwright tests cover the browser-visible challenge flow, including stale-session recovery, 2FA, resend, throttle, lockout, expiry recovery, stash replay, and reusable stack-smoke subsets for alternate environments.
-- CI runs unit tests on PHP `8.0` through `8.4`.
-- CI runs integration tests on PHP `8.0`, `8.1`, and `8.3` against WordPress `6.2`, `6.7`, and `7.0-RC1`.
-- CI runs a scheduled WordPress compatibility sweep on `6.3`, `6.4`, `6.5`, and `6.6` with PHP `8.1`, plus MariaDB overlap lanes on WordPress `6.4` and `6.5`.
-- CI runs integration coverage on MySQL `8.0` plus one MariaDB LTS lane.
-- CI runs browser tests on the default `wp-env` Apache + MariaDB stack and stack-smoke browser tests on explicit nginx + php-fpm + MariaDB, explicit nginx + php-fpm + MariaDB multisite, and Playground SQLite lanes.
-- Studio remains the recommended local path for deeper SQLite investigation beyond the automated smoke coverage, with a dedicated release runbook in [`docs/studio-sqlite-release-runbook.md`](docs/studio-sqlite-release-runbook.md).
-
-The strongest covered area is the challenge flow itself: password and 2FA auth, stale tabs, resend behavior, throttle/lockout UX, expiry recovery, and request replay all have automated coverage. The main remaining gaps are matrix depth on alternate stacks rather than core flow depth: the full browser suite still runs only on the default Apache + MariaDB lane, while nginx and SQLite currently run the focused stack-smoke subset.
+In broad terms, the strongest covered area is the challenge flow itself: password and 2FA auth, stale tabs, resend behavior, throttle/lockout UX, expiry recovery, and request replay all have automated coverage. The main remaining gaps are matrix depth on alternate stacks rather than core flow depth: the full browser suite still runs only on the default Apache + MariaDB lane, while nginx, multisite nginx, and SQLite currently run focused stack-smoke subsets.
 
 ### Separate Multisite Alternate-Stack Lane
 
@@ -367,9 +365,9 @@ Every PR automatically gets a **"Try in WordPress Playground"** comment with a
 link that installs the plugin from that PR's commit and lands you in the admin
 logged in as `admin` / `password`.
 
-Current Playground previews are pinned to WordPress `7.0-RC1` as of 2026-03-24.
+Current Playground previews are pinned to WordPress `7.0-RC1`. See [`docs/release-status.md`](docs/release-status.md) for the current forward-lane posture and latest stable WordPress release.
 
-For WordPress 7.0 release signoff, do not treat the green RC-era CI matrix as a substitute for the remaining RC/GA manual passes. RC1 is recorded in the `15.0 Release Signoff Log` table in [`tests/MANUAL-TESTING.md`](tests/MANUAL-TESTING.md); repeat that signoff for each later RC and for GA before claiming final 7.0 readiness.
+For WordPress 7.0 release signoff, do not treat the green RC-era CI matrix as a substitute for the remaining RC/GA manual passes. RC1 is recorded in the `15.0 Release Signoff Log` table in [`tests/MANUAL-TESTING.md`](tests/MANUAL-TESTING.md); repeat that signoff for each later RC and again for the final 7.0 release before claiming final readiness.
 
 ### WordPress 7.0 Final Prep Checklist
 

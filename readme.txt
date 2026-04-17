@@ -7,7 +7,7 @@ Contributors:      dpknauss
 Donate link:       https://dan.knauss.ca
 Tags:              sudo, security, reauthentication, access control, admin protection
 Requires at least: 6.2
-Tested up to:      7.0
+Tested up to:      6.9
 Requires PHP:      8.0
 Stable tag:        2.14.0
 License:           GPL-2.0-or-later
@@ -193,7 +193,7 @@ Extensibility: the action registry is filterable via wp_sudo_gated_actions. Ten 
 * **504 unit tests, 1311 assertions. 140 integration tests in CI.**
 
 = 2.13.0 =
-* **Feature: IP + user multidimensional rate limiting** — per-IP failed-attempt tracking alongside per-user, with combined lockout policy and enriched `wp_sudo_lockout` hook payload (`type`, IP address).
+* **Feature: IP + user multidimensional rate limiting** — per-IP failed-attempt tracking alongside per-user, with combined lockout policy and the triggering IP address added as the third `wp_sudo_lockout` hook argument.
 * **Docs alignment** — security model, developer reference, and manual testing guide updated for new rate-limiting dimensions.
 * **496 unit tests, 1293 assertions. 132 integration tests in CI.**
 

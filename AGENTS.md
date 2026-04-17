@@ -110,6 +110,8 @@ No build step. No production dependencies — only dev dependencies (PHPUnit 9.6
 - `docs/abilities-api-assessment.md` — WordPress Abilities API (6.9+) assessment.
 - `docs/sudo-architecture-comparison-matrix.md` — competitive comparison with other sudo/reauth approaches.
 - `docs/ROADMAP.md` — unified roadmap: integration tests, WP 7.0 prep, collaboration analysis, TDD strategy, core design features, feature backlog, accessibility appendix.
+- `docs/release-status.md` — canonical current release status: stable tag, unreleased `main` work, and WordPress forward-lane posture.
+- `docs/documentation-remediation-checklist.md` — audit-driven cleanup checklist for doc drift and archival labeling.
 
 ## Verification Requirements
 
@@ -135,6 +137,11 @@ See `docs/llm-lies-log.md` for the full record. These rules exist to prevent rec
 - **MUST** treat `docs/current-metrics.md` as the canonical source for current
   repository counts (tests, assertions, LOC, ratios). Update that file first,
   then reference it from other docs instead of duplicating live counts.
+- **MUST** treat `docs/release-status.md` as the canonical source for current
+  release state (stable tag, unreleased `main` work, WordPress target version,
+  and forward-lane posture). Update it first when release state changes.
+- Avoid hardcoding volatile counts or release dates in prose unless the file is
+  itself the canonical source for that fact. Prefer links to the canonical docs.
 
 ### Verification commands for this project
 
@@ -200,7 +207,7 @@ behavior that the model cannot hold in working memory.
 
 - **Plugin** — Orchestrator. Creates and owns the component instances. Handles activation/deactivation hooks. Strips `unfiltered_html` from editors on activation and restores it on deactivation. Expires sudo session on password change (`after_password_reset`, `profile_update`).
 - **Gate** — Multi-surface interceptor. Matches incoming requests against the Action Registry and gates them via reauthentication (admin UI), error response (AJAX/REST), or policy (CLI/Cron/XML-RPC/App Passwords).
-- **Action_Registry** — Defines all gated rules (23 single-site rules across 7 categories + 9 multisite rules = 32 total). Extensible via `wp_sudo_gated_actions` filter.
+- **Action_Registry** — Defines all built-in gated rules and rule categories. Extensible via `wp_sudo_gated_actions` filter. See `docs/current-metrics.md` for the current single-site/multisite totals.
 - **Challenge** — Interstitial reauthentication page. Handles password authentication, 2FA integration, request stash/replay.
 - **Sudo_Session** — Session management. Cryptographic token (user meta + httponly cookie), rate limiting (5 attempts → 5-min lockout), session binding. Two-tier expiry: `is_active()` for true session state; `is_within_grace()` for the 120 s grace window after expiry (token-verified). Cleanup deferred until grace window closes.
 - **Request_Stash** — Stashes and replays intercepted admin requests using transients.
@@ -217,7 +224,7 @@ As a tamper-detection canary, `Plugin::enforce_editor_unfiltered_html()` runs at
 
 ### Audit Hooks
 
-The plugin fires 9 action hooks for external logging: `wp_sudo_activated`, `wp_sudo_deactivated`, `wp_sudo_reauth_failed`, `wp_sudo_lockout`, `wp_sudo_action_gated`, `wp_sudo_action_blocked`, `wp_sudo_action_allowed`, `wp_sudo_action_replayed`, `wp_sudo_capability_tampered`.
+The plugin fires audit hooks for external logging, lifecycle tracing, policy preset application, and tamper detection. See `docs/current-metrics.md` for the current hook count and `docs/developer-reference.md` for the canonical hook list/signatures.
 
 ## Testing
 

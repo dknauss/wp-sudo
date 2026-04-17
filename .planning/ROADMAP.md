@@ -1,5 +1,8 @@
 # Roadmap: Playwright E2E Test Infrastructure
 
+> **Historical planning snapshot:** This file preserves milestone-era planning context and may contain stale counts, dates, or release assumptions. Do **not** treat it as the canonical current project state. Use `docs/current-metrics.md`, `docs/release-status.md`, and `docs/ROADMAP.md` for current facts.
+
+
 **Milestone:** v2.14 — Playwright E2E Test Infrastructure
 **Status:** COMPLETE — all 3 phases done, all 32 v1 requirements verified
 **Created:** 2026-03-08

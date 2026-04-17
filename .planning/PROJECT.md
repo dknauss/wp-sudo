@@ -1,5 +1,8 @@
 # WP Sudo
 
+> **Historical planning snapshot:** This file preserves milestone-era planning context and may contain stale counts, dates, or release assumptions. Do **not** treat it as the canonical current project state. Use `docs/current-metrics.md`, `docs/release-status.md`, and `docs/ROADMAP.md` for current facts.
+
+
 ## What This Is
 
 WP Sudo is a WordPress plugin that provides action-gated reauthentication. Dangerous admin operations (plugin activation, user deletion, critical settings changes, etc.) require password confirmation before they proceed — regardless of user role. It covers 7 request surfaces (admin UI, REST API, AJAX, WP-CLI, Cron, XML-RPC, WPGraphQL) with per-surface policy controls.

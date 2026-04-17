@@ -7,7 +7,7 @@ Sudo is the only solution that provides control over actions just before they're
 **Firewalls guard the house. Security plugins guard the door. Sudo governs what can happen inside the house.**
 
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![WordPress: 6.2–7.0](https://img.shields.io/badge/WordPress-6.2–7.0-0073aa.svg)](https://wordpress.org/)
+[![WordPress: 6.2–6.9](https://img.shields.io/badge/WordPress-6.2–6.9-0073aa.svg)](https://wordpress.org/)
 [![PHP: 8.0+](https://img.shields.io/badge/PHP-8.0%2B-777bb4.svg)](https://www.php.net/)
 [![PHPUnit](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml)
 [![Psalm](https://github.com/dknauss/wp-sudo/actions/workflows/psalm.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/psalm.yml)
@@ -18,6 +18,7 @@ Sudo is the only solution that provides control over actions just before they're
 [![Try in Playground](https://img.shields.io/badge/Try%20it-Playground-3858e9?logo=wordpress&logoColor=white)](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/dknauss/wp-sudo/main/blueprint.json)
 
 > _**This exploratory plugin is NOT production-ready**. Please [**help test it**](https://github.com/dknauss/wp-sudo/blob/main/tests/MANUAL-TESTING.md) and share your feedback._
+> Current stable/release metadata vs forward `main` status is tracked in [docs/release-status.md](docs/release-status.md).
 
 <br/><br/>
 
