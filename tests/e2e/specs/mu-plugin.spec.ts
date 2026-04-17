@@ -127,7 +127,7 @@ test.describe( 'MU-plugin AJAX install/uninstall', () => {
          * 2. Navigate to Settings page
          * 3. Verify install button visible and status shows "Not installed"
          * 4. Click install button
-         * 5. Verify spinner appears (AJAX in progress)
+         * 5. Verify the button disables immediately and the AJAX request succeeds
          * 6. Wait for page reload (JS: setTimeout(1000, window.location.reload))
          * 7. Verify status shows "Installed" after reload
          *
@@ -160,17 +160,31 @@ test.describe( 'MU-plugin AJAX install/uninstall', () => {
                 'Status must say "Not installed" before install'
             ).toContainText( 'Not installed' );
 
-            // Click install. JS: shows spinner, sends AJAX fetch, then reloads after 1000ms.
-            // Source: admin/js/wp-sudo-admin.js — muPluginAction() — spinner.classList.add('is-active') (verified)
+            // Click install. JS: disables the button immediately, sends AJAX fetch,
+            // then reloads after 1000ms on success.
+            // Source: admin/js/wp-sudo-admin.js — button.disabled = true; fetch(...); setTimeout(reload, 1000) (verified)
+            const ajaxResponsePromise = page.waitForResponse(
+                ( response ) =>
+                    response.url().includes( 'admin-ajax.php' ) &&
+                    response.request().method() === 'POST',
+                { timeout: 10_000 }
+            );
+
             await installBtn.click();
 
-            // Spinner should appear briefly (is-active class added).
-            // Source: admin/js/wp-sudo-admin.js — spinner.classList.add('is-active') on click (verified)
-            // MUPG-01 requirement: "triggers AJAX and shows spinner"
+            // Use the durable state transition here instead of the transient spinner.
+            // In CI the spinner can flash too quickly to satisfy a visibility check even
+            // when the AJAX install succeeds and the page reloads correctly.
             await expect(
-                page.locator( '#wp-sudo-mu-spinner' ),
-                'Spinner must appear after install button click'
-            ).toBeVisible( { timeout: 2_000 } );
+                installBtn,
+                'Install button must disable immediately after click to indicate AJAX is in progress'
+            ).toBeDisabled();
+
+            const ajaxResponse = await ajaxResponsePromise;
+            expect(
+                ajaxResponse.status(),
+                'AJAX install endpoint must return HTTP 200 before the page reloads'
+            ).toBe( 200 );
 
             // Wait for page reload triggered by JS setTimeout(1000, window.location.reload).
             // Source: admin/js/wp-sudo-admin.js — setTimeout(fn, 1000) then reload (verified)
