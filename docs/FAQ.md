@@ -2,7 +2,7 @@
 
 ## What problem does Sudo solve?
 
-Sudo will prevent or radically reduce the damage attackers can do if they hijack an authenticated session or penetrate firewalls and exploit a Broken Access Control (BAC), Broken Authentication, Privilege Escalation, or Cross-Site Request Forgery (CSRF) vulnerability. It also defends against scenarios where a device is stolen or left unattended, or any scenario allowing an attacker to take control of an active user session. These types of threats are becoming increasingly common and a leading source of breaches across all platforms.
+Sudo can prevent or radically reduce the damage attackers can do if they hijack an authenticated session or penetrate firewalls and exploit a Broken Access Control (BAC), Broken Authentication, Privilege Escalation, or Cross-Site Request Forgery (CSRF) vulnerability. It also defends against scenarios where a device is stolen or left unattended, or any scenario allowing an attacker to take control of an active user session. These types of threats are becoming increasingly common and a leading source of breaches across all platforms.
 
 Broken Access Control is the #1 web application vulnerability today. OWASP ranked it #1 in its 2025 Top 10 list after finding this type of vulnerability in 100% of its application test samples ([OWASP 2025](https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/)). In the WordPress ecosystem, Broken Access Control was the second-largest category of new vulnerabilities in 2024, after XSS ([Patchstack 2024](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2025/)). In 2025, Broken Access Control vulnerabilities became the target of 57% of all attacks on WordPress sites ([Patchstack 2025](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2026/#-broken-access-control-was-the-most-exploited-vulnerability)). This surge is most likely the result of threat actors shifting away from XSS and concentrating their efforts on the types of attacks that firewalls are least likely to identify or predict, even with machine learning. As Patchstack notes:
 
@@ -12,15 +12,21 @@ Broken Access Control is the #1 web application vulnerability today. OWASP ranke
 
 Verizon's 2025 Data Breach Investigations Report finds that 77–88% of basic web application attacks begin with stolen credentials. Sucuri's forensics show that 55% of hacked WordPress databases contain malicious admin accounts created after the breach. The attacker doesn't need to find a new exploit — they need an active session, and they need WordPress to do what attackers assume it will always do: obey without challenge.
 
-Sudo breaks that assumption — a key link in the attackers' kill chain. With Sudo active, every destructive action — user creation, plugin installation, role change, settings modification — requires password confirmation at the moment of execution. A stolen session cookie is not enough. An unattended browser is not enough. If a broken access control is the attack vector, Sudo is the guarded gate that will not allow it to pass.
+Sudo breaks that assumption — a key link in the attackers' kill chain. On covered consequential actions, a stolen session cookie by itself is not enough when the exploited browser session does not already have an active sudo window. An unattended browser with no active sudo window is not enough either. But Sudo is not a universal repair for broken authorization: if an exploit runs inside an already-active sudo session, or bypasses the covered WordPress paths entirely, the underlying bug still matters.
 
 ## Will Sudo protect my site from attacks on plugin vulnerabilities?
 
-Sudo will neutralize attacks or severely limit their blast radius (the scope of the harm they can do) if the attacks rely on taking privileged actions or aim to achieve that capability as their goal. 
+Sudo can neutralize attacks or severely limit their blast radius (the scope of the harm they can do) when the exploit must cross a covered consequential action and the attacker does not already control an active sudo session in that same browser/session.
 
 Sudo is *not* intended as a replacement for diligent plugin selection, timely updates, and effective firewalling; instead, it complements and backstops those layers of defense. 
 
-When the firewall misses an exploit, the vulnerable plugin it targets hasn't been patched, and/or the attacker already has an active session, *Sudo is the gate between access and damage*. Plugin installs, user creation, role changes, settings modifications: every destructive action requires reauthentication, regardless of how the attacker got in.
+When the firewall misses an exploit and a vulnerable plugin still needs WordPress to perform a covered high-impact action, *Sudo can still be the gate between access and damage*. But it only protects the paths it actually intercepts. If the plugin omits capability checks, exposes its own ungated mutation endpoint, directly mutates privileged state, or the exploit runs inside an already-active sudo session, WP Sudo may not stop it.
+
+## What if Sudo is already active when a broken access control bug is exploited?
+
+Active sudo is per browser session, not site-wide. Another administrator's active sudo session does not help an attacker in a different browser or on a different machine.
+
+If the exploit runs inside the **same** browser session that already has an active sudo window, WP Sudo usually will not prompt again for covered actions until that window expires. At that point the outcome depends on the underlying authorization logic: correct capability checks can still block the action, but broken authorization in the vulnerable plugin may not. WP Sudo is strongest when an attacker has a stolen session but not the password or second factor, and no active sudo window is already in place.
 
 ## How is Sudo different from WordPress security plugins?
 
@@ -35,7 +41,7 @@ Why this matters: Any authenticated user session is an attack surface. Attackers
 
 Conventional security plugins attempt to compensate for the limitations of mass-market hosting and plugins. Often, a security plugin will add layers of protection at the application level — rate-limiting and firewalling aimed at deterring malicious requests across some (typically under-defined) portion of the exposed application surface. This can be resource-intensive work that is better handled at the server, network, or infrastructure layer. Rapid mitigation through virtual patching based on the latest threat intelligence about vulnerable code is extremely valuable. If that layer is missing or fails, Sudo is the final layer of protection. Post-breach malware scanning — the signature and purely performative feature of the worst security plugins — is not a security layer. It is detection after the fact — not defense. Years of mounting evidence show how malware targets and defeats these scanners after a breach. 
 
-Sudo doesn't operate at the perimeter but at the final point of consequence. It gates every entry surface — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and WPGraphQL — with configurable policies, and within those surfaces gates the specific destructive actions that matter: plugin installation, user creation, role changes, settings modifications, theme switching, and core updates. The shape and extent of your site's attack surface becomes a deliberate policy decision. Close a surface entirely, limit it to non-destructive operations, or leave it open — per surface, per application password, per action.
+Sudo doesn't operate at the perimeter but at the final point of consequence. It applies policy across every supported entry surface — admin UI, AJAX, REST API, WP-CLI, Cron, XML-RPC, and WPGraphQL — and within those surfaces gates the covered destructive actions that matter: plugin installation, user creation, role changes, settings modifications, theme switching, connector credential replacement, and core updates. The shape and extent of your site's attack surface becomes a deliberate policy decision. Close a surface entirely, limit it to non-destructive operations, or leave it open — per surface, per application password, per action.
 
 This is your site's innermost armor — the skin-tight layer that interposes reauthentication at the moment of consequence, after every other defense has had its turn. There is no comparable WordPress plugin. This is not access control — it is action control. For a detailed feature-by-feature comparison with other reauthentication approaches, see the [Architecture Comparison Matrix](docs/sudo-architecture-comparison-matrix.md).
 
@@ -47,7 +53,7 @@ Sudo is complementary to any other security layers you put in place. It doesn't 
 
 ## What are Sudo's limitations?
 
-WP Sudo does not protect against an attacker who already knows your WordPress password and one-time password (OTP) if two-factor authentication (2FA) is active. (Using two-factor is highly recommended on any site.) Someone who possesses all your credentials can, of course, complete the sudo challenge just as you can. Sudo also does not protect against direct database access or file system operations that bypass WordPress hooks. See the [Security Model](docs/security-model.md) for a full account of what WP Sudo does and does not defend against.
+WP Sudo does not protect against an attacker who already knows your WordPress password and one-time password (OTP) if two-factor authentication (2FA) is active. (Using two-factor is highly recommended on any site.) Someone who possesses all your credentials can, of course, complete the sudo challenge just as you can. Sudo also does not protect against direct database access, file system operations that bypass WordPress hooks, or custom plugin code that mutates privileged state through paths WP Sudo never sees. If a vulnerable plugin is already running inside an active sudo window for that same browser session, WP Sudo will usually not prompt again until the window expires. See the [Security Model](docs/security-model.md) for a full account of what WP Sudo does and does not defend against.
 
 Also, there is no substitute for a first-class, security-hardened server and application environment. Learn what this means so you can deploy secure sites yourself or simply become a savvier hosting consumer:
 
@@ -56,7 +62,7 @@ Also, there is no substitute for a first-class, security-hardened server and app
 
 ## How does sudo gating work?
 
-When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request at `admin_init`, before WordPress processes it. The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error, and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
+When a user attempts a gated action — for example, activating a plugin — Sudo intercepts the request before WordPress processes the sensitive operation. In many common browser-admin flows this happens on `admin_init`; other actions use surface-specific hooks. The original request is stashed in a transient, the user is redirected to a challenge page, and after successful reauthentication, the original request is replayed. For AJAX and REST requests, the browser receives a `sudo_required` error, and an admin notice appears on the next page load linking to the challenge page. The user authenticates, activates a sudo session, and retries the action.
 
 ## Does this replace WordPress roles and capabilities?
 
@@ -71,6 +77,7 @@ No. Sudo adds a reauthentication layer on top of the existing permission model. 
 | **Users** | Delete, change role, change password, create new user, create application password |
 | **File editors** | Plugin editor, theme editor |
 | **Critical options** | `siteurl`, `home`, `admin_email`, `default_role`, `users_can_register` |
+| **Connector credentials** | Settings > Connectors API key updates saved through the REST settings endpoint |
 | **WordPress core** | Update, reinstall |
 | **Site data export** | WXR export |
 | **WP Sudo settings** | Self-protected — settings changes require reauthentication |
@@ -141,7 +148,7 @@ Yes. After 5 failed password attempts on the reauthentication form, the user is 
 
 ## How do I log sudo activity?
 
-Install [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) or [Stream](https://wordpress.org/plugins/stream/). Sudo fires 9 action hooks covering session lifecycle, gated actions, policy decisions, lockouts, and tamper detection. See [Developer Reference](developer-reference.md) for hook signatures.
+Install [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) or [Stream](https://wordpress.org/plugins/stream/). Sudo fires 10 action hooks covering session lifecycle, gated actions, policy decisions, preset application, lockouts, and tamper detection. See [Developer Reference](developer-reference.md) for hook signatures.
 
 ## Does it support two-factor authentication?
 

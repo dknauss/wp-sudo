@@ -8,7 +8,7 @@ WP Sudo uses the term **reauthentication** to describe its core pattern, followi
 
 ## What It Protects Against
 
-- **Compromised admin sessions** — a stolen session cookie cannot perform gated actions without reauthenticating. The sudo session is cryptographically bound to the browser.
+- **Compromised admin sessions** — a stolen session cookie cannot perform covered gated actions without reauthenticating unless that same browser session already has an active sudo window. The sudo session is cryptographically bound to the browser.
 - **Connector credential replacement** — a stolen `manage_options` browser session cannot silently replace database-backed Connectors API keys over `POST`/`PUT`/`PATCH /wp/v2/settings` without reauthenticating first. This protects credential integrity on the admin UI save path even though REST readback already masks the stored secret.
 - **Session theft → password change → lockout** — password changes on the profile/user-edit pages and via the REST API are a gated action (`user.change_password`). An attacker who steals a session cookie cannot silently change the victim's password without triggering the challenge.
 - **Insider threats** — even legitimate administrators must prove their identity before destructive operations.
@@ -78,10 +78,21 @@ Traditional security plugins focus on **step 1** (blocking initial access). Sudo
 
 ## What It Does Not Protect Against
 
+- **Broken authorization in already-active sudo sessions** — active sudo is per browser session, not site-wide. Another user's active sudo session does not help an attacker somewhere else, but if a vulnerable plugin runs inside the *same* browser session after sudo has already been satisfied, WP Sudo usually will not prompt again for covered actions until the window expires. Correct capability checks can still block the action; missing or wrong capability checks remain the plugin's bug.
 - **Direct database access** — an attacker with SQL access can modify data without triggering any WordPress hooks. WP Sudo cannot gate operations that bypass the WordPress API entirely.
 - **File system access** — PHP scripts that load `wp-load.php` and call WordPress functions directly may bypass the gate if they don't trigger the standard hook sequence.
-- **Other plugins that bypass hooks** — if a plugin calls `activate_plugin()` in a way that suppresses `do_action('activate_plugin')`, the gate won't fire. The mu-plugin mitigates this by loading the gate before other plugins.
+- **Other plugins that bypass hooks or covered paths** — if a plugin calls `activate_plugin()` in a way that suppresses `do_action('activate_plugin')`, exposes a custom AJAX/REST endpoint, or directly mutates roles, capabilities, or options through code paths WP Sudo does not intercept, the gate won't fire. The mu-plugin mitigates some early-loading races, but it cannot invent interception points for code it never sees.
 - **Server-level operations** — database migrations, WP-CLI commands run as root with direct PHP execution, or deployment scripts that modify files are outside WordPress's hook system.
+
+### Why this boundary matters
+
+WP Sudo is strongest against the attack pattern it was built for: an attacker has
+an authenticated session but does **not** know the user's password or second
+factor, and no active sudo window is already in place for that same browser
+session. It is not a general repair for broken authorization in arbitrary plugin
+code. If a vulnerable plugin performs a privileged state change through its own
+ungated path, or does so inside an already-active sudo session, the underlying
+authorization defect still determines the outcome.
 
 ## WPGraphQL Surface
 
