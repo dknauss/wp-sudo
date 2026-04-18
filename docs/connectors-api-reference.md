@@ -314,11 +314,13 @@ code execution. Reachable with one REST call.
   change. This consequence follows from the connector write path and runtime
   precedence rules; I did not independently verify a third-party provider
   dashboard showing the prompts.
-- **Ping-pong swap weakens simple forensic detection.** An attacker can swap
-  in their key, allow a window of AI traffic, then restore the original key.
-  That does not make logging useless — durable logs would still show two
-  writes — but it does defeat simple before/after state inspection and any
-  detection strategy that only looks for the final stored value.
+- **Ping-pong swap weakens simple forensic detection.** An attacker can
+  swap in their key, allow a window of AI traffic, and then restore the
+  original value. If the site only inspects the current stored key after the
+  fact, it will appear normal. The risk here is not that all logging fails,
+  but that final-state checks and diff-only investigations can miss a real
+  credential-diversion window unless the site retains a durable history of
+  key changes.
 - **Persistence past session cleanup.** The swapped key lives in
   `wp_options`. Resetting the admin password, invalidating sessions, and
   enrolling 2FA do not touch `wp_options`. An incident-response playbook
