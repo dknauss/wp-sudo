@@ -227,7 +227,7 @@ An attacker with a stolen session cannot normally read existing keys via
 `GET /wp/v2/settings` — they only see the masked version (e.g.,
 `••••••••••••fj39`).
 
-There is a correctness edge case for values of length 4 or fewer, which are
+As noted earlier, there is a correctness edge case for values of length 4 or fewer, which are
 returned unchanged by `_wp_connectors_mask_api_key()`. That is source- and
 runtime-verified, but not a realistic practical concern for typical AI provider
 credentials.
