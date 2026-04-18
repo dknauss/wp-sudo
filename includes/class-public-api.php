@@ -62,8 +62,17 @@ class Public_API {
 	 * If no session is active, this helper can optionally redirect the current
 	 * browser request to the challenge page in session-only mode.
 	 *
+	 * Only the current request's authenticated user is ever recognized as
+	 * already-authenticated — sudo sessions are bound to a per-browser cookie
+	 * and Sudo_Session::verify_token() rejects any check where the target
+	 * user differs from get_current_user_id(). Supplying a `user_id` arg that
+	 * does not match the current user therefore always triggers the gated
+	 * flow (audit hook + challenge redirect or `false` return), even when
+	 * that other user happens to have an active session.
+	 *
 	 * Accepted args:
-	 * - user_id (int): target user, defaults to current user.
+	 * - user_id (int): target user, defaults to current user. Must match the
+	 *   current request's authenticated user to be treated as authorized.
 	 * - rule_id (string): audit rule ID, defaults to public_api.require.
 	 * - redirect (bool): when false, fail with `false` instead of redirecting.
 	 * - return_url (string): optional challenge cancel/return URL.

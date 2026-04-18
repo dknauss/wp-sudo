@@ -21,7 +21,7 @@ Purpose: track the cleanup work from the repo-wide documentation, research, and 
 
 - [x] Add a lightweight documentation drift checklist to `CONTRIBUTING.md`.
 - [x] Update maintainer instruction docs to treat `docs/current-metrics.md` and `docs/release-status.md` as the only canonical sources for current counts and release state.
-- [ ] Optional follow-up: add a dedicated docs-lint or grep-based CI check for stale fixed-date references and old count patterns outside canonical docs.
+- [x] Optional follow-up: add a dedicated docs-lint or grep-based CI check for stale fixed-date references and old count patterns outside canonical docs.
 
 ## Notes
 

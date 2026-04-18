@@ -1,0 +1,63 @@
+name: Documentation Lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  docs-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check for stale fixed-date references and old count patterns
+        run: |
+          # Define files that are allowed to have dates and counts (canonical docs and changelog)
+          EXCLUDED_FILES="CHANGELOG.md docs/current-metrics.md docs/release-status.md docs/documentation-remediation-checklist.md docs/ROADMAP.md"
+          
+          # Find all markdown files excluding the allowed ones
+          MD_FILES=$(find . -name "*.md" -not -path "./vendor/*" -not -path "./.git/*" | grep -v -F "$EXCLUDED_FILES")
+          
+          # Check for stale fixed-date references (YYYY-MM-DD format)
+          DATE_PATTERN='[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}'
+          STALE_DATES=()
+          while IFS= read -r file; do
+            if grep -qE "$DATE_PATTERN" "$file"; then
+              STALE_DATES+=("$file")
+            fi
+          done <<< "$MD_FILES"
+          
+          # Check for old count patterns (test counts and assertion counts)
+          TEST_COUNT_PATTERN='[0-9]\+ tests'
+          ASSERTION_COUNT_PATTERN='[0-9]\+ assertions'
+          STALE_COUNTS=()
+          while IFS= read -r file; do
+            if grep -qE "$TEST_COUNT_PATTERN\|$ASSERTION_COUNT_PATTERN" "$file"; then
+              STALE_COUNTS+=("$file")
+            fi
+          done <<< "$MD_FILES"
+          
+          # Output results and fail if any found
+          if [ ${#STALE_DATES[@]} -gt 0 ] || [ ${#STALE_COUNTS[@]} -gt 0 ]; then
+            echo "::error ::Documentation lint failed:"
+            if [ ${#STALE_DATES[@]} -gt 0 ]; then
+              echo "Stale fixed-date references found in:"
+              for file in "${STALE_DATES[@]}"; do
+                echo "  - $file"
+                grep -nE "$DATE_PATTERN" "$file" | head -3
+              done
+            fi
+            if [ ${#STALE_COUNTS[@]} -gt 0 ]; then
+              echo "Old count patterns found in:"
+              for file in "${STALE_COUNTS[@]}"; do
+                echo "  - $file"
+                grep -nE "$TEST_COUNT_PATTERN\|$ASSERTION_COUNT_PATTERN" "$file" | head -3
+              done
+            fi
+            exit 1
+          else
+            echo "Documentation lint passed: no stale fixed-date references or old count patterns found outside canonical docs."
+          fi
+        shell: bash

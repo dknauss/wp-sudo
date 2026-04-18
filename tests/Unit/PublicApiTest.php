@@ -100,6 +100,58 @@ class PublicApiTest extends TestCase {
 		$this->assertFalse( Public_API::check( $other_user_id ) );
 	}
 
+	/**
+	 * Locks in the same tightened semantics for require(): passing an
+	 * arg-supplied user_id that differs from the current user never short-
+	 * circuits as "already authenticated", even when the target user has
+	 * an active session. The gated flow always triggers for cross-user calls.
+	 */
+	public function test_require_does_not_treat_other_users_session_as_active(): void {
+		$current_user_id = 5;
+		$other_user_id   = 99;
+		$token           = 'other-user-token';
+
+		Functions\when( 'get_current_user_id' )->justReturn( $current_user_id );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		Functions\when( 'get_user_meta' )->alias(
+			static function ( int $uid, string $meta_key, bool $single ) use ( $other_user_id, $token ) {
+				if ( $uid !== $other_user_id || true !== $single ) {
+					return '';
+				}
+
+				if ( Sudo_Session::META_KEY === $meta_key ) {
+					return time() + 300;
+				}
+
+				if ( Sudo_Session::TOKEN_META_KEY === $meta_key ) {
+					return hash( 'sha256', $token );
+				}
+
+				return '';
+			}
+		);
+
+		// Gated flow must fire for the arg-supplied user_id, not treat the
+		// other user's active session as authorization.
+		Actions\expectDone( 'wp_sudo_action_gated' )
+			->once()
+			->with( $other_user_id, 'cross_user.call', 'public_api' );
+
+		Functions\expect( 'wp_safe_redirect' )->never();
+
+		$this->assertFalse(
+			Public_API::require(
+				array(
+					'user_id'  => $other_user_id,
+					'rule_id'  => 'cross_user.call',
+					'redirect' => false,
+				)
+			)
+		);
+	}
+
 	public function test_require_returns_false_when_redirect_is_disabled(): void {
 		$user_id = 7;
 
