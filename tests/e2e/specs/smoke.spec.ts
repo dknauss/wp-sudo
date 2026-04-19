@@ -33,12 +33,11 @@ test.describe( 'WP Sudo smoke tests', () => {
         page,
     } ) => {
         const presetSelection = page.locator( '#policy_preset_selection' );
-        const applyPreset     = page.locator( 'input[name="wp_sudo_settings[apply_policy_preset]"]' );
 
         const applyPresetAndWait = async ( preset: string, expectedLabel: string ) => {
-            // The preset field is a <select> dropdown, not radio buttons.
+            // The preset field is a <select> dropdown. Selecting a new preset
+            // and clicking Save applies it directly (no separate checkbox).
             await presetSelection.selectOption( preset );
-            await applyPreset.check();
 
             await page.click( '#submit' );
 
