@@ -39,6 +39,37 @@ class Event_Store {
 	}
 
 	/**
+	 * Create the events table if it doesn't exist.
+	 *
+	 * Uses a lightweight check to avoid errors on first load.
+	 *
+	 * @return void
+	 */
+	public static function maybe_create_table(): void {
+		global $wpdb;
+
+		$table = self::table_name();
+
+		// On MySQL, check if table exists first.
+		if ( ! method_exists( $wpdb, 'dbhs' ) || 'sqlite' !== $wpdb->dbh()->driver_name ) {
+			$check_sql = 'SELECT 1 FROM ' . $table . ' LIMIT 1'; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$result    = $wpdb->get_var( $check_sql );
+			if ( null !== $result ) {
+				return;
+			}
+		}
+
+		// Table doesn't exist - create it. Skip if dbDelta unavailable (unit tests).
+		if ( ! function_exists( 'dbDelta' ) ) {
+			return;
+		}
+
+		$wpdb->suppress_errors( true );
+		self::create_table();
+		$wpdb->suppress_errors( false );
+	}
+
+	/**
 	 * Create or update the events table.
 	 *
 	 * @return void

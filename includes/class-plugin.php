@@ -115,6 +115,12 @@ class Plugin {
 		$this->admin_bar = new Admin_Bar();
 		$this->admin_bar->register();
 
+		// Dashboard widget: session activity overview.
+		Dashboard_Widget::init();
+
+		// Event recorder: log security events to database.
+		Event_Recorder::init();
+
 		// Enforce unfiltered_html restriction on every request (tamper detection).
 		add_action( 'init', array( $this, 'enforce_editor_unfiltered_html' ), 1, 0 );
 

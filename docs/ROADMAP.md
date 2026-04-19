@@ -907,7 +907,7 @@ The MVP goal is fast operational visibility, not a reporting subsystem.
 The preferred first implementation is a small custom audit table rather than a
 network of transients:
 
-- table name: `{$wpdb->base_prefix}wp_sudo_events`
+- table name: `{$wpdb->base_prefix}wpsudo_events`
 - columns:
   - `id`
   - `site_id`
@@ -1061,7 +1061,7 @@ Recommended first-pass indicators:
 **Implementation details**
 - Prefer a compact settings-page panel or dashboard widget summary, not a new top-level admin screen
 - Reuse existing Site Health checks where possible instead of duplicating diagnostics logic
-- Pull recent activity from the planned `wp_sudo_events` table when available; until then, show only live configuration/state
+- Pull recent activity from the planned `wpsudo_events` table when available; until then, show only live configuration/state
 - Keep the first version read-only; no inline policy editing from the status panel
 
 *Impact:* High for day-to-day operability and support triage.
