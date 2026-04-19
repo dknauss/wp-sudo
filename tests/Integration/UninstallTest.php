@@ -53,6 +53,11 @@ class UninstallTest extends TestCase {
 		update_option( 'wp_sudo_settings', array( 'session_duration' => 5 ) );
 		$this->assertNotFalse( get_option( 'wp_sudo_settings' ), 'Settings option should exist before uninstall.' );
 
+		// Ensure dbDelta() is available (normally loaded only in admin context).
+		if ( ! function_exists( 'dbDelta' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		}
+
 		global $wpdb;
 		Event_Store::create_table();
 		$table = $wpdb->base_prefix . 'wpsudo_events';

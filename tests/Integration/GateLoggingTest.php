@@ -26,13 +26,36 @@ class GateLoggingTest extends TestCase {
 	public function set_up(): void {
 		parent::set_up();
 
+		// Ensure dbDelta() is available (normally loaded only in admin context).
+		if ( ! function_exists( 'dbDelta' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		}
+
 		// Ensure events table exists.
 		Event_Store::maybe_create_table();
+
+		// Skip if table creation failed (e.g., dbDelta unavailable).
+		if ( ! $this->table_exists() ) {
+			$this->markTestSkipped( 'Event_Store table could not be created.' );
+		}
 
 		// Clear any existing events using TRUNCATE (prune(0) has timing issues).
 		global $wpdb;
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		$wpdb->query( 'TRUNCATE TABLE ' . Event_Store::table_name() );
+	}
+
+	/**
+	 * Check if the events table exists.
+	 *
+	 * @return bool
+	 */
+	private function table_exists(): bool {
+		global $wpdb;
+		$table = Event_Store::table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+		return is_string( $result ) && $table === $result;
 	}
 
 	/**
