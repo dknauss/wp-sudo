@@ -18,6 +18,20 @@ use WP_Sudo\Sudo_Session;
 class UninstallTest extends TestCase {
 
 	/**
+	 * Ensure dbDelta() is available for table creation.
+	 *
+	 * In CI, integration tests run outside of admin context, so
+	 * wp-admin/includes/upgrade.php isn't loaded automatically.
+	 *
+	 * @return void
+	 */
+	private function ensure_dbdelta_available(): void {
+		if ( ! function_exists( 'dbDelta' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		}
+	}
+
+	/**
 	 * Single-site uninstall removes all plugin data.
 	 *
 	 * Exercises the full uninstall path: options, user meta, and
@@ -54,9 +68,7 @@ class UninstallTest extends TestCase {
 		$this->assertNotFalse( get_option( 'wp_sudo_settings' ), 'Settings option should exist before uninstall.' );
 
 		// Ensure dbDelta() is available (normally loaded only in admin context).
-		if ( ! function_exists( 'dbDelta' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		}
+		$this->ensure_dbdelta_available();
 
 		global $wpdb;
 		Event_Store::create_table();
@@ -123,6 +135,9 @@ class UninstallTest extends TestCase {
 
 		// Set site options.
 		update_site_option( 'wp_sudo_settings', array( 'session_duration' => 5 ) );
+
+		// Ensure dbDelta() is available (normally loaded only in admin context).
+		$this->ensure_dbdelta_available();
 
 		global $wpdb;
 		Event_Store::create_table();
