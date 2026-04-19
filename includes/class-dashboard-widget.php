@@ -65,7 +65,6 @@ class Dashboard_Widget {
 	 * @return void
 	 */
 	public static function render(): void {
-		self::render_session_duration();
 		self::render_active_sessions();
 		self::render_recent_events();
 		self::render_policy_summary();
@@ -93,28 +92,6 @@ class Dashboard_Widget {
 		'xmlrpc_policy'            => 'disabled',
 		'wpgraphql_policy'         => 'disabled',
 	);
-
-	/**
-	 * Render session duration at the top.
-	 *
-	 * Shows the configured sudo session duration at the top of the widget
-	 * for quick at-a-glance reference.
-	 *
-	 * @return void
-	 */
-	private static function render_session_duration(): void {
-		$settings = get_option( 'wp_sudo_settings', array() );
-		if ( ! is_array( $settings ) ) {
-			$settings = array();
-		}
-
-		$duration = isset( $settings['session_duration'] ) ? (int) $settings['session_duration'] : self::DEFAULTS['session_duration'];
-
-		echo '<div class="wp-sudo-session-duration">';
-		echo '<span class="duration-value">' . esc_html( (string) $duration ) . '</span>';
-		echo '<span class="duration-label">' . esc_html__( 'min session', 'wp-sudo' ) . '</span>';
-		echo '</div>';
-	}
 
 	/**
 	 * Render active sessions section.
@@ -251,18 +228,17 @@ class Dashboard_Widget {
 
 		echo '<h3>' . esc_html__( 'Recent Events', 'wp-sudo' ) . '</h3>';
 
-		// Filter controls.
+		// Filter controls - all in a single row.
 		echo '<div class="wp-sudo-event-filters">';
 
-		// Time buttons.
-		echo '<div class="wp-sudo-filter-group wp-sudo-filter-time">';
-		echo '<button type="button" class="wp-sudo-filter-btn" data-filter="time" data-value="all">' . esc_html__( 'All', 'wp-sudo' ) . '</button>';
-		echo '<button type="button" class="wp-sudo-filter-btn active" data-filter="time" data-value="24h">' . esc_html__( '24h', 'wp-sudo' ) . '</button>';
-		echo '<button type="button" class="wp-sudo-filter-btn" data-filter="time" data-value="7d">' . esc_html__( '7d', 'wp-sudo' ) . '</button>';
-		echo '</div>';
+		// Time dropdown.
+		echo '<select class="wp-sudo-filter-select" data-filter="time">';
+		echo '<option value="all">' . esc_html__( 'All time', 'wp-sudo' ) . '</option>';
+		echo '<option value="24h" selected>' . esc_html__( 'Last 24 hours', 'wp-sudo' ) . '</option>';
+		echo '<option value="7d">' . esc_html__( 'Last 7 days', 'wp-sudo' ) . '</option>';
+		echo '</select>';
 
 		// Event type dropdown.
-		echo '<div class="wp-sudo-filter-group">';
 		echo '<select class="wp-sudo-filter-select" data-filter="event">';
 		echo '<option value="all">' . esc_html__( 'All events', 'wp-sudo' ) . '</option>';
 		echo '<option value="lockout">' . esc_html__( 'Lockout', 'wp-sudo' ) . '</option>';
@@ -277,7 +253,6 @@ class Dashboard_Widget {
 		echo '</option>';
 		echo '<option value="action_replayed">' . esc_html__( 'Replayed', 'wp-sudo' ) . '</option>';
 		echo '</select>';
-		echo '</div>';
 
 		// Surface dropdown.
 		echo '<div class="wp-sudo-filter-group">';
@@ -507,37 +482,17 @@ class Dashboard_Widget {
 #dashboard_wp_sudo_activity .wp-sudo-event-filters {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: 0.5em;
 	margin-bottom: 0.75em;
 }
-#dashboard_wp_sudo_activity .wp-sudo-filter-group {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.25em;
-}
-#dashboard_wp_sudo_activity .wp-sudo-filter-btn {
-	padding: 0.25em 0.5em;
+#dashboard_wp_sudo_activity .wp-sudo-event-filters select {
 	font-size: 0.8em;
-	border: 1px solid #c3c4c7;
-	background: #f6f7f8;
-	color: #3c434a;
-	cursor: pointer;
-	border-radius: 3px;
-}
-#dashboard_wp_sudo_activity .wp-sudo-filter-btn:hover {
-	background: #f0f0f1;
-}
-#dashboard_wp_sudo_activity .wp-sudo-filter-btn.active {
-	background: #2271b1;
-	border-color: #2271b1;
-	color: #fff;
-}
-#dashboard_wp_sudo_activity .wp-sudo-filter-select {
-	font-size: 0.85em;
-	padding: 0.25em 0.5em;
+	padding: 0.2em 0.4em;
 	border: 1px solid #c3c4c7;
 	border-radius: 3px;
 	background: #fff;
+	min-width: auto;
 }
 #dashboard_wp_sudo_activity .wp-sudo-filter-notice {
 	font-size: 0.75em;
@@ -579,7 +534,7 @@ class Dashboard_Widget {
 
 	var rows = tbody.querySelectorAll('tr');
 
-	var timeBtns = widget.querySelectorAll('.wp-sudo-filter-btn');
+	var timeSelect = widget.querySelector('select[data-filter="time"]');
 	var eventSelect = widget.querySelector('select[data-filter="event"]');
 	var surfaceSelect = widget.querySelector('select[data-filter="surface"]');
 
@@ -619,17 +574,7 @@ class Dashboard_Widget {
 		});
 	}
 
-	// Time button clicks.
-	timeBtns.forEach(function(btn) {
-		btn.addEventListener('click', function() {
-			timeBtns.forEach(function(b) { b.classList.remove('active'); });
-			this.classList.add('active');
-			filterTime = this.dataset.value;
-			filterRows();
-		});
-	});
-
-	// Event dropdown change.
+	// Event type dropdown change.
 	if (eventSelect) {
 		eventSelect.addEventListener('change', function() {
 			filterEvent = this.value;
@@ -641,6 +586,14 @@ class Dashboard_Widget {
 	if (surfaceSelect) {
 		surfaceSelect.addEventListener('change', function() {
 			filterSurface = this.value;
+			filterRows();
+		});
+	}
+
+	// Time dropdown change.
+	if (timeSelect) {
+		timeSelect.addEventListener('change', function() {
+			filterTime = this.value;
 			filterRows();
 		});
 	}
