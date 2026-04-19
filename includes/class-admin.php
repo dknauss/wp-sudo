@@ -187,6 +187,10 @@ class Admin {
 
 		// Per-application-password policy dropdowns on user profile pages.
 		add_action( 'wp_ajax_wp_sudo_app_password_policy', array( $this, 'handle_app_password_policy_save' ), 10, 0 );
+
+		// Users list screen: Sudo Active filter.
+		add_filter( 'views_users', array( $this, 'filter_user_views' ) );
+		add_action( 'pre_get_users', array( $this, 'filter_users_by_sudo_active' ) );
 	}
 
 	/**
@@ -985,6 +989,84 @@ class Admin {
 		array_unshift( $links, $settings_link );
 
 		return $links;
+	}
+
+	// -------------------------------------------------------------------------
+	// Users list screen: Sudo Active filter
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Add "Sudo Active (N)" view link to the Users list screen.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param array<string, string> $views Existing view links.
+	 * @return array<string, string>
+	 */
+	public function filter_user_views( array $views ): array {
+		$active_ids = get_users(
+			array(
+				'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					array(
+						'key'     => '_wp_sudo_expires',
+						'value'   => time(),
+						'compare' => '>',
+						'type'    => 'NUMERIC',
+					),
+				),
+				'fields'     => 'ID',
+			)
+		);
+
+		$count = count( $active_ids );
+		if ( 0 === $count ) {
+			return $views;
+		}
+
+		$url     = admin_url( 'users.php?sudo_active=1' );
+		$current = isset( $_GET['sudo_active'] ) ? ' class="current" aria-current="page"' : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		$views['sudo_active'] = sprintf(
+			'<a href="%s"%s>%s <span class="count">(%d)</span></a>',
+			esc_url( $url ),
+			$current,
+			__( 'Sudo Active', 'wp-sudo' ),
+			$count
+		);
+
+		return $views;
+	}
+
+	/**
+	 * Filter the Users list query when sudo_active=1 is set.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param \WP_User_Query $query User query object.
+	 * @return void
+	 */
+	public function filter_users_by_sudo_active( $query ): void {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		if ( empty( $_GET['sudo_active'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		$meta_query = $query->get( 'meta_query' );
+		if ( ! is_array( $meta_query ) ) {
+			$meta_query = array();
+		}
+
+		$meta_query[] = array(
+			'key'     => '_wp_sudo_expires',
+			'value'   => time(),
+			'compare' => '>',
+			'type'    => 'NUMERIC',
+		);
+
+		$query->set( 'meta_query', $meta_query ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 	}
 
 	// -------------------------------------------------------------------------

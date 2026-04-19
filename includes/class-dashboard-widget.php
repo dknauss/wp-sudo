@@ -168,12 +168,14 @@ class Dashboard_Widget {
 				)
 			);
 
+			$edit_url = esc_url( admin_url( 'user-edit.php?user_id=' . (int) $user_id ) );
+
 			echo '<li class="wp-sudo-user-row">';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- get_avatar is trusted WP function.
 			echo '<div class="wp-sudo-user-gravatar">' . $avatar . '</div>';
 			echo '<div class="wp-sudo-user-info">';
 			echo '<div class="wp-sudo-user-primary">';
-			echo '<span class="wp-sudo-username">' . esc_html( $user_login ) . '</span>';
+			echo '<a href="' . esc_url( $edit_url ) . '" class="wp-sudo-username">' . esc_html( $user_login ) . '</a>';
 			if ( $role ) {
 				echo '<span class="wp-sudo-user-role">' . esc_html( $role ) . '</span>';
 			}
@@ -477,7 +479,12 @@ class Dashboard_Widget {
 }
 #wp_sudo_activity .wp-sudo-username {
 	font-weight: 600;
-	color: #1d2327;
+	color: #2271b1;
+	text-decoration: none;
+}
+#wp_sudo_activity .wp-sudo-username:hover {
+	color: #135e96;
+	text-decoration: underline;
 }
 #wp_sudo_activity .wp-sudo-user-role {
 	font-size: 0.75em;

@@ -2272,4 +2272,60 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'All surfaces are now limited', $output );
 		$this->assertStringNotContainsString( ';', $output );
 	}
+
+	// -----------------------------------------------------------------
+	// Users list screen: Sudo Active filter
+	// -----------------------------------------------------------------
+
+	/**
+	 * Test filter_user_views adds Sudo Active link to views.
+	 *
+	 * @return void
+	 */
+	public function test_filter_user_views_adds_sudo_active_link(): void {
+		Functions\when( 'get_users' )->justReturn( [ 1, 2, 3 ] );
+		Functions\when( 'esc_url' )->returnArg( 1 );
+		Functions\when( 'admin_url' )->returnArg( 1 );
+
+		$admin = new Admin();
+		$views = $admin->filter_user_views( array( 'all' => '<a>All</a>' ) );
+
+		$this->assertArrayHasKey( 'sudo_active', $views );
+		$this->assertStringContainsString( 'sudo_active=1', $views['sudo_active'] );
+		$this->assertStringContainsString( '3', $views['sudo_active'] );
+	}
+
+	/**
+	 * Test filter_user_views returns unmodified views when no active sessions.
+	 *
+	 * @return void
+	 */
+	public function test_filter_user_views_omitted_when_zero(): void {
+		Functions\when( 'get_users' )->justReturn( [] );
+
+		$admin = new Admin();
+		$views = $admin->filter_user_views( array( 'all' => '<a>All</a>' ) );
+
+		$this->assertArrayNotHasKey( 'sudo_active', $views );
+	}
+
+	/**
+	 * Test filter_user_views marks link as current when query arg present.
+	 *
+	 * @return void
+	 */
+	public function test_filter_user_views_current_class_when_active(): void {
+		Functions\when( 'get_users' )->justReturn( [ 1 ] );
+		Functions\when( 'esc_url' )->returnArg( 1 );
+		Functions\when( 'admin_url' )->returnArg( 1 );
+
+		$_GET['sudo_active'] = '1';
+
+		$admin = new Admin();
+		$views = $admin->filter_user_views( array( 'all' => '<a>All</a>' ) );
+
+		$this->assertStringContainsString( 'current', $views['sudo_active'] );
+
+		unset( $_GET['sudo_active'] );
+	}
 }
