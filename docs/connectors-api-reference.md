@@ -1,7 +1,8 @@
 # Connectors API Reference (WP 7.0)
 
-*Drafted 2026-04-13 from `wordpress-develop` trunk source code.*
-*Updated 2026-04-18 with local runtime verification in WordPress Studio (`7.0-RC2-62241`) for REST save behavior, key-source precedence, and Connectors admin UI state handling.*
+*Initial draft 2026-04-13 from `wordpress-develop` trunk source code.*
+*Revised extensively 2026-04-18 (13 commits) to correct security scenario analysis, clarify threat-model framing, and verify REST save behavior in WordPress Studio (`7.0-RC2-62241`).*
+*Minor scope clarifications 2026-04-19.*
 *There is now an official Core dev note for the Connectors API, but this reference remains source-derived because it goes deeper into the REST masking/write path than the high-level announcement. Verify against the GA release before relying on implementation details.*
 
 This document focuses mostly on AI-provider connectors because those are the
