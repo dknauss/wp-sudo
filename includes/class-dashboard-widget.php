@@ -401,7 +401,7 @@ class Dashboard_Widget {
 	private static function render_inline_styles(): void {
 		?>
 <style>
-#dashboard_wp_sudo_activity .wp-sudo-session-duration {
+#wp_sudo_activity .wp-sudo-session-duration {
 	display: inline-flex;
 	align-items: baseline;
 	gap: 0.25em;
@@ -411,80 +411,80 @@ class Dashboard_Widget {
 	border-radius: 4px;
 	font-size: 0.9em;
 }
-#dashboard_wp_sudo_activity .wp-sudo-session-duration .duration-value {
+#wp_sudo_activity .wp-sudo-session-duration .duration-value {
 	font-size: 1.5em;
 	font-weight: 600;
 	color: #1d2327;
 }
-#dashboard_wp_sudo_activity .wp-sudo-session-duration .duration-label {
+#wp_sudo_activity .wp-sudo-session-duration .duration-label {
 	color: #646970;
 }
 
-#dashboard_wp_sudo_activity h3 {
+#wp_sudo_activity h3 {
 	margin-top: 1.25em;
 	margin-bottom: 0.5em;
 }
 
 /* Active sessions with gravatars */
-#dashboard_wp_sudo_activity .wp-sudo-user-list {
+#wp_sudo_activity .wp-sudo-user-list {
 	list-style: none;
 	margin: 0;
 	padding: 0;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-row {
+#wp_sudo_activity .wp-sudo-user-row {
 	display: flex;
 	align-items: center;
 	gap: 0.75em;
 	padding: 0.5em 0;
 	border-bottom: 1px solid #f0f0f1;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-row:last-child {
+#wp_sudo_activity .wp-sudo-user-row:last-child {
 	border-bottom: none;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-gravatar img {
+#wp_sudo_activity .wp-sudo-user-gravatar img {
 	width: 32px;
 	height: 32px;
 	border-radius: 50%;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-info {
+#wp_sudo_activity .wp-sudo-user-info {
 	flex: 1;
 	min-width: 0;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-primary {
+#wp_sudo_activity .wp-sudo-user-primary {
 	display: flex;
 	align-items: center;
 	gap: 0.5em;
 	flex-wrap: wrap;
 }
-#dashboard_wp_sudo_activity .wp-sudo-username {
+#wp_sudo_activity .wp-sudo-username {
 	font-weight: 600;
 	color: #1d2327;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-role {
+#wp_sudo_activity .wp-sudo-user-role {
 	font-size: 0.75em;
 	padding: 0.15em 0.5em;
 	background: #ddefe3;
 	color: #1a7f37;
 	border-radius: 3px;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-secondary {
+#wp_sudo_activity .wp-sudo-user-secondary {
 	font-size: 0.85em;
 	color: #646970;
 }
-#dashboard_wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-fullname,
-#dashboard_wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-displayname {
+#wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-fullname,
+#wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-displayname {
 	margin-right: 0.5em;
 }
 
 /* Event filters — compact inline row matching WP dashboard patterns */
-#dashboard_wp_sudo_activity .wp-sudo-event-filters {
+#wp_sudo_activity .wp-sudo-event-filters {
 	display: flex;
 	flex-wrap: nowrap;
 	align-items: center;
 	gap: 4px;
 	margin-bottom: 0.5em;
 }
-#dashboard_wp_sudo_activity .wp-sudo-event-filters select {
+#wp_sudo_activity .wp-sudo-event-filters select {
 	font-size: 12px;
 	padding: 0 4px;
 	height: 24px;
@@ -495,14 +495,14 @@ class Dashboard_Widget {
 	min-width: 0;
 	max-width: 100%;
 }
-#dashboard_wp_sudo_activity .wp-sudo-filter-notice {
+#wp_sudo_activity .wp-sudo-filter-notice {
 	font-size: 0.75em;
 	color: #646970;
 	margin: 0 0 0.5em;
 }
 
 /* Policy Summary spacing */
-#dashboard_wp_sudo_activity .wp-sudo-policy-heading {
+#wp_sudo_activity .wp-sudo-policy-heading {
 	margin-top: 1.5em;
 	padding-top: 1em;
 	border-top: 1px solid #e0e0e0;
@@ -510,21 +510,21 @@ class Dashboard_Widget {
 
 /* Mobile responsive */
 @media screen and (max-width: 600px) {
-	#dashboard_wp_sudo_activity .wp-sudo-user-gravatar {
+	#wp_sudo_activity .wp-sudo-user-gravatar {
 		display: none;
 	}
-	#dashboard_wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-fullname,
-	#dashboard_wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-displayname {
+	#wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-fullname,
+	#wp_sudo_activity .wp-sudo-user-secondary .wp-sudo-displayname {
 		display: none;
 	}
-	#dashboard_wp_sudo_activity .wp-sudo-event-filters {
+	#wp_sudo_activity .wp-sudo-event-filters {
 		gap: 3px;
 	}
 }
 </style>
 <script>
 (function() {
-	var widget = document.getElementById('dashboard_wp_sudo_activity');
+	var widget = document.getElementById('wp_sudo_activity');
 	if (!widget) return;
 
 	var table = widget.querySelector('.wp-sudo-events-table');
