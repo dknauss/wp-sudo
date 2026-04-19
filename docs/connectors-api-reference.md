@@ -228,10 +228,7 @@ An attacker with a stolen session cannot normally read existing keys via
 `GET /wp/v2/settings` — they only see the masked version (e.g.,
 `••••••••••••fj39`).
 
-There is a correctness edge case for values of length 4 or fewer, which are
-returned unchanged by `_wp_connectors_mask_api_key()`. That is source- and
-runtime-verified, but not a realistic practical concern for typical AI provider
-credentials.
+The ≤4-character masking edge case is documented under [REST API Surface](#rest-api-surface) above; it is not a realistic practical concern for typical AI provider credentials.
 
 However, without an additional guard an attacker could still **overwrite** keys
 via `POST /wp/v2/settings`. That is the real attack vector: a **credential
@@ -269,11 +266,18 @@ testing in WordPress Studio on `7.0-RC2-62241` plus source inspection of the
 bundled Connectors UI build. Where a claim is conditional rather than
 end-to-end runtime-proven, that is stated explicitly.
 
+Each scenario below carries a compact provenance tag:
+
+- *(runtime)* — behavior reproduced end-to-end on `7.0-RC2-62241`
+- *(source)* — derived from inspection of `src/wp-includes/connectors.php` trunk
+- *(structural)* — follows from WordPress framework rules (option precedence, hook lifecycle, `wp_options` persistence) without needing a per-scenario runtime reproduction
+- Combined tags (e.g. *(source + inferred)*) flag claims where the on-WordPress mechanism is source- or runtime-verified but an off-platform consequence (such as what appears in a third-party provider's usage dashboard) is not independently verified here.
+
 ### Non-malicious operational failure modes
 
 These are UX and operational defects independent of any malicious actor.
 
-- **Lossy invalid-save semantics at the REST layer.** An admin mistypes or
+- **Lossy invalid-save semantics at the REST layer.** *(runtime)* An admin mistypes or
   paste-truncates a new AI-provider key. Validation against the provider
   fails, the server clears the stored option to an empty string, and the raw
   REST write still returns `200 OK` instead of a structured `WP_Error`.
@@ -284,16 +288,29 @@ These are UX and operational defects independent of any malicious actor.
   success even though the connector was effectively broken or cleared,
   making outages and malicious disruption harder to distinguish from routine
   operator error.
-- **Database writes can be ignored by higher-precedence sources.** If a
-  connector is actually backed by an environment variable or PHP constant,
-  a direct REST or database write to the option can succeed while the
-  runtime continues to use the env/constant value. The harm here is
-  operational: an admin, script, or incident-response runbook can believe a
-  key was rotated or recovered when the active credential never changed at
-  all. That creates false confidence during troubleshooting or recovery and
-  can leave unexpected billing, prompt-routing, or key-ownership behavior in
-  place.
-- **Key-source provenance is only partially explicit.** The stock UI does
+- **Rotation writes can be silently shadowed by a higher-precedence source.**
+  *(runtime)* If a connector is backed by an environment variable or PHP
+  constant, option-layer writes still succeed — the stored value changes —
+  but the runtime continues to use the env/constant value per the resolution
+  order. The stock Connectors UI does surface this: externally configured
+  connectors are rendered read-only, so an admin rotating through the default
+  screen sees that they are editing a shadowed source. The operational risk
+  lives in **non-UI rotation paths**: direct REST writes, WP-CLI helpers,
+  custom admin tools, and incident-response scripts that call
+  `update_option()` without checking for overrides. Those paths get no
+  warning and can report success while the active credential never changes,
+  creating false confidence during troubleshooting or recovery.
+
+  An attacker with filesystem access can engineer this condition deliberately
+  by planting `define( 'OPENAI_API_KEY', 'sk-attacker...' );` in
+  `wp-config.php` or setting the equivalent environment variable. In that
+  variant the stock UI will correctly show "externally configured," but it
+  does not surface the constant's *value* or *when it was added* — the
+  read-only indicator is honest about the mechanism but is not a diff against
+  what the admin remembers setting. An attacker-planted override looks
+  indistinguishable from a legitimate one until the admin audits
+  `wp-config.php` contents directly.
+- **Key-source provenance is only partially explicit.** *(runtime)* The stock UI does
   surface whether a key is coming from an environment variable or a PHP
   constant, and externally configured connectors are rendered read-only.
   However, database-backed keys are not called out with equally explicit
@@ -306,7 +323,15 @@ hijack, stolen cookie, compromised admin credentials, XSS-escalated
 privileges, or a rogue admin. No filesystem write, no plugin install, no
 code execution. Reachable with one REST call.
 
-- **Prompt exfiltration via same-provider key swap.** For a database-backed
+**Attacker model assumption:** these scenarios assume the attacker writes
+directly to `POST /wp/v2/settings`, not through the stock Connectors UI. The
+UI's inline error handling on lossy saves and its read-only treatment of
+env/constant-backed connectors do not apply to raw REST callers. An attacker
+with a stolen or rogue `manage_options` session has no reason to route
+through the UI, which is why "but the UI shows an error" is not a mitigation
+for this threat model.
+
+- **Prompt exfiltration via same-provider key swap.** *(source + inferred)* For a database-backed
   connector that is actually in use, an attacker can replace the stored key
   with one they control via `POST /wp/v2/settings`. Future requests made
   through that connector then authenticate as the replacement credential. For
@@ -316,24 +341,24 @@ code execution. Reachable with one REST call.
   endpoint change. This consequence follows from the connector write path and
   runtime precedence rules; I did not independently verify a third-party
   provider dashboard showing the prompts.
-- **Ping-pong swap weakens simple forensic detection.** An attacker can
+- **Ping-pong swap weakens simple forensic detection.** *(structural)* An attacker can
   swap in their key, allow a window of AI traffic, and then restore the
   original value. If the site only inspects the current stored key after the
   fact, it will appear normal. The risk here is not that all logging fails,
   but that final-state checks and diff-only investigations can miss a real
   credential-diversion window unless the site retains a durable history of
   key changes.
-- **Persistence past session cleanup.** The swapped key lives in
+- **Persistence past session cleanup.** *(structural)* The swapped key lives in
   `wp_options`. Resetting the admin password, invalidating sessions, and
   enrolling 2FA do not touch `wp_options`. An incident-response playbook
   that doesn't explicitly rotate connector credentials leaves the
   exfiltration channel open after the original intrusion is "remediated."
-- **Weaponized nullification / breakage.** Attacker deliberately writes a
+- **Weaponized nullification / breakage.** *(runtime)* Attacker deliberately writes a
   malformed key. The server clears the stored option and returns `200 OK`.
   The stock UI will show an error if it initiated the save, but the lossy
   write semantics still let an attacker break the connector through the same
   settings path and create noise that can be mistaken for operator error.
-- **Validation oracle (secondary concern).** Because
+- **Validation oracle (secondary concern).** *(source)* Because
   `_wp_connectors_is_ai_api_key_valid()` probes the provider during a
   write, an attacker holding a stolen-but-unverified key can confirm it's
   live from the victim site's own environment. This is a lower-stakes side
@@ -349,17 +374,7 @@ with the admin-session scenarios above but are not specific to the
 Connectors API itself. Listed here for completeness because operators
 investigating a suspected key-swap incident still need to check these too.
 
-- **Constant or env override defeats database rotation attempts outside the
-  stock UI.** Attacker drops
-  `define( 'OPENAI_API_KEY', 'sk-attacker...' );` into `wp-config.php`, or
-  sets the equivalent environment variable. The stock Connectors UI does
-  correctly show that the connector is externally configured and renders it
-  read-only, so "UI says saved but constant still wins" is not accurate for
-  the default screen. The real risk is broader: any direct option write,
-  custom admin tool, or incident-response script that rotates only the
-  database value can report success while the higher-precedence source keeps
-  winning at runtime.
-- **Response tampering via filter hook.** Attacker plants a
+- **Response tampering via filter hook.** *(structural)* Attacker plants a
   `pre_http_request` filter (mu-plugin or theme edit) that rewrites the
   outbound request URL to an attacker-controlled proxy, or returns
   fabricated responses directly. Combined with a key swap, this makes the
@@ -367,7 +382,7 @@ investigating a suspected key-swap incident still need to check these too.
   control responses. If AI responses are rendered into site content
   (summaries, moderation verdicts, generated copy), tampered responses
   become a content-integrity and potentially XSS vector.
-- **Custom provider registration or wiring changes.** Attacker registers a
+- **Custom provider registration or wiring changes.** *(structural)* Attacker registers a
   malicious provider in the AI client registry, or alters provider wiring in
   code to point at their own endpoint, with a legitimate-looking display name
   or otherwise subtle presentation. Admin may not notice the change in the
@@ -382,7 +397,6 @@ investigating a suspected key-swap incident still need to check these too.
 | Persistence past password reset / 2FA enrollment | Yes | — |
 | Weaponized nullification / breakage | Yes | — |
 | Validation oracle for stolen keys | Yes | — |
-| Constant/env override defeating database-only rotation | — | Yes |
 | Response tampering / MITM | — | Yes |
 | Rogue provider registration | — | Yes |
 
@@ -392,3 +406,13 @@ mitigations (fingerprint diffing, change notifications, narrower
 capability, dedicated action hook, UI indicator for active key source).
 The right column is a code-execution problem and falls outside the
 Connectors API's own surface.
+
+**The two columns are not alternatives — they compose.** The realistic
+code-execution attack chain is: swap the key through the REST write
+(admin-session column), then plant a `pre_http_request` filter or custom
+provider (filesystem column) to also proxy responses. Either half alone
+is strictly less than the sum. Readers evaluating whether to treat the
+left column as in-scope for the Connectors API should not be reassured by
+"that column only matters with shell access" — shell access attackers use
+the left-column write as the cheapest persistence-plus-data-channel
+primitive in the chain.
