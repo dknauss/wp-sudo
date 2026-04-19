@@ -626,6 +626,16 @@ class Gate {
 
 		// If a sudo session is active (or just expired within the grace window), let the request through.
 		if ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) {
+			/**
+			 * Fires when a gated action passes through due to an active sudo session.
+			 *
+			 * @since 3.0.0
+			 *
+			 * @param int    $user_id The user who triggered the action.
+			 * @param string $rule_id The rule ID that matched.
+			 * @param string $surface The surface: 'admin' or 'ajax'.
+			 */
+			do_action( 'wp_sudo_action_passed', $user_id, $matched_rule['id'], $surface );
 			return;
 		}
 
@@ -1044,6 +1054,16 @@ class Gate {
 		}
 
 		if ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) {
+			/**
+			 * Fires when a gated action passes through due to an active sudo session.
+			 *
+			 * @since 3.0.0
+			 *
+			 * @param int    $user_id The user who triggered the action.
+			 * @param string $rule_id The rule ID that matched.
+			 * @param string $surface Always 'rest' for REST API.
+			 */
+			do_action( 'wp_sudo_action_passed', $user_id, $matched_rule['id'], 'rest' );
 			return $response;
 		}
 
@@ -1180,6 +1200,16 @@ class Gate {
 		$user_id = get_current_user_id();
 
 		if ( $user_id && ( Sudo_Session::is_active( $user_id ) || Sudo_Session::is_within_grace( $user_id ) ) ) {
+			/**
+			 * Fires when a gated action passes through due to an active sudo session.
+			 *
+			 * @since 3.0.0
+			 *
+			 * @param int    $user_id The user who triggered the action.
+			 * @param string $rule_id Always 'wpgraphql' for this surface.
+			 * @param string $surface Always 'wpgraphql'.
+			 */
+			do_action( 'wp_sudo_action_passed', $user_id, 'wpgraphql', 'wpgraphql' );
 			return null; // Active sudo session (or grace window) — pass through.
 		}
 

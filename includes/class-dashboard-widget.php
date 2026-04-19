@@ -146,6 +146,7 @@ class Dashboard_Widget {
 		'action_gated'    => 'Gated',
 		'action_blocked'  => 'Blocked',
 		'action_allowed'  => 'Allowed',
+		'action_passed'   => 'Passed',
 		'action_replayed' => 'Replayed',
 	);
 

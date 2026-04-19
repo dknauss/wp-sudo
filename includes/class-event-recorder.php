@@ -19,6 +19,7 @@ namespace WP_Sudo;
  * - wp_sudo_action_gated (flow: user redirected to reauthentication)
  * - wp_sudo_action_blocked (policy: non-interactive request denied)
  * - wp_sudo_action_allowed (policy: non-interactive request permitted)
+ * - wp_sudo_action_passed (feature: gated action succeeds during active session)
  * - wp_sudo_action_replayed (flow: stashed request replayed after reauth)
  *
  * @since 2.15.0
@@ -35,6 +36,7 @@ class Event_Recorder {
 		'wp_sudo_action_gated'    => 3, // user_id, rule_id, surface.
 		'wp_sudo_action_blocked'  => 3, // user_id, rule_id, surface.
 		'wp_sudo_action_allowed'  => 3, // user_id, rule_id, surface.
+		'wp_sudo_action_passed'   => 3, // user_id, rule_id, surface.
 		'wp_sudo_action_replayed' => 2, // user_id, rule_id.
 	);
 
@@ -168,6 +170,36 @@ class Event_Recorder {
 				'event'   => 'action_replayed',
 				'rule_id' => $rule_id,
 				'surface' => '',
+			)
+		);
+	}
+
+	/**
+	 * Handle wp_sudo_action_passed event.
+	 *
+	 * Fired when a gated action passes through due to an active sudo session.
+	 * Only logs when the log_passthrough setting is enabled.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $rule_id Action Registry rule ID.
+	 * @param string $surface Surface (admin, ajax, rest, wpgraphql).
+	 * @return void
+	 */
+	public static function on_action_passed( int $user_id, string $rule_id, string $surface ): void {
+		// Check the log_passthrough setting.
+		$log_passthrough = Admin::get( 'log_passthrough', false );
+		if ( ! $log_passthrough ) {
+			return; // User opted out of passthrough logging.
+		}
+
+		Event_Store::insert(
+			array(
+				'user_id' => $user_id,
+				'event'   => 'action_passed',
+				'rule_id' => $rule_id,
+				'surface' => $surface,
 			)
 		);
 	}

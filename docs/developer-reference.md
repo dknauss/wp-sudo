@@ -249,6 +249,7 @@ do_action( 'wp_sudo_lockout', int $user_id, int $attempts, string $ip );
 do_action( 'wp_sudo_action_gated', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_blocked', int $user_id, string $rule_id, string $surface );
 do_action( 'wp_sudo_action_allowed', int $user_id, string $rule_id, string $surface ); // Unrestricted policy (v2.9.0).
+do_action( 'wp_sudo_action_passed', int $user_id, string $rule_id, string $surface ); // Active session (v3.0.0).
 do_action( 'wp_sudo_action_replayed', int $user_id, string $rule_id );
 do_action( 'wp_sudo_policy_preset_applied', int $user_id, string $preset_key, array $previous, array $current, bool $is_network );
 
@@ -276,9 +277,10 @@ Event mapping:
 | `wp_sudo_action_gated` | `1900005` |
 | `wp_sudo_action_blocked` | `1900006` |
 | `wp_sudo_action_allowed` | `1900007` |
-| `wp_sudo_action_replayed` | `1900008` |
-| `wp_sudo_capability_tampered` | `1900009` |
-| `wp_sudo_policy_preset_applied` | `1900010` |
+| `wp_sudo_action_passed` | `1900008` |
+| `wp_sudo_action_replayed` | `1900009` |
+| `wp_sudo_capability_tampered` | `1900010` |
+| `wp_sudo_policy_preset_applied` | `1900011` |
 
 The bridge is inert when WSAL APIs are unavailable.
 
@@ -294,7 +296,7 @@ Record mapping:
 - **Context:** `wp_sudo`
 - **Action:** derived from hook (`activated`, `deactivated`,
   `reauth_failed`, `lockout`, `gated`, `blocked`, `allowed`,
-  `replayed`, `policy_preset_applied`, `capability_tampered`)
+  `passed`, `replayed`, `policy_preset_applied`, `capability_tampered`)
 - **Args/meta:** always includes `source=wp-sudo` and `hook`, plus hook
   fields such as `user_id`, `rule_id`, `surface`, `attempts`, `ip`, `expires`,
   `duration`, `preset_key`, `previous`, `current`, and `is_network` where

@@ -562,6 +562,15 @@ class Admin {
 			array( 'label_for' => 'session_duration' )
 		);
 
+		add_settings_field(
+			'log_passthrough',
+			__( 'Log Session Pass-Throughs', 'wp-sudo' ),
+			array( $this, 'render_field_log_passthrough' ),
+			self::PAGE_SLUG,
+			'wp_sudo_session',
+			array( 'label_for' => 'log_passthrough' )
+		);
+
 		// Entry point policies section.
 		add_settings_section(
 			'wp_sudo_policies',
@@ -820,6 +829,9 @@ class Admin {
 		if ( $sanitized['session_duration'] < 1 || $sanitized['session_duration'] > 15 ) {
 			$sanitized['session_duration'] = 15;
 		}
+
+		// Log passthrough: boolean toggle.
+		$sanitized['log_passthrough'] = ! empty( $input['log_passthrough'] );
 
 		// Entry point policies: disabled, limited, or unrestricted.
 		$policy_keys = self::policy_setting_keys();
@@ -1496,6 +1508,21 @@ class Admin {
 			absint( $value )
 		);
 		echo '<p class="description">' . esc_html__( 'How long a sudo session lasts before automatically expiring. Range: 1–15 minutes. Default: 15 minutes.', 'wp-sudo' ) . '</p>';
+	}
+
+	/**
+	 * Render the log_passthrough toggle field.
+	 *
+	 * @return void
+	 */
+	public function render_field_log_passthrough(): void {
+		$value = self::get( 'log_passthrough', false );
+		printf(
+			'<input type="checkbox" id="log_passthrough" name="%s[log_passthrough]" value="1" %s />',
+			esc_attr( self::OPTION_KEY ),
+			checked( $value, true, false )
+		);
+		echo '<p class="description">' . esc_html__( 'Log each gated action that succeeds during an active sudo session. Disable to see only gate friction (challenges, blocks, replays) in the dashboard widget. Enable to see a complete audit trail including actions that passed through due to an active session. Default: off.', 'wp-sudo' ) . '</p>';
 	}
 
 	/**

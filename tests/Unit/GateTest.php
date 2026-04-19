@@ -3171,4 +3171,89 @@ class GateTest extends TestCase {
 
 		$this->assertNull( $result );
 	}
+
+	// ── action_passed hook tests ──────────────────────────────────────
+
+	/**
+	 * Test intercept fires wp_sudo_action_passed when active session allows
+	 * a gated admin action to pass through.
+	 */
+	public function test_intercept_fires_action_passed_for_active_session_on_admin(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 5 );
+		Functions\when( 'wp_doing_ajax' )->justReturn( false );
+		Functions\when( 'wp_doing_cron' )->justReturn( false );
+		Functions\when( 'is_admin' )->justReturn( true );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		// Simulate: Sudo_Session::is_active( 5 ) returns true.
+		$token = 'test-gate-token';
+
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		$GLOBALS['pagenow']        = 'plugins.php';
+		$_REQUEST['action']        = 'activate';
+		$_SERVER['REQUEST_METHOD'] = 'GET';
+
+		// Expect wp_sudo_action_passed to fire with user_id, rule_id, surface.
+		Actions\expectDone( 'wp_sudo_action_passed' )
+			->once()
+			->with( 5, 'plugin.activate', 'admin' );
+
+		$this->stash->shouldNotReceive( 'save' );
+
+		$this->gate->intercept();
+
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+	}
+
+	/**
+	 * Test intercept_rest fires wp_sudo_action_passed when active session
+	 * allows a gated REST action to pass through (cookie-auth).
+	 */
+	public function test_intercept_rest_fires_action_passed_for_active_session(): void {
+		Functions\when( 'get_current_user_id' )->justReturn( 5 );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'is_wp_error' )->justReturn( false );
+
+		// Simulate active session.
+		$token = 'test-rest-token';
+
+		Functions\when( 'get_user_meta' )->alias( function ( $uid, $key, $single ) use ( $token ) {
+			if ( Sudo_Session::META_KEY === $key ) {
+				return time() + 600;
+			}
+			if ( Sudo_Session::TOKEN_META_KEY === $key ) {
+				return hash( 'sha256', $token );
+			}
+			return '';
+		} );
+
+		$_COOKIE[ Sudo_Session::TOKEN_COOKIE ] = $token;
+
+		// Expect wp_sudo_action_passed to fire with user_id, rule_id, surface.
+		Actions\expectDone( 'wp_sudo_action_passed' )
+			->once()
+			->with( 5, 'user.promote', 'rest' );
+
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42' );
+		$request->set_body_params( array( 'roles' => array( 'editor' ) ) );
+		$handler = array();
+
+		$result = $this->gate->intercept_rest( null, $handler, $request );
+
+		$this->assertNull( $result );
+		unset( $_COOKIE[ Sudo_Session::TOKEN_COOKIE ] );
+	}
 }
