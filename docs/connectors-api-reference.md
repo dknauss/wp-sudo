@@ -379,6 +379,26 @@ for this threat model.
   replacement key. I did not independently verify a third-party provider
   dashboard showing the prompts; that remains the inferred off-platform
   consequence of provider-side authentication and logging.
+
+  Provider-side prompt visibility is not uniform across vendors. Some
+  platforms offer request/response logging or admin/audit visibility for API
+  usage, while others make retention optional or more limited. The
+  WordPress-specific claim proven here is narrower: after a connector key is
+  replaced, subsequent outbound requests authenticate as the replacement
+  credential, so any provider-side logging or usage visibility attached to
+  that credential will also follow the replacement account.
+
+  Official examples of provider-side visibility controls and retention:
+  Google Gemini API / AI Studio logs and datasets
+  (`https://ai.google.dev/gemini-api/docs/logs-datasets`), Google Vertex AI
+  request-response logging
+  (`https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/request-response-logging`),
+  OpenAI data controls
+  (`https://platform.openai.com/docs/models/default-usage-policies-by-endpoint`)
+  and admin/audit logs
+  (`https://help.openai.com/en/articles/9687866-admin-and-audit-logs-api-for-the-api-platform%23.apk`),
+  and Anthropic API/data-retention docs
+  (`https://platform.claude.com/docs/en/build-with-claude/api-and-data-retention`).
 - **Ping-pong swap weakens simple forensic detection.** *(structural)* An attacker can
   swap in their key, allow a window of AI traffic, and then restore the
   original value. If the site only inspects the current stored key after the
