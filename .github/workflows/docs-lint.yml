@@ -11,35 +11,62 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Check for stale fixed-date references and old count patterns
         run: |
-          # Define files that are allowed to have dates and counts (canonical docs and changelog)
-          EXCLUDED_FILES="CHANGELOG.md docs/current-metrics.md docs/release-status.md docs/documentation-remediation-checklist.md docs/ROADMAP.md"
-          
-          # Find all markdown files excluding the allowed ones
-          MD_FILES=$(find . -name "*.md" -not -path "./vendor/*" -not -path "./.git/*" | grep -v -F "$EXCLUDED_FILES")
-          
-          # Check for stale fixed-date references (YYYY-MM-DD format)
-          DATE_PATTERN='[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}'
+          set -euo pipefail
+
+          # Canonical/audit docs where dates and counts are allowed.
+          # Keep this list in sync with docs/documentation-remediation-checklist.md.
+          EXCLUDED_FILES=(
+            "CHANGELOG.md"
+            "docs/ROADMAP.md"
+            "docs/abilities-api-assessment.md"
+            "docs/connectors-api-reference.md"
+            "docs/core-action-gate-proposal.md"
+            "docs/current-metrics.md"
+            "docs/documentation-remediation-checklist.md"
+            "docs/llm-lies-log.md"
+            "docs/release-status.md"
+            "docs/security-model.md"
+            "docs/two-factor-authentication-flow.md"
+            "docs/vulnerability-testing-guide.md"
+            "docs/wordpress-core-authentication.md"
+          )
+
+          # Paths that are not user-facing project docs (planning artifacts,
+          # agent skill fixtures, test fixtures, per-PHP-version test dirs).
+          EXCLUDED_PATHS='^(\.planning/|\.github/skills/|\.github/php[0-9]+-tests/|tests/)'
+
+          # Build an alternation of excluded file names for grep -E.
+          EXCLUDE_FILE_REGEX=$(IFS='|'; echo "${EXCLUDED_FILES[*]}")
+
+          # Only scan tracked markdown files — skips vendor/, worktrees, build artifacts.
+          MD_FILES=$(git ls-files -- '*.md' \
+            | grep -Ev "$EXCLUDED_PATHS" \
+            | grep -Ev "^(${EXCLUDE_FILE_REGEX})$" || true)
+
+          if [ -z "$MD_FILES" ]; then
+            echo "No markdown files to lint."
+            exit 0
+          fi
+
+          # ERE patterns (grep -E): {n} and + are unescaped; | is alternation.
+          DATE_PATTERN='[0-9]{4}-[0-9]{2}-[0-9]{2}'
+          COUNT_PATTERN='[0-9]+ (tests|assertions)\b'
+
           STALE_DATES=()
+          STALE_COUNTS=()
           while IFS= read -r file; do
+            [ -z "$file" ] && continue
             if grep -qE "$DATE_PATTERN" "$file"; then
               STALE_DATES+=("$file")
             fi
-          done <<< "$MD_FILES"
-          
-          # Check for old count patterns (test counts and assertion counts)
-          TEST_COUNT_PATTERN='[0-9]\+ tests'
-          ASSERTION_COUNT_PATTERN='[0-9]\+ assertions'
-          STALE_COUNTS=()
-          while IFS= read -r file; do
-            if grep -qE "$TEST_COUNT_PATTERN\|$ASSERTION_COUNT_PATTERN" "$file"; then
+            if grep -qE "$COUNT_PATTERN" "$file"; then
               STALE_COUNTS+=("$file")
             fi
           done <<< "$MD_FILES"
-          
-          # Output results and fail if any found
+
           if [ ${#STALE_DATES[@]} -gt 0 ] || [ ${#STALE_COUNTS[@]} -gt 0 ]; then
             echo "::error ::Documentation lint failed:"
             if [ ${#STALE_DATES[@]} -gt 0 ]; then
@@ -53,11 +80,11 @@ jobs:
               echo "Old count patterns found in:"
               for file in "${STALE_COUNTS[@]}"; do
                 echo "  - $file"
-                grep -nE "$TEST_COUNT_PATTERN\|$ASSERTION_COUNT_PATTERN" "$file" | head -3
+                grep -nE "$COUNT_PATTERN" "$file" | head -3
               done
             fi
             exit 1
-          else
-            echo "Documentation lint passed: no stale fixed-date references or old count patterns found outside canonical docs."
           fi
+
+          echo "Documentation lint passed: no stale fixed-date references or old count patterns found outside canonical docs."
         shell: bash
