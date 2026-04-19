@@ -34,7 +34,7 @@ key-files:
     - .planning/ROADMAP.md
 
 key-decisions:
-  - "Admin bar deactivation is a full-page navigation (302 redirect), not AJAX. Use Promise.all([waitForURL, click]) — not waitForResponse() or waitForRequest()."
+  - "Admin bar deactivation is a full-page navigation (302 redirect), not AJAX. The stable assertion pattern is: observe the document navigation request with wp_sudo_deactivate + _wpnonce, then assert the final param-free URL after redirect."
   - "maxDiffPixels:200 on admin bar screenshot assertions tolerates timer-node .ab-label mask boundary drift (observed max: 192px). This is above observed drift and below any real regression threshold."
   - "VISN-03 and VISN-04 pre-existing flakiness was caused by timer-node width changing between --update-snapshots run and full-suite run. The fix (maxDiffPixels) is correct; updating baselines alone did not help."
 
@@ -83,9 +83,17 @@ completed: 2026-03-09
 
 ## Decisions Made
 
-- Used `Promise.all([page.waitForURL(/wp-admin/, { waitUntil: 'load' }), timerNode.click()])` — the deactivation click follows a real anchor href (not AJAX), PHP issues a 302 redirect, so standard navigation pattern applies
+- Used a two-step redirect assertion in `admin-bar-deactivate.spec.ts`: first observe the document navigation request with `wp_sudo_deactivate=1` + `_wpnonce`, then assert the final param-free `/wp-admin/` URL. This avoids the immediate-resolve race that occurs when the starting URL and final URL are identical.
 - Added `maxDiffPixels: 200` to VISN-03/VISN-04 assertions rather than increasing the `threshold` value — `maxDiffPixels` controls the count of differing pixels (correct for mask boundary drift); `threshold` controls per-pixel color sensitivity (not the right knob for this issue)
 - Kept ABAR-01 and ABAR-02 as separate tests (not combined) per the plan — each requirement has its own test with a specific description and independent assertion set
+
+## Post-completion maintenance note (2026-04-19)
+
+- Follow-up review found that the original `waitForURL(/wp-admin/)` pattern in `admin-bar-deactivate.spec.ts` could resolve on the pre-click page because the starting URL and final redirected URL are both `/wp-admin/`.
+- The spec was tightened to split the proof into two steps:
+  1. observe the document navigation request containing `wp_sudo_deactivate=1` and `_wpnonce`
+  2. confirm the browser lands back on the final param-free `/wp-admin/` URL
+- This preserves the original requirement coverage (ABAR-01 and ABAR-02) while removing the immediate-resolve race and making the redirect assertion materially stronger.
 
 ## Deviations from Plan
 

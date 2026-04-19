@@ -40,7 +40,59 @@
  * Cookie verified via context.cookies() — Playwright API returns all cookies
  * for the current browser context including HttpOnly cookies.
  */
+import type { Page } from '@playwright/test';
 import { test, expect, activateSudoSession } from '../fixtures/test';
+
+/**
+ * Click the admin bar timer link and wait for the full deactivation redirect cycle.
+ *
+ * Why this helper exists:
+ * - The starting URL and final redirected URL are both `/wp-admin/`
+ * - A bare waitForURL(/wp-admin/) can therefore resolve immediately on the pre-click page
+ * - To prove a real navigation occurred, we first wait for the document navigation request
+ *   that includes `wp_sudo_deactivate=1` and `_wpnonce`, then confirm the browser lands
+ *   back on the param-free final URL
+ *
+ * This follows the review feedback from 2026-04-19: split the assertion into two steps
+ * so the tests cannot pass without observing the click-driven redirect cycle.
+ */
+async function clickTimerAndWaitForRedirect( page: Page ): Promise<{
+    urlBefore: URL;
+    urlAfter: URL;
+}> {
+    const urlBefore = new URL( page.url() );
+    const timerLink = page.locator( '#wp-admin-bar-wp-sudo-active .ab-item' );
+
+    await Promise.all( [
+        page.waitForRequest( ( request ) => {
+            if ( ! request.isNavigationRequest() ) {
+                return false;
+            }
+
+            const requestUrl = new URL( request.url() );
+
+            return (
+                requestUrl.pathname === urlBefore.pathname &&
+                requestUrl.searchParams.get( 'wp_sudo_deactivate' ) === '1' &&
+                requestUrl.searchParams.has( '_wpnonce' )
+            );
+        } ),
+        timerLink.click(),
+    ] );
+
+    await page.waitForURL(
+        ( url ) =>
+            url.pathname === urlBefore.pathname &&
+            ! url.searchParams.has( 'wp_sudo_deactivate' ) &&
+            ! url.searchParams.has( '_wpnonce' ),
+        { waitUntil: 'load', timeout: 10_000 }
+    );
+
+    return {
+        urlBefore,
+        urlAfter: new URL( page.url() ),
+    };
+}
 
 test.describe( 'Admin bar deactivation', () => {
 
@@ -81,30 +133,21 @@ test.describe( 'Admin bar deactivation', () => {
      * Source: class-sudo-session.php deactivate() — expires wp_sudo_token cookie with past expiry (verified)
      * Source: class-admin-bar.php admin_bar_node() — returns early if !Sudo_Session::is_active() (verified)
      *
-     * PITFALL: This is a full-page navigation (not AJAX). The timerNode.click() follows
-     * the href (a real anchor href containing the deactivation URL). Use
-     * Promise.all([waitForURL, click]) to wait for the redirect to complete before
-     * asserting the session state. Never use page.waitForResponse() or XHR patterns.
+     * PITFALL: The starting URL and final redirected URL are both /wp-admin/.
+     * A bare waitForURL(/wp-admin/) can therefore resolve before the click-driven
+     * navigation happens. This test uses a two-step wait:
+     *   1. observe the document navigation request with wp_sudo_deactivate + _wpnonce
+     *   2. confirm the browser lands back on the param-free final URL
      */
     test( 'ABAR-01: clicking admin bar timer node deactivates sudo session', async ( { page, context } ) => {
         // Locate the admin bar timer node (visible due to beforeEach guard above).
         // Source: class-admin-bar.php add_node() — id 'wp-sudo-active' (WP adds 'wp-admin-bar-' prefix) (verified)
         const timerNode = page.locator( '#wp-admin-bar-wp-sudo-active' );
 
-        // Click the timer node — follows the href (deactivation URL) which is a standard
-        // anchor navigation. PHP processes the deactivation params and issues a 302 redirect.
-        // Promise.all waits for the redirect to complete before proceeding to assertions.
-        //
-        // waitForURL predicate: /wp-admin/ is safe here because:
-        //   - We start on /wp-admin/ (dashboard)
-        //   - The redirect target is always /wp-admin/ (remove_query_arg strips only deactivation params)
-        //   - There is no ambiguity with the challenge page URL (no page=wp-sudo-challenge involved)
-        //
-        // Source: class-admin-bar.php handle_deactivate() — wp_safe_redirect(remove_query_arg([...])) (verified)
-        await Promise.all( [
-            page.waitForURL( /wp-admin/, { waitUntil: 'load', timeout: 10_000 } ),
-            timerNode.click(),
-        ] );
+        // Click the anchor inside the admin bar node and wait for the full redirect cycle.
+        // We intentionally do not use waitForURL(/wp-admin/) directly because the final URL
+        // equals the starting URL. See clickTimerAndWaitForRedirect() above.
+        await clickTimerAndWaitForRedirect( page );
 
         // After deactivation + redirect, the admin bar node must be absent.
         // PHP admin_bar_node() only adds the node when Sudo_Session::is_active() returns true.
@@ -147,25 +190,12 @@ test.describe( 'Admin bar deactivation', () => {
      * Source: class-admin-bar.php handle_deactivate() — wp_safe_redirect(remove_query_arg([...])) (verified)
      *
      * PITFALL: There IS a navigation (click → deactivation URL → 302 redirect → final URL).
-     * Do NOT read page.url() immediately after click() without awaiting the redirect.
-     * The Promise.all / waitForURL pattern ensures the assertion runs only after the
-     * browser has landed on the final URL.
+     * Because the final URL equals the starting URL, the test must first observe the
+     * deactivation request before asserting on the final param-free URL.
      */
     test( 'ABAR-02: URL does not change after admin bar deactivation click', async ( { page } ) => {
-        // Capture the URL before clicking (beforeEach navigated to /wp-admin/).
-        // Use the URL object for structured comparison (pathname, searchParams).
-        const urlBefore = new URL( page.url() );
-
-        // Click the admin bar node and wait for the full redirect to complete.
-        // The redirect strips only the deactivation params — the path is unchanged.
-        // Source: class-admin-bar.php handle_deactivate() — remove_query_arg([DEACTIVATE_PARAM, '_wpnonce']) (verified)
-        await Promise.all( [
-            page.waitForURL( /wp-admin/, { waitUntil: 'load', timeout: 10_000 } ),
-            page.locator( '#wp-admin-bar-wp-sudo-active' ).click(),
-        ] );
-
-        // Capture the URL after the redirect completes.
-        const urlAfter = new URL( page.url() );
+        // Capture both the starting URL and final redirected URL through the helper.
+        const { urlBefore, urlAfter } = await clickTimerAndWaitForRedirect( page );
 
         // Pathname must be identical (same admin page, no redirect to a different section).
         expect(
