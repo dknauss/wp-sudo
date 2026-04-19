@@ -1,0 +1,46 @@
+name: Documentation Links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - 'readme.txt'
+      - '.github/workflows/docs-links.yml'
+      - '.lycheeignore'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - 'readme.txt'
+      - '.github/workflows/docs-links.yml'
+      - '.lycheeignore'
+
+permissions:
+  contents: read
+
+jobs:
+  link-check:
+    name: Markdown link and anchor check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run lychee link checker
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --accept '200,206,403,429'
+            --max-retries 2
+            --timeout 20
+            --cache
+            'docs/**/*.md'
+            '*.md'
+            'readme.txt'
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
