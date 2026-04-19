@@ -8,6 +8,10 @@ WP Sudo adds **action-gated reauthentication** to WordPress so high-risk operati
 [![PHPUnit](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/phpunit.yml)
 [![Psalm](https://github.com/dknauss/wp-sudo/actions/workflows/psalm.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/psalm.yml)
 [![Playwright Tests](https://github.com/dknauss/wp-sudo/actions/workflows/e2e.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/e2e.yml)
+[![CodeQL](https://github.com/dknauss/wp-sudo/actions/workflows/codeql.yml/badge.svg)](https://github.com/dknauss/wp-sudo/actions/workflows/codeql.yml)
+[![Codecov](https://codecov.io/gh/dknauss/wp-sudo/graph/badge.svg?branch=main)](https://codecov.io/gh/dknauss/wp-sudo)
+[![Type Coverage](https://shepherd.dev/github/dknauss/wp-sudo/coverage.svg)](https://shepherd.dev/github/dknauss/wp-sudo)
+[![Try in Playground](https://img.shields.io/badge/Try%20it-Playground-3858e9?logo=wordpress&logoColor=white)](https://playground.wordpress.net/?blueprint-url=https://raw.githubusercontent.com/dknauss/wp-sudo/main/blueprint.json)
 
 > **Status:** exploratory plugin, not yet production-ready. See [docs/release-status.md](docs/release-status.md) for current stable-vs-`main` status and [tests/MANUAL-TESTING.md](tests/MANUAL-TESTING.md) if you want to help evaluate it.
 
