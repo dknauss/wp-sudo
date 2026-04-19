@@ -223,6 +223,14 @@ method is intentionally side-effect-free:
 It is meant for operator troubleshooting and rule design, not for executing or
 replaying requests.
 
+For Connectors specifically, this means the tester can verify whether a
+representative `/wp/v2/settings` write would match
+`connectors.update_credentials` and whether WP Sudo would allow, gate, or block
+it under the current REST policy assumptions. It does **not** execute the
+underlying core Connectors save flow, so it cannot by itself prove runtime
+effects like key validation, masking, key-source precedence, or downstream
+provider impact.
+
 ## Audit Hook Signatures
 
 Sudo fires 10 action hooks for external logging integration with [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/), [Stream](https://wordpress.org/plugins/stream/), and similar plugins.

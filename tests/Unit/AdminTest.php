@@ -613,6 +613,8 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'Connectors', $content );
 		$this->assertStringContainsString( 'AI provider API keys', $content );
 		$this->assertStringContainsString( 'connectors.update_credentials', $content );
+		$this->assertStringContainsString( 'per-site', $content );
+		$this->assertStringContainsString( 'wp-config.php', $content );
 	}
 
 	// -----------------------------------------------------------------
@@ -1827,6 +1829,8 @@ class AdminTest extends TestCase {
 		// Descriptions are non-empty strings.
 		$this->assertNotEmpty( $descriptions[ Admin::POLICY_PRESET_NORMAL ] );
 		$this->assertNotEmpty( $descriptions[ Admin::POLICY_PRESET_CUSTOM ] );
+		$this->assertStringContainsString( 'connector credentials', $descriptions[ Admin::POLICY_PRESET_HEADLESS_FRIENDLY ] );
+		$this->assertStringContainsString( 'current site', $descriptions[ Admin::POLICY_PRESET_HEADLESS_FRIENDLY ] );
 
 		unset( $_GET['page'] );
 	}

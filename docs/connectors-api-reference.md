@@ -80,6 +80,26 @@ default connector IDs and naming conventions, not a guarantee that every
 
 If an env var or constant provides the key, the database value is not used.
 
+### Multisite scope
+
+For **database-backed** connectors, the stored credential is still **per-site**
+in multisite. Core registers connector settings with `register_setting()`,
+then reads and writes the database value through `get_option()` /
+`update_option()` on the standard `/wp/v2/settings` endpoint rather than using
+network options.
+
+That said, the **effective** connector key may still be shared across the whole
+install/network when core resolves it from:
+
+1. an **environment variable**, or
+2. a **PHP constant** such as one defined in `wp-config.php`
+
+Because those sources take precedence over the database value, a multisite
+operator can have:
+
+- a **per-site** database key saved in the Connectors UI, but
+- an **install-wide** env/constant key actually in effect.
+
 ### Key validation
 
 On save via **POST** or **PUT** to `/wp/v2/settings`, AI provider keys are
@@ -283,6 +303,16 @@ one they control.
 > [!NOTE]
 > Current WP Sudo `main` mitigates that path by challenging connector
 > credential writes before they reach the settings save handler.
+
+> [!NOTE]
+> The built-in **Request / Rule Tester** in Settings → Sudo can validate this
+> mitigation at the WP Sudo layer: it can show whether a representative
+> Connectors REST write would match `connectors.update_credentials` and whether
+> WP Sudo would `soft-block`, `hard-block`, or allow it under the simulated
+> auth mode and REST policy. But the tester is diagnostic only — it does not
+> execute core's Connectors save flow — so it cannot by itself prove end-to-end
+> exploit behavior such as lossy invalid-save semantics, masking, env/constant
+> precedence, or provider-side consequences after a key swap.
 
 ### Higher-precedence key sources
 

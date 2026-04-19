@@ -307,7 +307,8 @@ class Admin {
 					? '<p>' . __( 'WPGraphQL works differently from the other surfaces: when set to Limited, all GraphQL mutations require an active sudo session — the block is at the surface level rather than per-action.', 'wp-sudo' ) . '</p>'
 					: '<p>' . __( 'WPGraphQL is also supported as an entry point — its policy setting appears on this page when WPGraphQL is installed.', 'wp-sudo' ) . '</p>' )
 				. '<h3>' . __( 'Connectors', 'wp-sudo' ) . '</h3>'
-				. '<p>' . __( 'Settings updates that include AI provider API keys — such as those managed by the WordPress 7.0 Connectors feature, when present — are gated separately via the <code>connectors.update_credentials</code> rule. This rule matches REST API requests that write connector credential fields, regardless of surface policy.', 'wp-sudo' ) . '</p>',
+				. '<p>' . __( 'Settings updates that include AI provider API keys — such as those managed by the WordPress 7.0 Connectors feature, when present — are gated separately via the <code>connectors.update_credentials</code> rule. This rule matches REST API requests that write connector credential fields, regardless of surface policy.', 'wp-sudo' ) . '</p>'
+				. '<p>' . __( 'On multisite, connector credentials saved in the database are still per-site because core stores them as ordinary site options. But if a connector key is supplied via an environment variable or <code>wp-config.php</code> constant, that key can override the per-site database value across the whole install/network.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
@@ -321,7 +322,7 @@ class Admin {
 					. '<ul>'
 					. '<li>' . __( '<strong>Normal</strong> — All surfaces set to Limited. This is the recommended baseline: every remote surface remains available, but gated operations are blocked.', 'wp-sudo' ) . '</li>'
 					. '<li>' . __( '<strong>Incident Lockdown</strong> — Disables REST, CLI, XML-RPC, and GraphQL. Cron stays Limited so scheduled maintenance can continue. Use during active incident response.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Headless Friendly</strong> — REST and GraphQL are Unrestricted for headless front-ends and API consumers. CLI and Cron stay Limited. XML-RPC is Disabled.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Headless Friendly</strong> — REST and GraphQL are Unrestricted for headless front-ends and API consumers. CLI and Cron stay Limited. XML-RPC is Disabled. Warning: non-cookie REST callers can also update database-backed connector credentials without sudo on the current site.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
 					. '<p>' . __( 'After selecting a preset, manually editing any individual policy changes the configuration to Custom. Select a preset again to return to a named configuration.', 'wp-sudo' ) . '</p>',
 			)
@@ -578,7 +579,7 @@ class Admin {
 			array(
 				'label_for'   => Gate::SETTING_REST_APP_PASS_POLICY,
 				'key'         => Gate::SETTING_REST_APP_PASS_POLICY,
-				'description' => __( 'Controls non-cookie-auth REST requests (Application Passwords, Bearer tokens, OAuth). Cookie-auth browser requests always get the sudo challenge. Default: Limited.', 'wp-sudo' ),
+				'description' => __( 'Controls non-cookie-auth REST requests (Application Passwords, Bearer tokens, OAuth). Cookie-auth browser requests always get the sudo challenge. In multisite, Connectors credentials saved in the database remain per-site, but env or wp-config.php-backed connector keys may still apply across the whole install/network. Default: Limited.', 'wp-sudo' ),
 			)
 		);
 
@@ -708,7 +709,7 @@ class Admin {
 			),
 			self::POLICY_PRESET_HEADLESS_FRIENDLY => array(
 				'label'       => __( 'Headless Friendly', 'wp-sudo' ),
-				'description' => __( 'Keep intentional API-driven workflows open while tightening legacy or optional remote surfaces.', 'wp-sudo' ),
+				'description' => __( 'Keep intentional API-driven workflows open while tightening legacy or optional remote surfaces. Warning: Unrestricted REST also lets non-cookie callers update database-backed connector credentials without sudo on the current site.', 'wp-sudo' ),
 				'policies'    => array(
 					Gate::SETTING_REST_APP_PASS_POLICY => Gate::POLICY_UNRESTRICTED,
 					Gate::SETTING_CLI_POLICY           => Gate::POLICY_LIMITED,
