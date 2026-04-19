@@ -255,7 +255,6 @@ class Dashboard_Widget {
 		echo '</select>';
 
 		// Surface dropdown.
-		echo '<div class="wp-sudo-filter-group">';
 		echo '<select class="wp-sudo-filter-select" data-filter="surface">';
 		echo '<option value="all">' . esc_html__( 'All surfaces', 'wp-sudo' ) . '</option>';
 		echo '<option value="admin">' . esc_html__( 'Admin', 'wp-sudo' ) . '</option>';
@@ -267,7 +266,6 @@ class Dashboard_Widget {
 		echo '<option value="xmlrpc">' . esc_html__( 'XML-RPC', 'wp-sudo' ) . '</option>';
 		echo '<option value="wpgraphql">' . esc_html__( 'WPGraphQL', 'wp-sudo' ) . '</option>';
 		echo '</select>';
-		echo '</div>';
 
 		echo '</div>';
 
@@ -478,21 +476,24 @@ class Dashboard_Widget {
 	margin-right: 0.5em;
 }
 
-/* Event filters */
+/* Event filters — compact inline row matching WP dashboard patterns */
 #dashboard_wp_sudo_activity .wp-sudo-event-filters {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	align-items: center;
-	gap: 0.5em;
-	margin-bottom: 0.75em;
+	gap: 4px;
+	margin-bottom: 0.5em;
 }
 #dashboard_wp_sudo_activity .wp-sudo-event-filters select {
-	font-size: 0.8em;
-	padding: 0.2em 0.4em;
+	font-size: 12px;
+	padding: 0 4px;
+	height: 24px;
+	line-height: 22px;
 	border: 1px solid #c3c4c7;
 	border-radius: 3px;
 	background: #fff;
-	min-width: auto;
+	min-width: 0;
+	max-width: 100%;
 }
 #dashboard_wp_sudo_activity .wp-sudo-filter-notice {
 	font-size: 0.75em;
@@ -517,7 +518,7 @@ class Dashboard_Widget {
 		display: none;
 	}
 	#dashboard_wp_sudo_activity .wp-sudo-event-filters {
-		flex-direction: column;
+		gap: 3px;
 	}
 }
 </style>
@@ -532,73 +533,64 @@ class Dashboard_Widget {
 	var tbody = table.querySelector('tbody');
 	if (!tbody) return;
 
-	var rows = tbody.querySelectorAll('tr');
+	var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+	if (!rows.length) return;
 
 	var timeSelect = widget.querySelector('select[data-filter="time"]');
 	var eventSelect = widget.querySelector('select[data-filter="event"]');
 	var surfaceSelect = widget.querySelector('select[data-filter="surface"]');
 
-	var filterTime = '24h';
-	var filterEvent = 'all';
-	var filterSurface = 'all';
-
 	function filterRows() {
 		var now = Math.floor(Date.now() / 1000);
 		var periods = { 'all': 0, '24h': 86400, '7d': 604800 };
+		var filterTime = timeSelect ? timeSelect.value : 'all';
+		var filterEvent = eventSelect ? eventSelect.value : 'all';
+		var filterSurface = surfaceSelect ? surfaceSelect.value : 'all';
+		var visible = 0;
 
-		rows.forEach(function(row) {
-			var rowTime = parseInt(row.dataset.time, 10) || 0;
-			var rowEvent = row.dataset.event || '';
-			var rowSurface = row.dataset.surface || '';
-
+		for (var i = 0; i < rows.length; i++) {
+			var row = rows[i];
+			var rowTime = parseInt(row.getAttribute('data-time'), 10) || 0;
+			var rowEvent = row.getAttribute('data-event') || '';
+			var rowSurface = row.getAttribute('data-surface') || '';
 			var show = true;
 
-			// Time filter.
 			if (filterTime !== 'all' && periods[filterTime]) {
 				if (now - rowTime > periods[filterTime]) {
 					show = false;
 				}
 			}
-
-			// Event filter.
-			if (filterEvent !== 'all' && rowEvent !== filterEvent) {
+			if (show && filterEvent !== 'all' && rowEvent !== filterEvent) {
 				show = false;
 			}
-
-			// Surface filter.
-			if (filterSurface !== 'all' && rowSurface !== filterSurface) {
+			if (show && filterSurface !== 'all' && rowSurface !== filterSurface) {
 				show = false;
 			}
 
 			row.style.display = show ? '' : 'none';
-		});
+			if (show) visible++;
+		}
+
+		/* Show/hide "no matching events" row. */
+		var noMatch = tbody.querySelector('.wp-sudo-no-match');
+		if (visible === 0) {
+			if (!noMatch) {
+				noMatch = document.createElement('tr');
+				noMatch.className = 'wp-sudo-no-match';
+				noMatch.innerHTML = '<td colspan="5" style="text-align:center;color:#646970;">No matching events</td>';
+				tbody.appendChild(noMatch);
+			}
+			noMatch.style.display = '';
+		} else if (noMatch) {
+			noMatch.style.display = 'none';
+		}
 	}
 
-	// Event type dropdown change.
-	if (eventSelect) {
-		eventSelect.addEventListener('change', function() {
-			filterEvent = this.value;
-			filterRows();
-		});
-	}
+	if (timeSelect) timeSelect.addEventListener('change', filterRows);
+	if (eventSelect) eventSelect.addEventListener('change', filterRows);
+	if (surfaceSelect) surfaceSelect.addEventListener('change', filterRows);
 
-	// Surface dropdown change.
-	if (surfaceSelect) {
-		surfaceSelect.addEventListener('change', function() {
-			filterSurface = this.value;
-			filterRows();
-		});
-	}
-
-	// Time dropdown change.
-	if (timeSelect) {
-		timeSelect.addEventListener('change', function() {
-			filterTime = this.value;
-			filterRows();
-		});
-	}
-
-	// Initial filter.
+	/* Initial filter application. */
 	filterRows();
 })();
 </script>
