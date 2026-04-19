@@ -769,7 +769,8 @@ class GateTest extends TestCase {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'apply_filters' )->returnArg( 2 );
 
-		$request = new \WP_REST_Request( 'PUT', '/wp/v2/settings', array( 'siteurl' => 'https://new.example.com' ) );
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/settings' );
+		$request->set_body_params( array( 'siteurl' => 'https://new.example.com' ) );
 
 		$rule = $this->gate->match_request( 'rest', $request );
 
@@ -949,7 +950,8 @@ class GateTest extends TestCase {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'apply_filters' )->returnArg( 2 );
 
-		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42', array( 'roles' => array( 'editor' ) ) );
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42' );
+		$request->set_body_params( array( 'roles' => array( 'editor' ) ) );
 
 		$rule = $this->gate->match_request( 'rest', $request );
 
@@ -964,7 +966,8 @@ class GateTest extends TestCase {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'apply_filters' )->returnArg( 2 );
 
-		$request = new \WP_REST_Request( 'PATCH', '/wp/v2/users/7', array( 'roles' => array( 'administrator' ) ) );
+		$request = new \WP_REST_Request( 'PATCH', '/wp/v2/users/7' );
+		$request->set_body_params( array( 'roles' => array( 'administrator' ) ) );
 
 		$rule = $this->gate->match_request( 'rest', $request );
 
@@ -982,7 +985,8 @@ class GateTest extends TestCase {
 		Functions\when( '__' )->returnArg();
 		Functions\when( 'apply_filters' )->returnArg( 2 );
 
-		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42', array( 'name' => 'New Name' ) );
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42' );
+		$request->set_body_params( array( 'name' => 'New Name' ) );
 
 		$rule = $this->gate->match_request( 'rest', $request );
 
@@ -1027,7 +1031,8 @@ class GateTest extends TestCase {
 		// No nonce = app-password auth. Policy = limited (default).
 		Functions\when( 'get_option' )->justReturn( array() );
 
-		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42', array( 'roles' => array( 'administrator' ) ) );
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42' );
+		$request->set_body_params( array( 'roles' => array( 'administrator' ) ) );
 		// No X-WP-Nonce header — app-password/bearer auth.
 		$handler = array();
 
@@ -1054,7 +1059,8 @@ class GateTest extends TestCase {
 		// No nonce = app-password auth. Policy = unrestricted.
 		Functions\when( 'get_option' )->justReturn( array( 'rest_app_password_policy' => 'unrestricted' ) );
 
-		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42', array( 'roles' => array( 'editor' ) ) );
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42' );
+		$request->set_body_params( array( 'roles' => array( 'editor' ) ) );
 		$handler = array();
 
 		$result = $this->gate->intercept_rest( null, $handler, $request );
@@ -1076,7 +1082,8 @@ class GateTest extends TestCase {
 		// Cookie-auth: nonce present and valid.
 		Functions\when( 'wp_verify_nonce' )->justReturn( true );
 
-		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42', array( 'roles' => array( 'editor' ) ) );
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42' );
+		$request->set_body_params( array( 'roles' => array( 'editor' ) ) );
 		$request->set_header( 'X-WP-Nonce', 'valid-nonce' );
 		$handler = array();
 
@@ -2293,6 +2300,62 @@ class GateTest extends TestCase {
 		$this->assertContains( 'No gated rule matched this request shape.', $result['notes'] );
 	}
 
+	/**
+	 * Test diagnostic evaluation matches REST connector credential write via callback.
+	 *
+	 * Regression: rest_params must be set as body params, not constructor
+	 * attributes, so that $request->get_params() returns them and rule
+	 * callbacks (like connectors.update_credentials) can inspect them.
+	 */
+	public function test_evaluate_diagnostic_request_matches_rest_connector_credential_write(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+
+		$result = $this->gate->evaluate_diagnostic_request(
+			array(
+				'surface'          => 'rest',
+				'method'           => 'PUT',
+				'url'              => 'https://example.com/wp-json/wp/v2/settings',
+				'is_authenticated' => true,
+				'has_active_sudo'  => false,
+				'rest_auth_mode'   => 'cookie',
+				'rest_params'      => array(
+					'connectors_ai_openai_api_key' => 'sk-test-1234',
+				),
+			)
+		);
+
+		$this->assertSame( 'connectors.update_credentials', $result['matched_rule_id'] );
+		$this->assertSame( 'rest', $result['matched_surface'] );
+		$this->assertSame( 'soft-block', $result['decision'] );
+	}
+
+	/**
+	 * Test diagnostic evaluation hard-blocks app-password connector write under limited policy.
+	 */
+	public function test_evaluate_diagnostic_request_hard_blocks_app_password_connector_write(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'apply_filters' )->returnArg( 2 );
+		Functions\when( 'get_option' )->justReturn( array() );
+
+		$result = $this->gate->evaluate_diagnostic_request(
+			array(
+				'surface'          => 'rest',
+				'method'           => 'PUT',
+				'url'              => 'https://example.com/wp-json/wp/v2/settings',
+				'is_authenticated' => true,
+				'has_active_sudo'  => false,
+				'rest_auth_mode'   => 'application_password',
+				'rest_params'      => array(
+					'connectors_ai_openai_api_key' => 'sk-test-1234',
+				),
+			)
+		);
+
+		$this->assertSame( 'connectors.update_credentials', $result['matched_rule_id'] );
+		$this->assertSame( 'hard-block', $result['decision'] );
+	}
+
 	// ── render_blocked_notice() ──────────────────────────────────────
 
 	/**
@@ -2987,7 +3050,8 @@ class GateTest extends TestCase {
 			->once()
 			->with( 1, 'user.promote', 'rest_app_password' );
 
-		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42', array( 'roles' => array( 'editor' ) ) );
+		$request = new \WP_REST_Request( 'PUT', '/wp/v2/users/42' );
+		$request->set_body_params( array( 'roles' => array( 'editor' ) ) );
 		$handler = array();
 
 		$result = $this->gate->intercept_rest( null, $handler, $request );

@@ -103,14 +103,21 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 	class WP_REST_Request {
 		private string $method;
 		private string $route;
-		private array  $params;
-		private array  $headers = [];
-		private string $body    = '';
+		private array  $attributes;
+		private array  $query_params = [];
+		private array  $body_params  = [];
+		private array  $headers      = [];
+		private string $body         = '';
 
-		public function __construct( string $method = 'GET', string $route = '', array $params = array() ) {
-			$this->method = $method;
-			$this->route  = $route;
-			$this->params = $params;
+		/**
+		 * Stub mirrors real WP_REST_Request: third arg is $attributes (route
+		 * metadata), NOT request parameters. Use set_query_params() or
+		 * set_body_params() to populate params that get_params() returns.
+		 */
+		public function __construct( string $method = 'GET', string $route = '', array $attributes = array() ) {
+			$this->method     = $method;
+			$this->route      = $route;
+			$this->attributes = $attributes;
 		}
 
 		public function get_method(): string {
@@ -122,11 +129,19 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		}
 
 		public function get_params(): array {
-			return $this->params;
+			return array_merge( $this->query_params, $this->body_params );
+		}
+
+		public function set_query_params( array $params ): void {
+			$this->query_params = $params;
 		}
 
 		public function set_body_params( array $params ): void {
-			$this->params = $params;
+			$this->body_params = $params;
+		}
+
+		public function get_attributes(): array {
+			return $this->attributes;
 		}
 
 		public function get_header( string $key ): ?string {

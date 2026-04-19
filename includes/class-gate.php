@@ -929,11 +929,9 @@ class Gate {
 		$query_params = $parsed_url['query_params'];
 		$route        = $this->extract_rest_route_from_parsed_url( $parsed_url );
 
-		$request = new \WP_REST_Request(
-			$method,
-			$route,
-			array_merge( $query_params, $rest_params )
-		);
+		$request = new \WP_REST_Request( $method, $route );
+		$request->set_query_params( $query_params );
+		$request->set_body_params( $rest_params );
 
 		return $this->match_request( 'rest', $request );
 	}
