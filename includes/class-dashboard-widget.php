@@ -55,7 +55,11 @@ class Dashboard_Widget {
 		wp_add_dashboard_widget(
 			self::WIDGET_ID,
 			__( 'Sudo Session Activity', 'wp-sudo' ),
-			array( self::class, 'render' )
+			array( self::class, 'render' ),
+			null,
+			null,
+			'side',
+			'high'
 		);
 	}
 
@@ -76,7 +80,7 @@ class Dashboard_Widget {
 	 *
 	 * @var int
 	 */
-	private const MAX_DISPLAY_USERS = 5;
+	private const MAX_DISPLAY_USERS = 10;
 
 	/**
 	 * Default settings for display.
@@ -436,21 +440,25 @@ class Dashboard_Widget {
 	margin-bottom: 0.5em;
 }
 
-/* Active sessions with gravatars */
+/* Active sessions — responsive grid */
 #wp_sudo_activity .wp-sudo-user-list {
 	list-style: none;
 	margin: 0;
 	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 8px;
+	max-height: 280px;
+	overflow-y: auto;
 }
 #wp_sudo_activity .wp-sudo-user-row {
 	display: flex;
 	align-items: center;
-	gap: 0.75em;
-	padding: 0.5em 0;
-	border-bottom: 1px solid #f0f0f1;
-}
-#wp_sudo_activity .wp-sudo-user-row:last-child {
-	border-bottom: none;
+	gap: 0.5em;
+	padding: 6px 8px;
+	border: 1px solid #f0f0f1;
+	border-radius: 4px;
+	background: #f9f9f9;
 }
 #wp_sudo_activity .wp-sudo-user-gravatar img {
 	width: 32px;

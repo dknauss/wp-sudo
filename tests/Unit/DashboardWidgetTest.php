@@ -248,7 +248,11 @@ class DashboardWidgetTest extends TestCase {
 			->with(
 				'wp_sudo_activity', // Widget ID.
 				\Mockery::type( 'string' ), // Title (translated).
-				[ Dashboard_Widget::class, 'render' ] // Render callback.
+				[ Dashboard_Widget::class, 'render' ], // Render callback.
+				null,   // Control callback.
+				null,   // Callback args.
+				'side', // Context.
+				'high'  // Priority.
 			);
 
 		Dashboard_Widget::register();
