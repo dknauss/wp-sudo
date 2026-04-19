@@ -256,10 +256,11 @@ shares the same broader trust boundary.
 
 This section enumerates the ways connector credential integrity can fail in
 practice. Scenarios are grouped by attacker capability so readers don't
-conflate "bug in the UI" with "attacker with shell access." The interesting
-case for core is the first one: the most important consequences listed under
-**admin session only** are reachable from a single `POST /wp/v2/settings`
-write, with no filesystem access, no plugin install, and no code execution.
+conflate "bug in the UI" with "attacker with shell access." The most
+relevant case for Connectors design is the **admin session only** one: the
+most important consequences in that category are reachable from a single
+`POST /wp/v2/settings` write, with no filesystem access, no plugin install,
+and no code execution.
 
 ### Threat context
 
