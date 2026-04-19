@@ -1619,6 +1619,72 @@ class AdminTest extends TestCase {
 		unset( $_GET['page'] );
 	}
 
+	public function test_enqueue_assets_includes_preset_descriptions(): void {
+		$_GET['page'] = Admin::PAGE_SLUG;
+
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )->once();
+
+		Functions\expect( 'admin_url' )
+			->with( 'admin-ajax.php' )
+			->andReturn( 'https://example.com/wp-admin/admin-ajax.php' );
+
+		Functions\expect( 'wp_create_nonce' )
+			->with( 'wp_sudo_mu_plugin' )
+			->andReturn( 'test-nonce' );
+
+		$captured = null;
+		Functions\expect( 'wp_localize_script' )
+			->once()
+			->with(
+				'wp-sudo-admin',
+				'wpSudoAdmin',
+				\Mockery::on(
+					function ( $data ) use ( &$captured ) {
+						$captured = $data;
+						return true;
+					}
+				)
+			);
+
+		$admin = new Admin();
+		$admin->enqueue_assets( 'settings_page_' . Admin::PAGE_SLUG );
+
+		$this->assertArrayHasKey( 'presetDescriptions', $captured );
+		$descriptions = $captured['presetDescriptions'];
+
+		// All 3 presets plus custom.
+		$this->assertArrayHasKey( Admin::POLICY_PRESET_NORMAL, $descriptions );
+		$this->assertArrayHasKey( Admin::POLICY_PRESET_INCIDENT_LOCKDOWN, $descriptions );
+		$this->assertArrayHasKey( Admin::POLICY_PRESET_HEADLESS_FRIENDLY, $descriptions );
+		$this->assertArrayHasKey( Admin::POLICY_PRESET_CUSTOM, $descriptions );
+
+		// Descriptions are non-empty strings.
+		$this->assertNotEmpty( $descriptions[ Admin::POLICY_PRESET_NORMAL ] );
+		$this->assertNotEmpty( $descriptions[ Admin::POLICY_PRESET_CUSTOM ] );
+
+		unset( $_GET['page'] );
+	}
+
+	public function test_render_field_policy_presets_description_has_js_target_id(): void {
+		Functions\when( 'get_option' )->justReturn( Admin::defaults() );
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_attr' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'selected' )->alias( fn( $a, $b, $echo = false ) => (string) ( $a === $b ? 'selected="selected"' : '' ) );
+
+		$admin = new Admin();
+
+		ob_start();
+		$admin->render_field_policy_presets();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'id="wp-sudo-preset-description"', $output );
+	}
+
 	// -----------------------------------------------------------------
 	// add_help_tabs() — WPGraphQL conditional (v2.7.1)
 	// -----------------------------------------------------------------
@@ -1746,7 +1812,7 @@ class AdminTest extends TestCase {
 		$output = ob_get_clean();
 
 		// Normal is the default, its description should appear.
-		$this->assertStringContainsString( '<p class="description">', $output );
+		$this->assertStringContainsString( 'id="wp-sudo-preset-description"', $output );
 		$this->assertStringContainsString( 'recommended baseline', $output );
 	}
 

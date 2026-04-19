@@ -1,7 +1,8 @@
 /**
  * WP Sudo — Admin settings page scripts.
  *
- * Handles the MU-plugin install/uninstall toggle via AJAX.
+ * Handles the MU-plugin install/uninstall toggle via AJAX and the
+ * policy-preset description swap on dropdown change.
  *
  * @package WP_Sudo
  */
@@ -97,6 +98,20 @@
 	if ( uninstallBtn ) {
 		uninstallBtn.addEventListener( 'click', function () {
 			muPluginAction( wpSudoAdmin.uninstallAction, uninstallBtn );
+		} );
+	}
+
+	// --- Policy preset description swap ---
+	var presetSelect = document.getElementById( 'policy_preset_selection' );
+	var descriptionEl = document.getElementById( 'wp-sudo-preset-description' );
+	var descriptions = ( wpSudoAdmin && wpSudoAdmin.presetDescriptions ) || {};
+
+	if ( presetSelect && descriptionEl && Object.keys( descriptions ).length ) {
+		presetSelect.addEventListener( 'change', function () {
+			var key = presetSelect.value;
+			if ( descriptions[ key ] ) {
+				descriptionEl.textContent = descriptions[ key ];
+			}
 		} );
 	}
 } )();

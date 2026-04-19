@@ -711,6 +711,23 @@ class Admin {
 	}
 
 	/**
+	 * Build a key → description map for all presets (including "Custom").
+	 *
+	 * Used by wp_localize_script so the JS change handler can swap
+	 * the description text without a server round-trip.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function get_preset_descriptions(): array {
+		$descriptions = array();
+		foreach ( self::policy_presets() as $key => $preset ) {
+			$descriptions[ $key ] = $preset['description'];
+		}
+		$descriptions[ self::POLICY_PRESET_CUSTOM ] = __( 'Current settings do not match any preset. Selecting a preset will overwrite the entry-point policy fields below.', 'wp-sudo' );
+		return $descriptions;
+	}
+
+	/**
 	 * Get a single setting value.
 	 *
 	 * On multisite, settings are stored as a network-wide site option.
@@ -876,11 +893,12 @@ class Admin {
 			'wp-sudo-admin',
 			'wpSudoAdmin',
 			array(
-				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
-				'nonce'           => wp_create_nonce( 'wp_sudo_mu_plugin' ),
-				'installAction'   => self::AJAX_MU_INSTALL,
-				'uninstallAction' => self::AJAX_MU_UNINSTALL,
-				'strings'         => array(
+				'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
+				'nonce'              => wp_create_nonce( 'wp_sudo_mu_plugin' ),
+				'installAction'      => self::AJAX_MU_INSTALL,
+				'uninstallAction'    => self::AJAX_MU_UNINSTALL,
+				'presetDescriptions' => self::get_preset_descriptions(),
+				'strings'            => array(
 					'genericError' => __( 'An error occurred.', 'wp-sudo' ),
 					'networkError' => __( 'A network error occurred. Please try again.', 'wp-sudo' ),
 				),
@@ -1461,9 +1479,9 @@ class Admin {
 
 		// Show the selected preset's description.
 		if ( self::POLICY_PRESET_CUSTOM !== $current_preset && isset( $presets[ $current_preset ] ) ) {
-			echo '<p class="description">' . esc_html( $presets[ $current_preset ]['description'] ) . '</p>';
+			echo '<p class="description" id="wp-sudo-preset-description">' . esc_html( $presets[ $current_preset ]['description'] ) . '</p>';
 		} else {
-			echo '<p class="description">' . esc_html__( 'Current settings do not match any preset. Selecting a preset will overwrite the entry-point policy fields below.', 'wp-sudo' ) . '</p>';
+			echo '<p class="description" id="wp-sudo-preset-description">' . esc_html__( 'Current settings do not match any preset. Selecting a preset will overwrite the entry-point policy fields below.', 'wp-sudo' ) . '</p>';
 		}
 	}
 
