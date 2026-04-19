@@ -168,12 +168,14 @@ class Dashboard_Widget {
 			return;
 		}
 
-		echo '<table class="widefat striped"><thead><tr>';
-		echo '<th>' . esc_html__( 'Time', 'wp-sudo' ) . '</th>';
-		echo '<th>' . esc_html__( 'User', 'wp-sudo' ) . '</th>';
-		echo '<th>' . esc_html__( 'Event', 'wp-sudo' ) . '</th>';
-		echo '<th>' . esc_html__( 'Action', 'wp-sudo' ) . '</th>';
-		echo '<th>' . esc_html__( 'Surface', 'wp-sudo' ) . '</th>';
+		echo '<table class="widefat striped">';
+		echo '<caption class="screen-reader-text">' . esc_html__( 'Recent sudo session events', 'wp-sudo' ) . '</caption>';
+		echo '<thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Time', 'wp-sudo' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'User', 'wp-sudo' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Event', 'wp-sudo' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Action', 'wp-sudo' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Surface', 'wp-sudo' ) . '</th>';
 		echo '</tr></thead><tbody>';
 
 		foreach ( $events as $event ) {
@@ -270,9 +272,11 @@ class Dashboard_Widget {
 		echo esc_html( sprintf( _n( '%d minute', '%d minutes', $duration, 'wp-sudo' ), $duration ) );
 		echo '</p>';
 
-		echo '<table class="widefat striped"><thead><tr>';
-		echo '<th>' . esc_html__( 'Surface', 'wp-sudo' ) . '</th>';
-		echo '<th>' . esc_html__( 'Policy', 'wp-sudo' ) . '</th>';
+		echo '<table class="widefat striped">';
+		echo '<caption class="screen-reader-text">' . esc_html__( 'Entry-point surface policies', 'wp-sudo' ) . '</caption>';
+		echo '<thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Surface', 'wp-sudo' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Policy', 'wp-sudo' ) . '</th>';
 		echo '</tr></thead><tbody>';
 
 		$surfaces = array(

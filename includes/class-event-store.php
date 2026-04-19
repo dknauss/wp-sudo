@@ -109,7 +109,7 @@ class Event_Store {
 		$charset_collate = method_exists( $wpdb, 'get_charset_collate' ) ? $wpdb->get_charset_collate() : '';
 
 		if ( $is_sqlite ) {
-			// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				"CREATE TABLE IF NOT EXISTS {$table} (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,7 +126,7 @@ class Event_Store {
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_event_created ON {$table}(event, created_at)" );
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_site_created ON {$table}(site_id, created_at)" );
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_user_created ON {$table}(user_id, created_at)" );
-			// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange
+			// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
 			return;
 		}
 

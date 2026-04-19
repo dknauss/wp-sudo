@@ -1,6 +1,6 @@
 # Release Status (Canonical Current State)
 
-Last verified: 2026-04-18
+Last verified: 2026-04-19
 
 This file is the canonical source for **current release state** in this repository:
 
@@ -23,7 +23,10 @@ These items are implemented on `main` but not yet part of a tagged public releas
 - Lockdown policy presets
 - Connectors API credential-write gating
 - Challenge/lockout recovery hardening
-- Request / Rule Tester
+- Request / Rule Tester diagnostic tool
+- Event_Store persistence layer with cron-based pruning
+- Session Activity Dashboard Widget (Active Sessions, Recent Events, Policy Summary)
+- Accessibility improvements (table scope/caption attributes)
 - Additional local/CI/browser testing workflow improvements
 
 Canonical source for this list: `CHANGELOG.md` → `## Unreleased`
