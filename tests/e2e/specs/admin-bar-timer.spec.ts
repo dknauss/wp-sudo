@@ -44,7 +44,46 @@
  *   npx wp-env run tests-cli wp option patch update wp_sudo_settings session_duration 1
  */
 import { execSync } from 'child_process';
+import type { Page } from '@playwright/test';
 import { test, expect, activateSudoSession } from '../fixtures/test';
+
+/**
+ * Wait for a real same-URL reload triggered by the admin bar timer reaching zero.
+ *
+ * Why this helper exists:
+ * - The page starts on `/wp-admin/`
+ * - The expiry reload also lands on `/wp-admin/`
+ * - A bare waitForURL(/wp-admin/) can therefore resolve on the pre-reload page
+ *
+ * To prove a real reload happened, we wait for:
+ *   1. the main-frame navigation request back to the exact current URL
+ *   2. the navigation itself to complete with `waitUntil: 'load'`
+ */
+async function waitForTimerTriggeredReload( page: Page, advanceMs: number ): Promise<void> {
+    const urlBefore = new URL( page.url() );
+
+    const reloadRequestPromise = page.waitForRequest( ( request ) => {
+        if ( ! request.isNavigationRequest() || request.frame() !== page.mainFrame() ) {
+            return false;
+        }
+
+        const requestUrl = new URL( request.url() );
+
+        return (
+            requestUrl.pathname === urlBefore.pathname &&
+            requestUrl.search === urlBefore.search
+        );
+    } );
+
+    const reloadNavigationPromise = page.waitForNavigation( {
+        waitUntil: 'load',
+        timeout: 15_000,
+    } );
+
+    await page.clock.runFor( advanceMs );
+    await reloadRequestPromise;
+    await reloadNavigationPromise;
+}
 
 test.describe( 'Admin bar timer', () => {
     /**
@@ -81,11 +120,11 @@ test.describe( 'Admin bar timer', () => {
     /**
      * TIMR-02: Timer text updates each second.
      *
-     * Uses page.clock to advance time by 1000ms and verify the text changed.
+     * Uses page.clock to advance slightly past one second and verify the text changed.
      * clock.install() called before activateSudoSession() so the challenge page's
      * scripts also run under the fake clock, then we navigate to admin dashboard.
      */
-    test( 'TIMR-02: timer text updates after 1 second (clock-controlled)', async ( {
+    test( 'TIMR-02: timer text updates shortly after 1 second (clock-controlled)', async ( {
         page,
     } ) => {
         // Activate session FIRST with real clock — challenge page JS needs real timers
@@ -104,10 +143,11 @@ test.describe( 'Admin bar timer', () => {
 
         const textBefore = await label.textContent();
 
-        // Advance 1 second of fake time — runFor() fires the setInterval callback once.
+        // Advance slightly past one second of fake time so the first setInterval callback
+        // cannot be missed on an exact 1000ms boundary.
         // Source: Playwright clock API — runFor(ms) runs timer callbacks within the time range
         // NOTE: tick() does not exist in this Playwright version; runFor() is the equivalent.
-        await page.clock.runFor( 1000 );
+        await page.clock.runFor( 1500 );
 
         const textAfter = await label.textContent();
 
@@ -182,8 +222,9 @@ test.describe( 'Admin bar timer', () => {
      * Source: includes/class-sudo-session.php META_KEY = '_wp_sudo_expires' (verified)
      *
      * We runFor 910_000ms (910 seconds) to go well past the 900-second JS countdown.
-     * page.waitForURL() is used here (not for AJAX) — window.location.reload()
-     * is a synchronous JS call that triggers a standard page navigation. This is safe.
+     * Because the starting URL and reload target are both `/wp-admin/`, this test must
+     * observe a real reload boundary rather than use waitForURL(/wp-admin/), which can
+     * resolve immediately on the pre-reload page.
      */
     test( 'TIMR-04: page reloads when timer reaches zero and session has expired', async ( {
         page,
@@ -215,20 +256,11 @@ test.describe( 'Admin bar timer', () => {
             { stdio: 'ignore' }
         );
 
-        // Start listening for navigation before ticking past zero.
-        // window.location.reload() is synchronous so waitForURL starts first.
-        const reloadPromise = page.waitForURL( /wp-admin/, {
-            waitUntil: 'load',
-            timeout: 15_000,
-        } );
-
-        // Advance 910 seconds (past the 900-second default session).
-        // runFor() fires each setInterval callback at each 1000ms step as time advances.
+        // Observe a real same-URL reload by waiting for the main-frame navigation request
+        // and the subsequent page load before asserting on the post-reload state.
         // Source: wp-sudo-admin-bar.js — window.location.reload() fires when r <= 0 (verified)
         // NOTE: tick() does not exist in this Playwright version; runFor() is the equivalent.
-        await page.clock.runFor( 910_000 );
-
-        await reloadPromise;
+        await waitForTimerTriggeredReload( page, 910_000 );
 
         // After reload, both JS and PHP agree the session is expired.
         // PHP admin_bar_node() checks is_active() which checks _wp_sudo_expires — now past.

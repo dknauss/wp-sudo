@@ -229,5 +229,6 @@ class Upgrader {
 	 */
 	private function upgrade_2_15_0(): void {
 		Event_Store::create_table();
+		Plugin::schedule_prune_cron();
 	}
 }

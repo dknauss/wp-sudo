@@ -27,6 +27,9 @@ class UpgraderTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 
+		Functions\when( 'wp_next_scheduled' )->justReturn( true );
+		Functions\when( 'wp_schedule_event' )->justReturn( true );
+
 		// Preserve any existing wpdb.
 		$this->original_wpdb = isset( $GLOBALS['wpdb'] ) && is_object( $GLOBALS['wpdb'] ) ? $GLOBALS['wpdb'] : null;
 
@@ -233,10 +236,33 @@ class UpgraderTest extends TestCase {
 			->with( \Mockery::type( 'string' ) )
 			->andReturn( array() );
 
+		$checked_hook   = null;
+		$scheduled_args = null;
+
+		Functions\when( 'wp_next_scheduled' )->alias(
+			function ( $hook ) use ( &$checked_hook ) {
+				$checked_hook = $hook;
+				return false;
+			}
+		);
+
+		Functions\when( 'wp_schedule_event' )->alias(
+			function ( $timestamp, $recurrence, $hook ) use ( &$scheduled_args ) {
+				$scheduled_args = array( $timestamp, $recurrence, $hook );
+				return true;
+			}
+		);
+
 		$upgrader = new Upgrader();
 
 		$method = new \ReflectionMethod( Upgrader::class, 'upgrade_2_15_0' );
 		$method->invoke( $upgrader );
+
+		$this->assertSame( 'wp_sudo_prune_events', $checked_hook );
+		$this->assertIsArray( $scheduled_args );
+		$this->assertIsInt( $scheduled_args[0] );
+		$this->assertSame( 'daily', $scheduled_args[1] );
+		$this->assertSame( 'wp_sudo_prune_events', $scheduled_args[2] );
 
 		if ( null !== $original_wpdb ) {
 			$GLOBALS['wpdb'] = $original_wpdb;
