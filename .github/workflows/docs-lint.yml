@@ -17,7 +17,6 @@ jobs:
           set -euo pipefail
 
           # Canonical/audit docs where dates and counts are allowed.
-          # Keep this list in sync with docs/documentation-remediation-checklist.md.
           EXCLUDED_FILES=(
             "CHANGELOG.md"
             "docs/ROADMAP.md"
@@ -25,7 +24,6 @@ jobs:
             "docs/connectors-api-reference.md"
             "docs/core-action-gate-proposal.md"
             "docs/current-metrics.md"
-            "docs/documentation-remediation-checklist.md"
             "docs/llm-lies-log.md"
             "docs/release-status.md"
             "docs/security-model.md"
