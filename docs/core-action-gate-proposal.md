@@ -150,7 +150,7 @@ This proposal lands in the middle of a broader architectural debate about WordPr
 
 ### Malcolm Peralty: the strongest current split argument
 
-On April 17, 2026, Malcolm Peralty launched the first post in a new six-part WP Next series with [“A Letter to Matt on WP Next: Part 1 – The Case for the Split”](https://peralty.com/2026/04/17/a-letter-to-matt-on-wp-next-part-1-the-case-for-the-split/). Part 1 is not yet a complete architecture plan. It is the opening diagnosis in an unfolding series published today. Its value for this proposal is that it names the runtime problem directly: WordPress’s plugin contract is still effectively “trust everybody with the whole process,” and Peralty argues that a clean structural split may be the only honest way to repair that.
+On April 17, 2026, Malcolm Peralty described the opening case for a split-oriented WP Next future in a post titled “A Letter to Matt on WP Next: Part 1 – The Case for the Split.” Part 1 is not yet a complete architecture plan. It is the opening diagnosis in an unfolding series published that day. Its value for this proposal is that it names the runtime problem directly: WordPress’s plugin contract is still effectively “trust everybody with the whole process,” and Peralty argues that a clean structural split may be the only honest way to repair that.
 
 This proposal agrees with Peralty’s runtime diagnosis while stopping well short of claiming that an Action Gate primitive is a substitute for the split he is proposing. If Peralty is right, then this proposal is not the answer to WordPress’s deepest trust problem. It is, at best, a backward-compatible hardening layer for consequential operations in the existing runtime, and a conceptual model that could survive into a more modernized runtime later.
 
@@ -728,6 +728,6 @@ A shared registry of consequential actions is still a strict improvement over th
 
 ### Ecosystem commentary and structural-debate context
 
-- Malcolm Peralty, [“A Letter to Matt on WP Next: Part 1 – The Case for the Split”](https://peralty.com/2026/04/17/a-letter-to-matt-on-wp-next-part-1-the-case-for-the-split/) (2026-04-17). The opening post in a newly launched multi-part series arguing for a split between a long-supported “Classic” line and a modernized “Next” line.
+- Malcolm Peralty, “A Letter to Matt on WP Next: Part 1 – The Case for the Split” (2026-04-17). The opening post in a newly launched multi-part series arguing for a split between a long-supported “Classic” line and a modernized “Next” line. The originally cited public URL no longer resolved when this proposal was revised on 2026-04-18.
 - Joost de Valk, [“WordPress needs to refactor, not redecorate”](https://joost.blog/wordpress-refactor-not-redecorate/) (2026-04-03). Argues that WordPress’s architectural deficits are real but can still be addressed through targeted refactoring without a split.
 - Brian Coords, [“EmDash: First thoughts and takeaways for WordPress”](https://www.briancoords.com/emdash-first-thoughts-and-takeaways-for-wordpress/) (2026-04-02). Practitioner commentary showing that plugin trust boundaries, developer experience, and structured-content concerns are already active pressures in real WordPress work.

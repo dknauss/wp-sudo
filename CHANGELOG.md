@@ -187,7 +187,7 @@
 ## 2.3.2
 
 - **Fix: admin bar sr-only text leak** — screen-reader-only milestone text no longer renders in the dashboard canvas. The admin bar `<li>` node now establishes a containing block (`position: relative`) and sr-only elements use `clip-path: inset(50%)` alongside the legacy `clip` property.
-- **Documentation overhaul** — readmes slimmed to storefront length. Full content extracted to `docs/`: [security model](security-model.md), [developer reference](developer-reference.md), [FAQ](FAQ.md), and this changelog. [Manual testing guide](../tests/MANUAL-TESTING.md) rewritten for v2.3.1+ with per-app-password testing, MU-plugin toggle, and iframe edge case coverage.
+- **Documentation overhaul** — readmes slimmed to storefront length. Full content extracted to `docs/`: [security model](docs/security-model.md), [developer reference](docs/developer-reference.md), [FAQ](docs/FAQ.md), and this changelog. [Manual testing guide](tests/MANUAL-TESTING.md) rewritten for v2.3.1+ with per-app-password testing, MU-plugin toggle, and iframe edge case coverage.
 - **Composer lock compatibility** — `config.platform.php` set to `8.1.99` so the lock file resolves packages compatible with PHP 8.1+ regardless of the local PHP version. Fixes Copilot coding agent CI failure (`doctrine/instantiator` 2.1.0 requiring PHP 8.4+).
 - **Housekeeping** — removed stale `WP-SUDO-PROJECT-STATE.md`; added `@since 2.0.0` to Upgrader class; updated CLAUDE.md and `.github/copilot-instructions.md` with docs/ file listings.
 - **343 unit tests, 853 assertions.**
@@ -208,15 +208,15 @@
 - **Challenge page iframe fix** — the reauthentication challenge page now breaks out of WordPress's `wp_iframe()` context, fixing a nested-frame display issue during plugin and theme updates.
 - **Accessibility improvements** — admin bar countdown timer cleans up on page unload; lockout countdown screen reader announcements throttled to 30-second intervals; settings fields display default values.
 - **PHPStan level 6 static analysis** — full codebase passes PHPStan level 6 with zero errors.
-- **Documentation** — new [AI and agentic tool guidance](ai-agentic-guidance.md) and [UI/UX testing prompts](ui-ux-testing-prompts.md).
+- **Documentation** — new [AI and agentic tool guidance](docs/ai-agentic-guidance.md) and [UI/UX testing prompts](docs/ui-ux-testing-prompts.md).
 - **343 unit tests, 853 assertions.**
 
 ## 2.2.1
 
 - **Security hardening** — stashed redirect URLs are now validated with `wp_validate_redirect()` before replay.
 - **Accessibility** — ARIA `role="alert"` and `role="status"` added to gate notices; disabled-action text color improved to 4.6:1 contrast ratio (WCAG AA).
-- **2FA ecosystem documentation** — new [integration guide](two-factor-integration.md) and [ecosystem survey](two-factor-ecosystem.md) covering 7 major 2FA plugins with bridge patterns.
-- **WP 2FA bridge** — drop-in bridge for WP 2FA by Melapress supporting TOTP, email OTP, and backup codes ([`bridges/wp-sudo-wp2fa-bridge.php`](../bridges/wp-sudo-wp2fa-bridge.php)).
+- **2FA ecosystem documentation** — new [integration guide](docs/two-factor-integration.md) and [ecosystem survey](docs/two-factor-ecosystem.md) covering 7 major 2FA plugins with bridge patterns.
+- **WP 2FA bridge** — drop-in bridge for WP 2FA by Melapress supporting TOTP, email OTP, and backup codes ([`bridges/wp-sudo-wp2fa-bridge.php`](bridges/wp-sudo-wp2fa-bridge.php)).
 - **Help tabs** — Settings tab moved to 2nd position; all four 2FA hooks documented; Security Model heading added.
 - **334 unit tests, 792 assertions.**
 

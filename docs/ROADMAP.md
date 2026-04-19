@@ -122,7 +122,7 @@ This is a living document covering accumulated input and thinking about the stra
 challenges and priorities for WP Sudo. 
 
 Current project state (as of April 17, 2026):
-- Current test and size counts are centralized in [`docs/current-metrics.md`](docs/current-metrics.md).
+- Current test and size counts are centralized in [`docs/current-metrics.md`](current-metrics.md).
 - CI pipeline: unit tests on PHP 8.0–8.4; integration tests on PHP 8.0/8.1/8.3; WordPress 6.2, 6.7, and 7.0-RC1; single-site + multisite; MySQL 8.0 plus one MariaDB lane; PCOV coverage job
 - WordPress 7.0 RC1 signoff recorded (March 24, 2026); the scheduled April 9 final was delayed on March 31, 2026 and no replacement final date is published yet. See `docs/release-status.md`.
 
@@ -210,9 +210,9 @@ These gaps have been closed by the integration suite:
 | **Always-iframed post editor** | All blocks render in iframe. WP Sudo's admin UI gating does not touch the block editor — it intercepts `admin_init` actions, not editor saves. | **Low risk.** Verify the challenge page CSS still works inside the admin chrome. |
 | **Admin visual refresh** (DataViews, design tokens, Trac #64308) | Settings → Sudo page uses standard `settings_fields()` / `do_settings_sections()`. If WP 7.0 reskins these, our page gets the new look for free. | **Test visually** on a 7.0-beta site. Check help tabs, gated-actions table, admin notices. |
 | **Fragment Notes + @ mentions** | Extends 6.9 Notes (block-level comments). No auth surface — notes are post meta. | No impact on WP Sudo. |
-| **Abilities API expansion** | New REST surface for AI agents. 3 read-only core abilities in WP 7.0. Abilities use `permission_callback` (typically `current_user_can()`). Not gated by WP Sudo. | **No action for 7.0.** Existing REST surface interception already covers `/wp-abilities/v1/` routes. When destructive abilities appear (`DELETE` on `/run`), add a REST rule to `Action_Registry`. See [`docs/abilities-api-assessment.md`](docs/abilities-api-assessment.md). |
+| **Abilities API expansion** | New REST surface for AI agents. 3 read-only core abilities in WP 7.0. Abilities use `permission_callback` (typically `current_user_can()`). Not gated by WP Sudo. | **No action for 7.0.** Existing REST surface interception already covers `/wp-abilities/v1/` routes. When destructive abilities appear (`DELETE` on `/run`), add a REST rule to `Action_Registry`. See [`docs/abilities-api-assessment.md`](abilities-api-assessment.md). |
 | **WP AI Client merge proposal** | Provider-agnostic AI API. Includes REST/JS layer. | No immediate impact. If merged, AI model calls routed through REST are covered by existing Gate. Monitor. |
-| **WordPress MCP Adapter** | Translates Abilities into MCP tools for AI agents (Claude, Cursor, etc.). Calls abilities through the same REST endpoints. | **No new surface.** MCP Adapter is a REST consumer — covered by existing `Gate::intercept_rest()`. Same gating strategy as Abilities API. See [`docs/abilities-api-assessment.md`](docs/abilities-api-assessment.md). |
+| **WordPress MCP Adapter** | Translates Abilities into MCP tools for AI agents (Claude, Cursor, etc.). Calls abilities through the same REST endpoints. | **No new surface.** MCP Adapter is a REST consumer — covered by existing `Gate::intercept_rest()`. Same gating strategy as Abilities API. See [`docs/abilities-api-assessment.md`](abilities-api-assessment.md). |
 | **Viewport-based block visibility** | Editor-only. No auth surface. | No impact. |
 | **Trac #64690 — Bulk role-change error message** ([ticket](https://core.trac.wordpress.org/ticket/64690)) | Core will replace the confusing "user editing capabilities" notice with a clear message when bulk role change skips the current user. Our workaround in `Admin::handle_err_admin_role()` (`class-admin.php`) does the same thing and can be **removed** once 7.0 ships. | **After 7.0 GA:** remove `handle_err_admin_role()` and its `admin_notices` hook; delete the corresponding unit tests in `AdminTest.php`. |
 
@@ -254,7 +254,7 @@ execution path via `WP_Ability::execute()`, but that remains a monitor-only conc
 now rather than justification for a new surface type.
 
 For full analysis, trigger conditions, and example rules, see
-[`docs/abilities-api-assessment.md`](docs/abilities-api-assessment.md).
+[`docs/abilities-api-assessment.md`](abilities-api-assessment.md).
 
 ---
 
@@ -528,7 +528,7 @@ Specifically, the repo now has:
 - Playwright stack-smoke coverage on explicit nginx + php-fpm + MariaDB
 - Playwright stack-smoke coverage on explicit nginx + php-fpm + MariaDB multisite
 - Playwright stack-smoke coverage on Playground SQLite
-- local/manual SQLite verification documented for Studio in [`docs/studio-sqlite-release-runbook.md`](docs/studio-sqlite-release-runbook.md)
+- local/manual SQLite verification documented for Studio in [`docs/studio-sqlite-release-runbook.md`](studio-sqlite-release-runbook.md)
 
 Still missing from automation:
 - broader MariaDB and legacy-MySQL breadth
@@ -852,7 +852,7 @@ Items carried forward from the pre-v2.4 roadmap. Features completed in v2.0.0–
 (Site Health integration, progressive rate limiting, CSP-compatible assets, lockout
 countdown, admin notice fallback, gated actions table, v2 architecture, editor
 `unfiltered_html` restriction, per-app-password policies, PHPStan level 6, CycloneDX
-SBOM, accessibility roadmap) are documented in the [CHANGELOG](CHANGELOG.md).
+SBOM, accessibility roadmap) are documented in the [CHANGELOG](../CHANGELOG.md).
 
 ### ✓ Shipped
 
