@@ -1,6 +1,6 @@
 # 3.0.0 Release Blocker Audit + Exact Checklist
 
-Last updated: 2026-04-20
+Last updated: current 3.0.0 release cycle
 Owner: release lead
 
 This is the canonical execution checklist for cutting `3.0.0`.
@@ -76,4 +76,3 @@ If any item fails, stop and fix before tagging.
    - “Latest tagged release” reflects `3.0.0`
    - remove/adjust “next planned release” language as needed
 4. Start `3.1.0` dev version planning only after release tag is confirmed.
-
