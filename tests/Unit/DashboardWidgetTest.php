@@ -271,6 +271,12 @@ class DashboardWidgetTest extends TestCase {
 		$GLOBALS['wpdb']     = $this->fake_wpdb;
 
 		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		// Default: transient cache always misses so existing tests keep
+		// exercising the full WP_User_Query path. Individual tests override
+		// via Functions\when('get_transient')->alias(...) when needed.
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn( true );
+		Functions\when( 'delete_transient' )->justReturn( true );
 	}
 
 	/**
@@ -304,7 +310,7 @@ class DashboardWidgetTest extends TestCase {
 		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
 		Functions\when( 'get_avatar' )->justReturn( '<img src="avatar.jpg" />' );
 		Functions\when( 'get_role' )->justReturn( null );
-		$this->setUpFakeWpdb();
+		$this->setUpFakeWpdb(); // Includes transient stubs (cache miss by default).
 	}
 
 	// ─── Registration tests ──────────────────────────────────────────────
@@ -481,6 +487,136 @@ class DashboardWidgetTest extends TestCase {
 		$this->assertStringContainsString( '12', $output );
 		$this->assertStringContainsString( 'View all sudo-active users (12)', $output );
 		$this->assertStringContainsString( 'users.php?sudo_active=1', $output );
+
+		$this->restoreWpdb();
+	}
+
+	/**
+	 * Test active sessions query is skipped when a valid transient is present.
+	 *
+	 * Regression guard against running WP_User_Query on every dashboard page
+	 * load when the list was recently fetched.
+	 *
+	 * @return void
+	 */
+	public function testActiveSessionsSkipsQueryWhenTransientHit(): void {
+		$this->setUpRenderStubs();
+		Functions\when( 'get_option' )->justReturn( [] );
+		Functions\when( 'get_user_meta' )->justReturn( time() + 300 );
+		Functions\when( 'human_time_diff' )->justReturn( '5 mins' );
+
+		// Cached payload: the helper must consume this verbatim and skip the query.
+		$user              = new \WP_User( 42, [ 'administrator' ] );
+		$user->ID          = 42;
+		$user->user_login  = 'cached_user';
+		Functions\when( 'get_transient' )->justReturn(
+			array(
+				'count' => 3,
+				'users' => array( $user ),
+			)
+		);
+
+		// Canary: if render runs the query, last_query_vars is overwritten to
+		// the real query shape. A cache hit must leave the canary intact.
+		\WP_User_Query::$last_query_vars = array( 'canary' => true );
+		\WP_User_Query::$mock_total      = 99; // Must NOT appear in output.
+		\WP_User_Query::$mock_results    = array();
+
+		ob_start();
+		Dashboard_Widget::render();
+		$output = ob_get_clean();
+
+		$this->assertSame(
+			array( 'canary' => true ),
+			\WP_User_Query::$last_query_vars,
+			'WP_User_Query must not be built on a transient cache hit'
+		);
+		$this->assertStringContainsString( '3 active sessions', $output );
+		$this->assertStringNotContainsString( '99 active sessions', $output );
+
+		$this->restoreWpdb();
+	}
+
+	/**
+	 * Test active sessions persists the query result in a transient on a miss.
+	 *
+	 * @return void
+	 */
+	public function testActiveSessionsStoresQueryResultInTransient(): void {
+		$user             = new \WP_User( 7, [ 'editor' ] );
+		$user->ID         = 7;
+		$user->user_login = 'writer';
+
+		$this->setUpRenderStubs();
+		Functions\when( 'get_option' )->justReturn( [] );
+		Functions\when( 'get_user_meta' )->justReturn( time() + 300 );
+		Functions\when( 'human_time_diff' )->justReturn( '5 mins' );
+		\WP_User_Query::$mock_total   = 1;
+		\WP_User_Query::$mock_results = array( $user );
+
+		$captured_key  = null;
+		$captured_data = null;
+		$captured_ttl  = null;
+
+		Functions\when( 'set_transient' )->alias(
+			function ( string $key, $value, int $ttl = 0 ) use ( &$captured_key, &$captured_data, &$captured_ttl ): bool {
+				$captured_key  = $key;
+				$captured_data = $value;
+				$captured_ttl  = $ttl;
+				return true;
+			}
+		);
+
+		ob_start();
+		Dashboard_Widget::render();
+		ob_end_clean();
+
+		$this->assertIsString( $captured_key );
+		$this->assertStringContainsString( 'wp_sudo_active_sessions', (string) $captured_key );
+		$this->assertIsArray( $captured_data );
+		$this->assertSame( 1, $captured_data['count'] );
+		$this->assertCount( 1, $captured_data['users'] );
+		$this->assertGreaterThan( 0, $captured_ttl, 'Transient TTL must be positive' );
+		$this->assertLessThanOrEqual( 120, $captured_ttl, 'Transient TTL must be short (<= 2 minutes)' );
+
+		$this->restoreWpdb();
+	}
+
+	/**
+	 * Test active-sessions transient key is site-scoped for multisite safety.
+	 *
+	 * @return void
+	 */
+	public function testActiveSessionsTransientKeyIsSiteScoped(): void {
+		$this->setUpRenderStubs();
+		Functions\when( 'get_option' )->justReturn( [] );
+		\WP_User_Query::$mock_total   = 0;
+		\WP_User_Query::$mock_results = array();
+
+		$captured_keys = array();
+		Functions\when( 'set_transient' )->alias(
+			function ( string $key ) use ( &$captured_keys ): bool {
+				$captured_keys[] = $key;
+				return true;
+			}
+		);
+
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		ob_start();
+		Dashboard_Widget::render();
+		ob_end_clean();
+
+		Functions\when( 'get_current_blog_id' )->justReturn( 42 );
+		ob_start();
+		Dashboard_Widget::render();
+		ob_end_clean();
+
+		$this->assertCount( 2, $captured_keys );
+		$this->assertNotSame(
+			$captured_keys[0],
+			$captured_keys[1],
+			'Different blog_ids must yield different transient keys'
+		);
 
 		$this->restoreWpdb();
 	}

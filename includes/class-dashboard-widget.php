@@ -83,6 +83,27 @@ class Dashboard_Widget {
 	private const MAX_DISPLAY_USERS = 6;
 
 	/**
+	 * Transient TTL for the active-sessions payload, in seconds.
+	 *
+	 * Short window: the widget is rendered every time a logged-in admin
+	 * visits the dashboard, and on a busy multi-admin site this otherwise
+	 * runs a full `WP_User_Query` (with a `_wp_sudo_expires` meta_query)
+	 * on every page load. 30 seconds keeps the UI effectively live while
+	 * collapsing storms of repeat queries into a single row read.
+	 *
+	 * @var int
+	 */
+	private const ACTIVE_SESSIONS_CACHE_TTL = 30;
+
+	/**
+	 * Transient key prefix for the active-sessions payload. The current
+	 * blog id is appended so multisite networks don't collide.
+	 *
+	 * @var string
+	 */
+	private const ACTIVE_SESSIONS_CACHE_KEY = 'wp_sudo_active_sessions_';
+
+	/**
 	 * Maximum number of event rows visible in the widget before scrolling.
 	 *
 	 * @var int
@@ -121,27 +142,9 @@ class Dashboard_Widget {
 	 * @return void
 	 */
 	private static function render_active_sessions(): void {
-		$query = new \WP_User_Query(
-			array(
-				'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-					array(
-						'key'     => '_wp_sudo_expires',
-						'value'   => time(),
-						'compare' => '>',
-						'type'    => 'NUMERIC',
-					),
-				),
-				'fields'      => 'all',
-				'number'      => self::MAX_DISPLAY_USERS,
-				'count_total' => true,
-			)
-		);
-
-		$users = $query->get_results();
-		if ( ! is_array( $users ) ) {
-			$users = array();
-		}
-		$count = (int) $query->get_total();
+		$payload = self::get_active_sessions_payload();
+		$users   = isset( $payload['users'] ) && is_array( $payload['users'] ) ? $payload['users'] : array();
+		$count   = isset( $payload['count'] ) ? (int) $payload['count'] : 0;
 
 		echo '<h3>' . esc_html__( 'Active Sessions', 'wp-sudo' ) . '</h3>';
 
@@ -231,6 +234,64 @@ class Dashboard_Widget {
 			echo esc_html( sprintf( __( 'View all sudo-active users (%d) →', 'wp-sudo' ), $count ) );
 			echo '</a></p>';
 		}
+	}
+
+	/**
+	 * Return the active-sessions payload, using a short-TTL transient cache.
+	 *
+	 * A transient hit avoids the expensive WP_User_Query with a numeric
+	 * `meta_query` on every dashboard page load. On a cache miss the helper
+	 * runs the query and persists the result for ACTIVE_SESSIONS_CACHE_TTL
+	 * seconds, scoped to the current blog id so multisite networks don't
+	 * share stale data across sites.
+	 *
+	 * @return array{count: int, users: array<int, mixed>}
+	 */
+	private static function get_active_sessions_payload(): array {
+		$blog_id   = function_exists( 'get_current_blog_id' ) ? (int) get_current_blog_id() : 0;
+		$cache_key = self::ACTIVE_SESSIONS_CACHE_KEY . $blog_id;
+
+		if ( function_exists( 'get_transient' ) ) {
+			$cached = get_transient( $cache_key );
+			if ( is_array( $cached ) && array_key_exists( 'count', $cached ) && array_key_exists( 'users', $cached ) ) {
+				return array(
+					'count' => (int) $cached['count'],
+					'users' => is_array( $cached['users'] ) ? $cached['users'] : array(),
+				);
+			}
+		}
+
+		$query = new \WP_User_Query(
+			array(
+				'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					array(
+						'key'     => '_wp_sudo_expires',
+						'value'   => time(),
+						'compare' => '>',
+						'type'    => 'NUMERIC',
+					),
+				),
+				'fields'      => 'all',
+				'number'      => self::MAX_DISPLAY_USERS,
+				'count_total' => true,
+			)
+		);
+
+		$users = $query->get_results();
+		if ( ! is_array( $users ) ) {
+			$users = array();
+		}
+
+		$payload = array(
+			'count' => (int) $query->get_total(),
+			'users' => $users,
+		);
+
+		if ( function_exists( 'set_transient' ) ) {
+			set_transient( $cache_key, $payload, self::ACTIVE_SESSIONS_CACHE_TTL );
+		}
+
+		return $payload;
 	}
 
 	/**
