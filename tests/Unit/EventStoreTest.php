@@ -68,7 +68,9 @@ class EventStoreTest extends TestCase {
 							&& str_contains( $sql, 'PRIMARY KEY  (id)' )
 							&& str_contains( $sql, 'KEY event_created_at (event, created_at)' )
 							&& str_contains( $sql, 'KEY site_created_at (site_id, created_at)' )
-							&& str_contains( $sql, 'KEY user_created_at (user_id, created_at)' );
+							&& str_contains( $sql, 'KEY user_created_at (user_id, created_at)' )
+							&& str_contains( $sql, 'KEY created_at (created_at)' )
+							&& str_contains( $sql, 'KEY site_event_created_at (site_id, event, created_at)' );
 					}
 				)
 			)
@@ -85,6 +87,16 @@ class EventStoreTest extends TestCase {
 		$this->assertCount( 0, $this->wpdb->get_var_calls );
 		$this->assertNotEmpty( $this->wpdb->query_calls );
 		$this->assertStringContainsString( 'CREATE TABLE IF NOT EXISTS wp_wpsudo_events', $this->wpdb->query_calls[0] );
+	}
+
+	public function test_create_table_on_sqlite_adds_performance_indexes_with_idempotent_sql(): void {
+		$this->wpdb->is_sqlite = true;
+
+		Event_Store::create_table();
+
+		$this->assertCount( 6, $this->wpdb->query_calls );
+		$this->assertSame( 'CREATE INDEX IF NOT EXISTS idx_created ON wp_wpsudo_events(created_at)', $this->wpdb->query_calls[4] );
+		$this->assertSame( 'CREATE INDEX IF NOT EXISTS idx_site_event_created ON wp_wpsudo_events(site_id, event, created_at)', $this->wpdb->query_calls[5] );
 	}
 
 	public function test_maybe_create_table_on_mysql_checks_describe_and_skips_creation_when_present(): void {
@@ -244,6 +256,29 @@ class EventStoreTest extends TestCase {
 		$this->assertSame( array( 9, 'action_blocked', 10 ), $this->wpdb->prepare_calls[0]['args'] );
 	}
 
+	public function test_recent_for_dashboard_selects_only_widget_columns(): void {
+		Functions\when( 'get_current_blog_id' )->justReturn( 3 );
+		$this->wpdb->get_results_return = array(
+			(object) array(
+				'id'         => 9,
+				'created_at' => '2026-04-20 00:00:00',
+				'user_id'    => 7,
+				'event'      => 'action_allowed',
+				'rule_id'    => 'plugin.activate',
+				'surface'    => 'cli',
+			),
+		);
+
+		$result = Event_Store::recent_for_dashboard( 25 );
+
+		$this->assertSame( array( 'id', 'created_at', 'user_id', 'event', 'rule_id', 'surface' ), array_keys( $result[0] ) );
+		$this->assertCount( 1, $this->wpdb->prepare_calls );
+		$this->assertStringContainsString( 'SELECT id, created_at, user_id, event, rule_id, surface FROM wp_wpsudo_events', $this->wpdb->prepare_calls[0]['query'] );
+		$this->assertStringNotContainsString( 'context', $this->wpdb->prepare_calls[0]['query'] );
+		$this->assertStringNotContainsString( 'ip', $this->wpdb->prepare_calls[0]['query'] );
+		$this->assertSame( array( 3, 25 ), $this->wpdb->prepare_calls[0]['args'] );
+	}
+
 	public function test_count_since_uses_prepare_and_returns_integer(): void {
 		Functions\when( 'get_current_blog_id' )->justReturn( 4 );
 		$this->wpdb->get_var_return = '6';
@@ -269,8 +304,10 @@ class EventStoreTest extends TestCase {
 		$this->assertSame( 3, $deleted );
 		$this->assertCount( 1, $this->wpdb->prepare_calls );
 		$this->assertStringContainsString( 'DELETE FROM wp_wpsudo_events WHERE created_at < %s', $this->wpdb->prepare_calls[0]['query'] );
+		$this->assertStringContainsString( 'LIMIT %d', $this->wpdb->prepare_calls[0]['query'] );
 		$this->assertCount( 1, $this->wpdb->query_calls );
 		$this->assertMatchesRegularExpression( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $this->wpdb->prepare_calls[0]['args'][0] );
+		$this->assertSame( Event_Store::PRUNE_BATCH_SIZE, $this->wpdb->prepare_calls[0]['args'][1] );
 
 		$threshold = strtotime( $this->wpdb->prepare_calls[0]['args'][0] . ' UTC' );
 		$this->assertIsInt( $threshold );

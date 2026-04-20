@@ -52,6 +52,7 @@ class Upgrader {
 		'2.1.0'  => 'upgrade_2_1_0',
 		'2.2.0'  => 'upgrade_2_2_0',
 		'2.15.0' => 'upgrade_2_15_0',
+		'3.0.0'  => 'upgrade_3_0_0',
 	);
 
 	/**
@@ -230,5 +231,17 @@ class Upgrader {
 	private function upgrade_2_15_0(): void {
 		Event_Store::create_table();
 		Plugin::schedule_prune_cron();
+	}
+
+	/**
+	 * 3.0.0 migration: add performance indexes for event pruning and filtered reads.
+	 *
+	 * Re-running create_table() is safe and lets dbDelta / SQLite IF NOT EXISTS
+	 * backfill indexes without dropping existing data.
+	 *
+	 * @return void
+	 */
+	private function upgrade_3_0_0(): void {
+		Event_Store::create_table();
 	}
 }

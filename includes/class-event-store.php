@@ -42,6 +42,16 @@ class Event_Store {
 	private static ?bool $table_exists_cache = null;
 
 	/**
+	 * Column list used by dashboard widget event queries.
+	 *
+	 * Keep this limited to fields the widget actually renders so large text
+	 * payloads (context) and IP strings are not fetched just to build rows.
+	 *
+	 * @var string
+	 */
+	private const DASHBOARD_SELECT_COLUMNS = 'id, created_at, user_id, event, rule_id, surface';
+
+	/**
 	 * Return the shared events table name.
 	 *
 	 * Uses base_prefix so multisite can share one event table while still
@@ -148,6 +158,8 @@ class Event_Store {
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_event_created ON {$table}(event, created_at)" );
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_site_created ON {$table}(site_id, created_at)" );
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_user_created ON {$table}(user_id, created_at)" );
+			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_created ON {$table}(created_at)" );
+			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_site_event_created ON {$table}(site_id, event, created_at)" );
 			self::$table_exists_cache = true;
 			// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
 			return;
@@ -166,7 +178,9 @@ created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 PRIMARY KEY  (id),
 KEY event_created_at (event, created_at),
 KEY site_created_at (site_id, created_at),
-KEY user_created_at (user_id, created_at)
+KEY user_created_at (user_id, created_at),
+KEY created_at (created_at),
+KEY site_event_created_at (site_id, event, created_at)
 ) {$charset_collate};";
 
 		if ( function_exists( 'dbDelta' ) ) {
@@ -218,34 +232,21 @@ KEY user_created_at (user_id, created_at)
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function recent( int $limit = 10, ?string $event = null ): array {
-		global $wpdb;
+		return self::query_recent_rows( '*', $limit, $event );
+	}
 
-		$query = 'SELECT * FROM ' . self::table_name() . ' WHERE site_id = %d';
-		$args  = array( self::current_site_id() );
-
-		if ( null !== $event && '' !== $event ) {
-			$query .= ' AND event = %s';
-			$args[] = self::sanitize_event_name( $event );
-		}
-
-		$query .= ' ORDER BY created_at DESC, id DESC LIMIT %d';
-		$args[] = max( 1, $limit );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $query uses placeholders, table_name() is safe.
-		$prepared = $wpdb->prepare( $query, ...$args );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $prepared is output of prepare().
-		$rows = $wpdb->get_results( $prepared );
-
-		if ( ! is_array( $rows ) ) {
-			return array();
-		}
-
-		return array_map(
-			static function ( $row ): array {
-				return is_object( $row ) ? get_object_vars( $row ) : (array) $row;
-			},
-			$rows
-		);
+	/**
+	 * Fetch recent events using the lean column set needed by the dashboard.
+	 *
+	 * Internal helper for widget rendering. Keeps Event_Store::recent() stable
+	 * for existing callers that expect full rows including context and IP.
+	 *
+	 * @param int         $limit Maximum number of rows.
+	 * @param string|null $event Optional event filter.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function recent_for_dashboard( int $limit = 10, ?string $event = null ): array {
+		return self::query_recent_rows( self::DASHBOARD_SELECT_COLUMNS, $limit, $event );
 	}
 
 	/**
@@ -413,6 +414,45 @@ KEY user_created_at (user_id, created_at)
 		self::$table_exists_cache = is_array( $columns ) && ! empty( $columns );
 
 		return self::$table_exists_cache;
+	}
+
+	/**
+	 * Query recent rows using a fixed, internally-controlled SELECT list.
+	 *
+	 * @param string      $select SQL-safe SELECT expression from internal constants.
+	 * @param int         $limit  Maximum number of rows.
+	 * @param string|null $event  Optional event filter.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function query_recent_rows( string $select, int $limit, ?string $event = null ): array {
+		global $wpdb;
+
+		$query = 'SELECT ' . $select . ' FROM ' . self::table_name() . ' WHERE site_id = %d';
+		$args  = array( self::current_site_id() );
+
+		if ( null !== $event && '' !== $event ) {
+			$query .= ' AND event = %s';
+			$args[] = self::sanitize_event_name( $event );
+		}
+
+		$query .= ' ORDER BY created_at DESC, id DESC LIMIT %d';
+		$args[] = max( 1, $limit );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $query uses placeholders, table_name() and $select are controlled internally.
+		$prepared = $wpdb->prepare( $query, ...$args );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- $prepared is output of prepare().
+		$rows = $wpdb->get_results( $prepared );
+
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		return array_map(
+			static function ( $row ): array {
+				return is_object( $row ) ? get_object_vars( $row ) : (array) $row;
+			},
+			$rows
+		);
 	}
 
 	/**

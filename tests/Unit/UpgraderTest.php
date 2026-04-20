@@ -224,6 +224,15 @@ class UpgraderTest extends TestCase {
 		$this->assertSame( 'upgrade_2_15_0', $upgrades['2.15.0'] );
 	}
 
+	public function test_upgrades_include_300_event_store_index_migration(): void {
+		$reflection = new \ReflectionClass( Upgrader::class );
+		$upgrades   = $reflection->getConstant( 'UPGRADES' );
+
+		$this->assertIsArray( $upgrades );
+		$this->assertArrayHasKey( '3.0.0', $upgrades );
+		$this->assertSame( 'upgrade_3_0_0', $upgrades['3.0.0'] );
+	}
+
 	public function test_2150_creates_events_table(): void {
 		$original_wpdb  = isset( $GLOBALS['wpdb'] ) && is_object( $GLOBALS['wpdb'] ) ? $GLOBALS['wpdb'] : null;
 		$GLOBALS['wpdb'] = new class() {
@@ -270,6 +279,49 @@ class UpgraderTest extends TestCase {
 		$this->assertIsInt( $scheduled_args[0] );
 		$this->assertSame( 'daily', $scheduled_args[1] );
 		$this->assertSame( 'wp_sudo_prune_events', $scheduled_args[2] );
+
+		if ( null !== $original_wpdb ) {
+			$GLOBALS['wpdb'] = $original_wpdb;
+		} else {
+			unset( $GLOBALS['wpdb'] );
+		}
+	}
+
+	public function test_300_backfills_event_store_indexes_via_create_table(): void {
+		$original_wpdb   = isset( $GLOBALS['wpdb'] ) && is_object( $GLOBALS['wpdb'] ) ? $GLOBALS['wpdb'] : null;
+		$GLOBALS['wpdb'] = new class() {
+			public string $prefix      = 'wp_';
+			public string $base_prefix = 'wp_';
+
+			public function get_charset_collate(): string {
+				return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
+			}
+
+			public function get_results( string $query ): array {
+				return array(
+					(object) array(
+						'Field' => 'id',
+					),
+				);
+			}
+		};
+
+		Functions\expect( 'dbDelta' )
+			->once()
+			->with(
+				\Mockery::on(
+					static function ( string $sql ): bool {
+						return str_contains( $sql, 'KEY created_at (created_at)' )
+							&& str_contains( $sql, 'KEY site_event_created_at (site_id, event, created_at)' );
+					}
+				)
+			)
+			->andReturn( array() );
+
+		$upgrader = new Upgrader();
+		$method   = new \ReflectionMethod( Upgrader::class, 'upgrade_3_0_0' );
+		@$method->setAccessible( true );
+		$method->invoke( $upgrader );
 
 		if ( null !== $original_wpdb ) {
 			$GLOBALS['wpdb'] = $original_wpdb;

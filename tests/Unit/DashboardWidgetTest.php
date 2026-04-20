@@ -25,6 +25,9 @@ class DashboardWidgetFakeWpdb {
 	/** @var string */
 	public string $base_prefix = 'wp_';
 
+	/** @var string|null */
+	public ?string $last_get_results_query = null;
+
 	/**
 	 * Mock get_results().
 	 *
@@ -32,6 +35,7 @@ class DashboardWidgetFakeWpdb {
 	 * @return array<int, object>
 	 */
 	public function get_results( string $query ): array {
+		$this->last_get_results_query = $query;
 		return [];
 	}
 
@@ -88,6 +92,9 @@ class DashboardWidgetFakeWpdbWithEvents {
 	/** @var string */
 	public string $base_prefix = 'wp_';
 
+	/** @var string|null */
+	public ?string $last_get_results_query = null;
+
 	/**
 	 * Mock get_results() - returns fake events.
 	 *
@@ -95,18 +102,16 @@ class DashboardWidgetFakeWpdbWithEvents {
 	 * @return array<int, object>
 	 */
 	public function get_results( string $query ): array {
+		$this->last_get_results_query = $query;
 		// Return fake events when querying the events table.
 		if ( strpos( $query, 'wpsudo_events' ) !== false ) {
 			return [
 				(object) [
 					'id'         => 1,
-					'site_id'    => 1,
 					'user_id'    => 1,
 					'event'      => 'action_gated',
 					'rule_id'    => 'plugins.activate',
 					'surface'    => 'admin',
-					'ip'         => '127.0.0.1',
-					'context'    => '{}',
 					'created_at' => gmdate( 'Y-m-d H:i:s', time() - 120 ),
 				],
 			];
@@ -401,24 +406,40 @@ class DashboardWidgetTest extends TestCase {
 	// ─── Recent events section tests ─────────────────────────────────────
 
 	/**
-	 * Test recent events calls Event_Store::recent(10).
+	 * Test recent events use the dashboard-specific lean Event_Store query.
 	 *
 	 * @return void
 	 */
-	public function testRecentEventsCallsEventStoreRecent(): void {
+	public function testRecentEventsUseDashboardSelectColumns(): void {
 		$this->setUpRenderStubs();
 		Functions\when( 'get_option' )->justReturn( [] );
+		Functions\when( 'human_time_diff' )->justReturn( '2 mins ago' );
+		Functions\when( 'get_users' )->alias(
+			function ( array $args ): array {
+				if ( isset( $args['include'] ) ) {
+					$user             = (object) array();
+					$user->ID         = 1;
+					$user->user_login = 'testuser';
+					return array( $user );
+				}
+
+				return array();
+			}
+		);
 		\WP_User_Query::$mock_total   = 0;
 		\WP_User_Query::$mock_results = [];
 
-		// Event_Store::recent() will call $wpdb->get_results().
-		// We'll verify it's called by checking no errors occur.
+		$fake_wpdb       = new DashboardWidgetFakeWpdbWithEvents();
+		$GLOBALS['wpdb'] = $fake_wpdb;
+
 		ob_start();
 		Dashboard_Widget::render();
-		$output = ob_get_clean();
+		ob_end_clean();
 
-		// When no events, should show "No recent activity".
-		$this->assertStringContainsString( 'No recent activity', $output );
+		$this->assertIsString( $fake_wpdb->last_get_results_query );
+		$this->assertStringContainsString( 'SELECT id, created_at, user_id, event, rule_id, surface FROM wp_wpsudo_events', $fake_wpdb->last_get_results_query );
+		$this->assertStringNotContainsString( 'context', $fake_wpdb->last_get_results_query );
+		$this->assertStringNotContainsString( 'ip', $fake_wpdb->last_get_results_query );
 
 		$this->restoreWpdb();
 	}
