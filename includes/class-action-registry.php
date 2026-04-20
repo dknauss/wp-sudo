@@ -451,7 +451,7 @@ class Action_Registry {
 
 				array(
 					'id'       => 'options.wp_sudo',
-					'label'    => __( 'Change WP Sudo settings', 'wp-sudo' ),
+					'label'    => __( 'Change Sudo settings', 'wp-sudo' ),
 					'category' => 'options',
 					'admin'    => array(
 						'pagenow'  => 'options.php',
@@ -648,7 +648,7 @@ class Action_Registry {
 			// $pagenow=edit.php.
 			array(
 				'id'       => 'options.wp_sudo',
-				'label'    => __( 'Change WP Sudo settings', 'wp-sudo' ),
+				'label'    => __( 'Change Sudo settings', 'wp-sudo' ),
 				'category' => 'options',
 				'admin'    => array(
 					'pagenow' => 'edit.php',

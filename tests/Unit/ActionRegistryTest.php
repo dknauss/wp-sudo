@@ -507,6 +507,7 @@ class ActionRegistryTest extends TestCase {
 
 		$this->assertNotNull( $rule );
 		$this->assertSame( 'options', $rule['category'] );
+		$this->assertSame( 'Change Sudo settings', $rule['label'] );
 	}
 
 	/**

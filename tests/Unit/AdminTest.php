@@ -378,7 +378,7 @@ class AdminTest extends TestCase {
 	// add_help_tabs()
 	// -----------------------------------------------------------------
 
-	public function test_add_help_tabs_registers_twelve_tabs(): void {
+	public function test_add_help_tabs_registers_six_tabs(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -388,7 +388,7 @@ class AdminTest extends TestCase {
 		$admin = new Admin();
 		$admin->add_help_tabs();
 
-		$this->assertCount( 12, $screen->get_help_tabs() );
+		$this->assertCount( 6, $screen->get_help_tabs() );
 	}
 
 	public function test_add_help_tabs_has_expected_tab_ids(): void {
@@ -404,18 +404,12 @@ class AdminTest extends TestCase {
 		$tabs = $screen->get_help_tabs();
 		$ids  = array_keys( $tabs );
 
-		$this->assertContains( 'wp-sudo-how-it-works', $ids );
-		$this->assertContains( 'wp-sudo-session-policies', $ids );
-		$this->assertContains( 'wp-sudo-policy-presets', $ids );
-		$this->assertContains( 'wp-sudo-app-passwords', $ids );
-		$this->assertContains( 'wp-sudo-mu-plugin', $ids );
-		$this->assertContains( 'wp-sudo-security', $ids );
-		$this->assertContains( 'wp-sudo-security-model', $ids );
-		$this->assertContains( 'wp-sudo-environment', $ids );
-		$this->assertContains( 'wp-sudo-recommended-plugins', $ids );
-		$this->assertContains( 'wp-sudo-extending', $ids );
-		$this->assertContains( 'wp-sudo-audit-hooks', $ids );
+		$this->assertContains( 'wp-sudo-start-here', $ids );
+		$this->assertContains( 'wp-sudo-modes-policies', $ids );
 		$this->assertContains( 'wp-sudo-rule-tester', $ids );
+		$this->assertContains( 'wp-sudo-incident-response', $ids );
+		$this->assertContains( 'wp-sudo-security-boundaries', $ids );
+		$this->assertContains( 'wp-sudo-integrations-developers', $ids );
 	}
 
 	public function test_add_help_tabs_sets_sidebar(): void {
@@ -441,7 +435,7 @@ class AdminTest extends TestCase {
 		$this->assertTrue( true );
 	}
 
-	public function test_security_tab_mentions_two_factor(): void {
+	public function test_security_tab_mentions_boundaries(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -452,13 +446,13 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-security']['content'] ?? '';
+		$content = $tabs['wp-sudo-security-boundaries']['content'] ?? '';
 
-		$this->assertStringContainsString( 'Two-Factor Authentication', $content );
-		$this->assertStringContainsString( 'Two Factor plugin', $content );
+		$this->assertStringContainsString( 'Compromised sessions', $content );
+		$this->assertStringContainsString( 'Out of scope', $content );
 	}
 
-	public function test_settings_tab_uses_full_sentences(): void {
+	public function test_modes_policies_tab_uses_full_sentences(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -469,14 +463,14 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-session-policies']['content'] ?? '';
+		$content = $tabs['wp-sudo-modes-policies']['content'] ?? '';
 
 		// Must start with a full sentence, not a fragment.
-		$this->assertStringContainsString( 'This setting controls', $content );
-		$this->assertStringNotContainsString( 'How long the sudo window', $content );
+		$this->assertStringContainsString( 'Use a short session window', $content );
+		$this->assertStringContainsString( 'Surface modes', $content );
 	}
 
-	public function test_recommended_plugins_tab_lists_complements(): void {
+	public function test_sidebar_links_to_project_docs(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -486,14 +480,13 @@ class AdminTest extends TestCase {
 		$admin = new Admin();
 		$admin->add_help_tabs();
 
-		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-recommended-plugins']['content'] ?? '';
+		$sidebar = $screen->get_help_sidebar();
 
-		$this->assertStringContainsString( 'Two Factor', $content );
-		$this->assertStringContainsString( 'WebAuthn Provider', $content );
-		$this->assertStringContainsString( 'WP Activity Log', $content );
-		$this->assertStringContainsString( 'Stream', $content );
-		$this->assertStringContainsString( '10 action hooks', $content );
+		$this->assertStringContainsString( 'docs/FAQ.md', $sidebar );
+		$this->assertStringContainsString( 'docs/security-model.md', $sidebar );
+		$this->assertStringContainsString( 'docs/developer-reference.md', $sidebar );
+		$this->assertStringContainsString( 'docs/connectors-api-reference.md', $sidebar );
+		$this->assertStringContainsString( 'docs/two-factor-integration.md', $sidebar );
 	}
 
 	public function test_how_it_works_tab_mentions_keyboard_shortcut(): void {
@@ -507,13 +500,12 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-how-it-works']['content'] ?? '';
+		$content = $tabs['wp-sudo-start-here']['content'] ?? '';
 
-		$this->assertStringContainsString( 'Keyboard Shortcut', $content );
 		$this->assertStringContainsString( 'Ctrl+Shift+S', $content );
 	}
 
-	public function test_settings_tab_covers_mu_plugin_and_multisite(): void {
+	public function test_security_boundaries_tab_mentions_mu_plugin_and_multisite_docs(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -524,13 +516,13 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-mu-plugin']['content'] ?? '';
+		$content = $tabs['wp-sudo-security-boundaries']['content'] ?? '';
 
-		$this->assertStringContainsString( 'MU-Plugin', $content );
-		$this->assertStringContainsString( 'Multisite', $content );
+		$this->assertStringContainsString( 'MU-plugin hardening', $content );
+		$this->assertStringContainsString( 'multisite scope', strtolower( $content ) );
 	}
 
-	public function test_extending_tab_covers_2fa_window_and_third_party(): void {
+	public function test_integrations_tab_covers_2fa_window_and_third_party(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -541,16 +533,16 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-extending']['content'] ?? '';
+		$content = $tabs['wp-sudo-integrations-developers']['content'] ?? '';
 
 		$this->assertStringContainsString( 'wp_sudo_two_factor_window', $content );
 		$this->assertStringContainsString( 'wp_sudo_requires_two_factor', $content );
 		$this->assertStringContainsString( 'wp_sudo_render_two_factor_fields', $content );
 		$this->assertStringContainsString( 'wp_sudo_validate_two_factor', $content );
-		$this->assertStringContainsString( 'bridges/', $content );
+		$this->assertStringContainsString( 'Audit hooks', $content );
 	}
 
-	public function test_audit_hooks_tab_mentions_logging_plugins(): void {
+	public function test_incident_response_tab_mentions_logging_plugins(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -561,7 +553,7 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-audit-hooks']['content'] ?? '';
+		$content = $tabs['wp-sudo-incident-response']['content'] ?? '';
 
 		$this->assertStringContainsString( 'WP Activity Log', $content );
 		$this->assertStringContainsString( 'Stream', $content );
@@ -579,9 +571,9 @@ class AdminTest extends TestCase {
 
 		$sidebar = $screen->get_help_sidebar();
 
-		$this->assertStringContainsString( 'wp-security-audit-log', $sidebar );
-		$this->assertStringContainsString( 'plugins/stream', $sidebar );
-		$this->assertStringContainsString( 'two-factor', $sidebar );
+		$this->assertStringContainsString( 'docs/FAQ.md', $sidebar );
+		$this->assertStringContainsString( 'docs/security-model.md', $sidebar );
+		$this->assertStringContainsString( 'docs/two-factor-integration.md', $sidebar );
 	}
 
 	public function test_help_tab_presets_describes_three_presets(): void {
@@ -595,12 +587,12 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-policy-presets']['content'] ?? '';
+		$content = $tabs['wp-sudo-modes-policies']['content'] ?? '';
 
 		$this->assertStringContainsString( 'Normal', $content );
 		$this->assertStringContainsString( 'Incident Lockdown', $content );
 		$this->assertStringContainsString( 'Headless Friendly', $content );
-		$this->assertStringContainsString( 'Custom', $content );
+		$this->assertStringContainsString( 'Surface modes', $content );
 	}
 
 	public function test_help_tab_rule_tester_describes_diagnostic_tool(): void {
@@ -616,12 +608,12 @@ class AdminTest extends TestCase {
 		$tabs    = $screen->get_help_tabs();
 		$content = $tabs['wp-sudo-rule-tester']['content'] ?? '';
 
-		$this->assertStringContainsString( 'side-effect-free diagnostic', $content );
+		$this->assertStringContainsString( 'Safe request diagnostics', $content );
 		$this->assertStringContainsString( 'connectors.update_credentials', $content );
 		$this->assertStringContainsString( 'REST Params', $content );
 	}
 
-	public function test_session_policies_tab_mentions_connectors(): void {
+	public function test_modes_policies_tab_mentions_connectors(): void {
 		$screen = new \WP_Screen();
 
 		Functions\when( 'get_current_screen' )->justReturn( $screen );
@@ -632,13 +624,13 @@ class AdminTest extends TestCase {
 		$admin->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-session-policies']['content'] ?? '';
+		$content = $tabs['wp-sudo-modes-policies']['content'] ?? '';
 
 		$this->assertStringContainsString( 'Connectors', $content );
-		$this->assertStringContainsString( 'AI provider API keys', $content );
+		$this->assertStringContainsString( 'credential writes are gated', $content );
 		$this->assertStringContainsString( 'connectors.update_credentials', $content );
 		$this->assertStringContainsString( 'per-site', $content );
-		$this->assertStringContainsString( 'wp-config.php', $content );
+		$this->assertStringContainsString( 'env/wp-config', $content );
 	}
 
 	// -----------------------------------------------------------------
@@ -970,7 +962,7 @@ class AdminTest extends TestCase {
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'Request / Rule Tester', $output );
-		$this->assertStringContainsString( 'See how WP Sudo would evaluate a representative request', $output );
+		$this->assertStringContainsString( 'See how Sudo would evaluate a representative request', $output );
 		$this->assertStringContainsString( 'name="wp_sudo_request_tester[url]"', $output );
 
 		unset( $_GET['tab'] );
@@ -1939,7 +1931,7 @@ class AdminTest extends TestCase {
 	// -----------------------------------------------------------------
 
 	/**
-	 * "Session & Policies" help tab shows the full WPGraphQL explanation
+	 * Modes & Policies help tab shows the active WPGraphQL guidance
 	 * when WPGraphQL is active (function_exists('graphql') returns true).
 	 */
 	public function test_help_tab_shows_wpgraphql_detail_when_active(): void {
@@ -1953,13 +1945,13 @@ class AdminTest extends TestCase {
 		( new Admin() )->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-session-policies']['content'] ?? '';
-		$this->assertStringContainsString( 'WPGraphQL works differently', $content );
-		$this->assertStringNotContainsString( 'its policy setting appears on this page', $content );
+		$content = $tabs['wp-sudo-modes-policies']['content'] ?? '';
+		$this->assertStringContainsString( 'WPGraphQL note: in Limited mode', $content );
+		$this->assertStringNotContainsString( 'policy appears here when WPGraphQL is installed', $content );
 	}
 
 	/**
-	 * "Session & Policies" help tab shows the install-prompt note
+	 * Modes & Policies help tab shows the install-prompt note
 	 * when WPGraphQL is not active (function_exists('graphql') returns false).
 	 */
 	public function test_help_tab_shows_wpgraphql_install_note_when_inactive(): void {
@@ -1971,9 +1963,9 @@ class AdminTest extends TestCase {
 		( new Admin() )->add_help_tabs();
 
 		$tabs    = $screen->get_help_tabs();
-		$content = $tabs['wp-sudo-session-policies']['content'] ?? '';
-		$this->assertStringContainsString( 'its policy setting appears on this page', $content );
-		$this->assertStringNotContainsString( 'WPGraphQL works differently', $content );
+		$content = $tabs['wp-sudo-modes-policies']['content'] ?? '';
+		$this->assertStringContainsString( 'WPGraphQL policy appears here when WPGraphQL is installed', $content );
+		$this->assertStringNotContainsString( 'WPGraphQL note: in Limited mode', $content );
 	}
 
 	// =================================================================

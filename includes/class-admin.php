@@ -309,186 +309,42 @@ class Admin {
 
 		$screen->add_help_tab(
 			array(
-				'id'      => 'wp-sudo-how-it-works',
-				'title'   => __( 'How Sudo Works', 'wp-sudo' ),
+				'id'      => 'wp-sudo-start-here',
+				'title'   => __( 'Start Here', 'wp-sudo' ),
 				'content' =>
-					'<h3>' . __( 'Zero-Trust Reauthentication', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo brings zero-trust principles to WordPress admin operations. A valid login session is never sufficient on its own — dangerous operations require explicit identity confirmation every time.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'This is role-agnostic: administrators, editors, and any custom role are all challenged equally. Sessions are time-bounded and non-extendable. WordPress capability checks still run after the gate.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'Browser requests (admin UI, AJAX, REST with cookie auth) get an interactive challenge. Non-interactive entry points (WP-CLI, Cron, XML-RPC, App Passwords, WPGraphQL) are governed by configurable policies.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Keyboard Shortcut', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Press Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) to open the sudo challenge without triggering a gated action first. This is useful when you know you are about to perform several gated actions and want to authenticate once upfront. When a session is already active, the shortcut flashes the admin bar timer.', 'wp-sudo' ) . '</p>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-session-policies',
-				'title'   => __( 'Session &amp; Policies', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Session Duration', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'This setting controls how long the sudo session stays open after reauthentication. Once the session expires, the next gated action will require another challenge. The maximum duration is 15 minutes.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Entry Point Policies', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Each non-interactive entry point (REST API, WP-CLI, Cron, XML-RPC, WPGraphQL) has three modes:', 'wp-sudo' ) . '</p>'
+					'<h3>' . __( 'What Sudo does', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Sudo adds a reauthentication checkpoint before dangerous actions. Role checks still run after the challenge.', 'wp-sudo' ) . '</p>'
 					. '<ul>'
-					. '<li>' . __( '<strong>Disabled</strong> — Shuts off the entire surface/protocol. No requests are processed, no checks run, nothing is logged.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Limited</strong> (default) — Only gated (dangerous) actions are blocked and logged. Non-gated operations work normally.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Unrestricted</strong> — Everything passes through as if WP Sudo is not installed. No checks, no logging.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Browser requests</strong> (admin, AJAX, cookie-auth REST) get an interactive challenge.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Non-interactive requests</strong> (WP-CLI, Cron, XML-RPC, App Passwords, WPGraphQL) follow surface policies.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
-				. ( function_exists( 'graphql' )
-					? '<p>' . __( 'WPGraphQL works differently from the other surfaces: when set to Limited, all GraphQL mutations require an active sudo session — the block is at the surface level rather than per-action.', 'wp-sudo' ) . '</p>'
-					: '<p>' . __( 'WPGraphQL is also supported as an entry point — its policy setting appears on this page when WPGraphQL is installed.', 'wp-sudo' ) . '</p>' )
-				. '<h3>' . __( 'Connectors', 'wp-sudo' ) . '</h3>'
-				. '<p>' . __( 'Settings updates that include AI provider API keys — such as those managed by the WordPress 7.0 Connectors feature, when present — are gated separately via the <code>connectors.update_credentials</code> rule. This rule matches REST API requests that write connector credential fields, regardless of surface policy.', 'wp-sudo' ) . '</p>'
-				. '<p>' . __( 'On multisite, connector credentials saved in the database are still per-site because core stores them as ordinary site options. But if a connector key is supplied via an environment variable or <code>wp-config.php</code> constant, that key can override the per-site database value across the whole install/network.', 'wp-sudo' ) . '</p>',
+					. '<p>' . __( 'Shortcut: Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac) opens the challenge on demand.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
 		$screen->add_help_tab(
 			array(
-				'id'      => 'wp-sudo-policy-presets',
-				'title'   => __( 'Policy Presets', 'wp-sudo' ),
+				'id'      => 'wp-sudo-modes-policies',
+				'title'   => __( 'Modes &amp; Policies', 'wp-sudo' ),
 				'content' =>
-					'<h3>' . __( 'Policy Presets', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Presets apply a named set of entry-point policies in one step. Selecting a preset overwrites the individual surface policy fields.', 'wp-sudo' ) . '</p>'
+					'<h3>' . __( 'Session duration + mode defaults', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Use a short session window (1–15 minutes) and keep non-interactive surfaces on Limited by default.', 'wp-sudo' ) . '</p>'
+					. '<h4>' . __( 'Surface modes', 'wp-sudo' ) . '</h4>'
 					. '<ul>'
-					. '<li>' . __( '<strong>Normal</strong> — All surfaces set to Limited. This is the recommended baseline: every remote surface remains available, but gated operations are blocked.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Incident Lockdown</strong> — Disables REST, CLI, XML-RPC, and GraphQL. Cron stays Limited so scheduled maintenance can continue. Use during active incident response.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Headless Friendly</strong> — REST and GraphQL are Unrestricted for headless front-ends and API consumers. CLI and Cron stay Limited. XML-RPC is Disabled. Warning: non-cookie REST callers can also update database-backed connector credentials without sudo on the current site.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Disabled</strong> — surface off.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Limited</strong> — default; blocks gated actions on that surface.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Unrestricted</strong> — no Sudo checks on that surface.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
-					. '<p>' . __( 'After selecting a preset, manually editing any individual policy changes the configuration to Custom. Select a preset again to return to a named configuration.', 'wp-sudo' ) . '</p>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-app-passwords',
-				'title'   => __( 'App Passwords', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Per-Application-Password Policies', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Individual application passwords can override the global REST API policy. On the user profile page, each application password shows a Sudo Policy dropdown. "Global default" inherits the REST API (App Passwords) setting above.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'Setting a specific policy on an individual password lets you grant different access levels to different tools — for example, a deployment pipeline can be set to Unrestricted while an AI writing assistant stays Limited.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'This is also the recommended way to handle headless AI agents and MCP-based tools: assign each tool its own application password and set an explicit policy, rather than relaxing the global REST API setting.', 'wp-sudo' ) . '</p>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-mu-plugin',
-				'title'   => __( 'MU-Plugin', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'MU-Plugin', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'The optional mu-plugin ensures gate hooks are registered before any other plugin loads. Install or remove it with one click from the MU-Plugin Status section below. The mu-plugin is a stable shim that loads gate code from the main plugin directory, so it stays current with regular plugin updates.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'If the one-click installer fails (for example, due to file permission restrictions on your host), install the mu-plugin manually: copy <code>wp-sudo-gate.php</code> from <code>wp-content/plugins/wp-sudo/mu-plugin/</code> into your <code>wp-content/mu-plugins/</code> directory, creating that directory first if it does not exist. The mu-plugin will be active on the next page load.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Multisite', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'On multisite, settings are network-wide and the settings page appears under Network Admin &rarr; Settings &rarr; Sudo. Sudo sessions are also network-wide &mdash; authenticating on one site covers all sites in the network.', 'wp-sudo' ) . '</p>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-security',
-				'title'   => __( 'Security Features', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Two-Factor Authentication', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo is compatible with the Two Factor plugin. When a user has two-factor authentication enabled, the sudo challenge requires both a password and a second-factor authentication code. All configured providers (TOTP, email, backup codes, WebAuthn/passkeys, etc.) are supported automatically.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'Other 2FA plugins (WP 2FA, Wordfence, AIOS, etc.) can integrate through four hooks. See the Extending tab for details.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Content Sanitization', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo removes the <code>unfiltered_html</code> capability from the Editor role. This means KSES content filtering is always active for editors — script tags, iframes, and other potentially dangerous HTML are stripped on save. Administrators retain <code>unfiltered_html</code>. The capability is restored if the plugin is deactivated or uninstalled.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Tamper Detection', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo checks the Editor role on every request. If <code>unfiltered_html</code> reappears (e.g. via direct database modification), it is stripped and the <code>wp_sudo_capability_tampered</code> action fires so logging plugins can record the event.', 'wp-sudo' ) . '</p>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-security-model',
-				'title'   => __( 'Security Model', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Security Model', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'WP Sudo operates within WordPress\'s plugin API (<code>admin_init</code>, <code>activate_plugin</code>, REST <code>permission_callback</code>, etc.). Gating is only as strong as this hook system.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Protects Against', 'wp-sudo' ) . '</h3>'
+					. ( function_exists( 'graphql' )
+						? '<p>' . __( 'WPGraphQL note: in Limited mode, mutations are blocked at the surface level unless sudo is active.', 'wp-sudo' ) . '</p>'
+						: '<p>' . __( 'WPGraphQL policy appears here when WPGraphQL is installed.', 'wp-sudo' ) . '</p>' )
+					. '<h4>' . __( 'Named modes', 'wp-sudo' ) . '</h4>'
 					. '<ul>'
-					. '<li>' . __( '<strong>Compromised sessions</strong> &mdash; stolen cookies cannot perform gated actions.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Insider threats</strong> &mdash; administrators must prove identity before destructive operations.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Automated abuse</strong> &mdash; headless entry points can be disabled or restricted.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Normal</strong> — all surfaces Limited.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Incident Lockdown</strong> — most remote surfaces Disabled for containment.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Headless Friendly</strong> — REST/GraphQL Unrestricted; others tightened.', 'wp-sudo' ) . '</li>'
 					. '</ul>'
-					. '<h3>' . __( 'Does Not Protect Against', 'wp-sudo' ) . '</h3>'
-					. '<ul>'
-					. '<li>' . __( '<strong>Direct database access</strong> &mdash; SQL changes bypass all hooks.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>File system access</strong> &mdash; scripts loading <code>wp-load.php</code> directly may bypass the gate.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Plugins that suppress hooks</strong> &mdash; the mu-plugin mitigates this.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>Server-level operations</strong> &mdash; deployment scripts and direct PHP execution are outside hooks.', 'wp-sudo' ) . '</li>'
-					. '</ul>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-environment',
-				'title'   => __( 'Environment', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Requirements', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Sudo session tokens require secure httponly cookies. Reverse proxies must pass cookies through to PHP. User meta reads may be served from an object cache; standard WordPress cache invalidation handles this correctly.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Multisite Scope', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Network-level operations (network settings, theme management, site creation/deletion, Super Admin grants) are all gated. Subsite General Settings (site title, tagline, admin email, timezone) are not gated because WordPress core already removes the dangerous fields from subsites.', 'wp-sudo' ) . '</p>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-recommended-plugins',
-				'title'   => __( 'Recommended Plugins', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Complementary Plugins', 'wp-sudo' ) . '</h3>'
-					. '<ul>'
-					. '<li>' . __( '<strong>Two Factor</strong> &mdash; strongly recommended. Adds a second authentication step (TOTP, email, backup codes) to the sudo challenge.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>WebAuthn Provider for Two Factor</strong> &mdash; recommended alongside Two Factor. Adds passkey and security key (FIDO2/WebAuthn) support so users can reauthenticate with a hardware key or platform passkey.', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>WP Activity Log</strong> or <strong>Stream</strong> &mdash; recommended for audit visibility. These logging plugins capture the 10 action hooks WP Sudo currently fires for session lifecycle, policy decisions, gated actions, preset application, and tamper detection. A ready-to-use WSAL sensor bridge is included at <code>bridges/wp-sudo-wsal-sensor.php</code>.', 'wp-sudo' ) . '</li>'
-					. '</ul>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-extending',
-				'title'   => __( 'Extending', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Custom Gated Actions', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Developers can add custom rules via the <code>wp_sudo_gated_actions</code> filter. Each rule defines matching criteria for admin UI, AJAX, and REST surfaces. Custom rules appear in the Gated Actions table. All rules — including custom rules — are automatically protected on non-interactive surfaces (CLI, Cron, XML-RPC, App Passwords) via the three-tier policy settings (Disabled, Limited, Unrestricted), even if they don\'t define AJAX or REST criteria.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( '2FA Authentication Window', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'The default 2FA window is 5 minutes. Use the <code>wp_sudo_two_factor_window</code> filter to adjust it (value in seconds). A visible countdown timer is shown during the authentication step.', 'wp-sudo' ) . '</p>'
-					. '<h3>' . __( 'Third-Party 2FA Integration', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'Plugins other than Two Factor can integrate via four hooks:', 'wp-sudo' ) . '</p>'
-					. '<ul>'
-					. '<li><code>wp_sudo_requires_two_factor</code> — ' . __( 'detect whether the user has 2FA configured.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_render_two_factor_fields</code> — ' . __( 'render form fields for the 2FA step.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_validate_two_factor</code> — ' . __( 'validate the submitted 2FA code.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_two_factor_window</code> — ' . __( 'adjust the authentication time window.', 'wp-sudo' ) . '</li>'
-					. '</ul>'
-					. '<p>' . __( 'A complete integration guide and a working bridge for WP 2FA by Melapress are included in the <code>docs/</code> and <code>bridges/</code> directories.', 'wp-sudo' ) . '</p>',
-			)
-		);
-
-		$screen->add_help_tab(
-			array(
-				'id'      => 'wp-sudo-audit-hooks',
-				'title'   => __( 'Audit Hooks', 'wp-sudo' ),
-				'content' =>
-					'<h3>' . __( 'Available Hooks', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'All hooks are captured by logging plugins like WP Activity Log and Stream.', 'wp-sudo' ) . '</p>'
-					. '<ul>'
-					. '<li><code>wp_sudo_activated</code> — ' . __( 'Session started.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_deactivated</code> — ' . __( 'Session ended.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_reauth_failed</code> — ' . __( 'Wrong password.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_lockout</code> — ' . __( 'Too many failures.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_action_gated</code> — ' . __( 'Intercepted, challenge shown.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_action_blocked</code> — ' . __( 'Denied by Limited policy.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_action_allowed</code> — ' . __( 'Permitted by Unrestricted policy.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_action_replayed</code> — ' . __( 'Stashed request replayed.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_policy_preset_applied</code> — ' . __( 'Named surface-policy preset applied.', 'wp-sudo' ) . '</li>'
-					. '<li><code>wp_sudo_capability_tampered</code> — ' . __( 'Removed capability re-detected (possible database tampering).', 'wp-sudo' ) . '</li>'
-				. '</ul>',
+					. '<p>' . __( 'Connectors note: credential writes are gated by <code>connectors.update_credentials</code>. Database-backed connector credentials are per-site; env/wp-config values can apply network-wide.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
@@ -497,32 +353,87 @@ class Admin {
 				'id'      => 'wp-sudo-rule-tester',
 				'title'   => __( 'Rule Tester', 'wp-sudo' ),
 				'content' =>
-					'<h3>' . __( 'Rule Tester', 'wp-sudo' ) . '</h3>'
-					. '<p>' . __( 'The Rule Tester is a side-effect-free diagnostic tool. It evaluates how WP Sudo would handle a request with the shape you describe, without actually performing the action.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'You can test across three surfaces: Admin (screen + action), AJAX (action name), and REST (method + route). For REST requests, choose the authentication mode (Cookie or App Password) to see how surface policies interact with the matched rule.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'Some rules use callback-based matching that inspects request parameters. For example, the <code>connectors.update_credentials</code> rule checks whether REST request body params contain connector API key fields. Use the REST Params field to supply JSON body parameters for testing these rules.', 'wp-sudo' ) . '</p>'
-					. '<p>' . __( 'Results show the matched rule (if any), the decision (gated, blocked, allowed, or no match), and the surface that was evaluated.', 'wp-sudo' ) . '</p>'
-					. '<h4>' . __( 'Sample URLs to Try', 'wp-sudo' ) . '</h4>'
-					. '<p>' . __( '<strong>Admin surface:</strong> Use the placeholder URL (<code>plugins.php?action=activate</code>) with method GET. It matches the <code>plugin.activate</code> rule.', 'wp-sudo' ) . '</p>'
-					// translators: %2F is a URL-encoded forward slash in the example REST route, not a placeholder.
-					. '<p>' . __( '<strong>REST surface:</strong> Enter <code>https://example.com/wp-json/wp/v2/plugins/hello-dolly%2Fhello.php</code> and change the method to see different outcomes:', 'wp-sudo' ) . '</p>'
+					'<h3>' . __( 'Safe request diagnostics', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Rule Tester evaluates request shape without executing the request.', 'wp-sudo' ) . '</p>'
 					. '<ul>'
-					. '<li>' . __( '<strong>DELETE</strong> — matches <code>plugin.delete</code> (gated)', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>PUT</strong> — matches <code>plugin.activate</code> (gated)', 'wp-sudo' ) . '</li>'
-					. '<li>' . __( '<strong>GET</strong> — no match (allowed)', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Admin</strong>: screen/action simulation', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>AJAX</strong>: action-name simulation', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>REST</strong>: method/route + auth mode + optional JSON params', 'wp-sudo' ) . '</li>'
 					. '</ul>'
-					. '<p>' . __( 'This demonstrates how the same URL produces different decisions depending on the HTTP method. Try toggling the authentication mode between Cookie and App Password to see how surface policies interact with rule matching.', 'wp-sudo' ) . '</p>',
+					. '<p>' . __( 'Use REST Params for callback-based rules such as <code>connectors.update_credentials</code>.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-incident-response',
+				'title'   => __( 'Incident Response', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Quick response playbook', 'wp-sudo' ) . '</h3>'
+					. '<ol>'
+					. '<li>' . __( 'Apply <strong>Incident Lockdown</strong>.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( 'Review recent Sudo activity and logging-plugin events.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( 'Revoke exposed application passwords and sudo sessions.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( 'Return to Normal or a reviewed Custom mode after containment.', 'wp-sudo' ) . '</li>'
+					. '</ol>'
+					. '<p>' . __( 'Sudo audit hooks are designed for external logging systems (for example, WP Activity Log or Stream).', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-security-boundaries',
+				'title'   => __( 'Security Boundaries', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'What Sudo is strong at', 'wp-sudo' ) . '</h3>'
+					. '<ul>'
+					. '<li>' . __( '<strong>Compromised sessions</strong> — stolen cookies cannot perform gated actions.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Destructive admin operations</strong> — reauthentication required before high-risk actions.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Headless surface control</strong> — each non-interactive entry point has an explicit mode.', 'wp-sudo' ) . '</li>'
+					. '</ul>'
+					. '<h3>' . __( 'Out of scope', 'wp-sudo' ) . '</h3>'
+					. '<ul>'
+					. '<li>' . __( '<strong>Direct database access</strong> — SQL changes bypass all hooks.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Server/file access</strong> — operations outside WordPress hooks.', 'wp-sudo' ) . '</li>'
+					. '<li>' . __( '<strong>Broken third-party authorization</strong> inside already-active sudo windows.', 'wp-sudo' ) . '</li>'
+					. '</ul>'
+					. '<p>' . __( 'MU-plugin hardening, multisite scope, and environment assumptions are in the Security Model.', 'wp-sudo' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'wp-sudo-integrations-developers',
+				'title'   => __( 'Developers', 'wp-sudo' ),
+				'content' =>
+					'<h3>' . __( 'Extension points', 'wp-sudo' ) . '</h3>'
+					. '<p>' . __( 'Add custom gated actions with <code>wp_sudo_gated_actions</code> and tune behavior with filters.', 'wp-sudo' ) . '</p>'
+					. '<h4>' . __( '2FA integration hooks', 'wp-sudo' ) . '</h4>'
+					. '<ul>'
+					. '<li><code>wp_sudo_requires_two_factor</code></li>'
+					. '<li><code>wp_sudo_render_two_factor_fields</code></li>'
+					. '<li><code>wp_sudo_validate_two_factor</code></li>'
+					. '<li><code>wp_sudo_two_factor_window</code></li>'
+					. '</ul>'
+					. '<h4>' . __( 'Audit hooks', 'wp-sudo' ) . '</h4>'
+					. '<ul>'
+					. '<li><code>wp_sudo_action_gated</code></li>'
+					. '<li><code>wp_sudo_action_blocked</code></li>'
+					. '<li><code>wp_sudo_action_allowed</code></li>'
+					. '<li><code>wp_sudo_action_replayed</code></li>'
+					. '<li><code>wp_sudo_policy_preset_applied</code></li>'
+					. '</ul>'
+					. '<p>' . __( 'See Developer Reference for full signatures and examples.', 'wp-sudo' ) . '</p>',
 			)
 		);
 
 		$screen->set_help_sidebar(
 			'<p><strong>' . __( 'For more information:', 'wp-sudo' ) . '</strong></p>'
-			. '<p><a href="https://en.wikipedia.org/wiki/Sudo" target="_blank">' . __( 'About', 'wp-sudo' ) . '<code>sudo</code></a>' . __( ' (*nix command)', 'wp-sudo' ) . '</p>'
-			. '<p><a href="https://wordpress.org/plugins/two-factor/" target="_blank">' . __( 'Two Factor plugin', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://wordpress.org/plugins/two-factor-provider-webauthn/" target="_blank">' . __( 'WebAuthn Provider', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://wordpress.org/plugins/wp-security-audit-log/" target="_blank">' . __( 'WP Activity Log', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://wordpress.org/plugins/stream/" target="_blank">' . __( 'Stream', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://developer.wordpress.org/plugins/users/roles-and-capabilities/" target="_blank">' . __( 'Roles &amp; Capabilities', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/FAQ.md" target="_blank">' . __( 'FAQ', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/security-model.md" target="_blank">' . __( 'Security Model', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/developer-reference.md" target="_blank">' . __( 'Developer Reference', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/connectors-api-reference.md" target="_blank">' . __( 'Connectors Reference', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/two-factor-integration.md" target="_blank">' . __( 'Two-Factor Integration', 'wp-sudo' ) . '</a></p>'
 		);
 	}
 
@@ -1220,7 +1131,7 @@ class Admin {
 				</div>
 			<?php endif; ?>
 			<p class="description">
-				<?php esc_html_e( 'WP Sudo adds a reauthentication step before dangerous operations like activating plugins, deleting users, or changing critical settings. Any user who attempts a gated action must re-enter their password — and complete two-factor authentication if enabled — before proceeding.', 'wp-sudo' ); ?>
+				<?php esc_html_e( 'Sudo adds a reauthentication step before dangerous operations like activating plugins, deleting users, or changing critical settings. Any user who attempts a gated action must re-enter their password — and complete two-factor authentication if enabled — before proceeding.', 'wp-sudo' ); ?>
 			</p>
 
 			<h2 class="nav-tab-wrapper">
@@ -1360,7 +1271,7 @@ class Admin {
 		?>
 		<h2><?php esc_html_e( 'Request / Rule Tester', 'wp-sudo' ); ?></h2>
 		<p class="description">
-			<?php esc_html_e( 'See how WP Sudo would evaluate a representative request without executing it. This diagnostic tool is for admin, AJAX, and REST request shapes only.', 'wp-sudo' ); ?>
+			<?php esc_html_e( 'See how Sudo would evaluate a representative request without executing it. This diagnostic tool is for admin, AJAX, and REST request shapes only.', 'wp-sudo' ); ?>
 		</p>
 		<form method="post" action="<?php echo esc_url( $this->get_request_tester_action_url() ); ?>">
 			<?php wp_nonce_field( self::REQUEST_TESTER_NONCE_ACTION, self::REQUEST_TESTER_NONCE_NAME ); ?>
