@@ -300,6 +300,91 @@ read user meta per request. Option 1 remains the recommended direction.
 
 ---
 
+## Scale and Load Analysis
+
+This section documents *when* the current usermeta-authoritative design
+starts to strain and *where* each architectural option becomes necessary.
+The majority of WP Sudo installs are not expected to reach Tier 2 or Tier 3
+— the scaling-architecture work described here is unlikely to be needed in
+practice. The analysis is retained so the decision is an informed one if a
+deployment ever approaches those thresholds.
+
+Inflection points below are rough, not hard limits. Real thresholds depend
+heavily on the presence of a persistent object cache (Redis / Memcached),
+MySQL `innodb_buffer_pool_size` relative to `wp_usermeta` size, and admin
+traffic shape (burst vs. steady).
+
+### Hot paths after the 3.0.0 performance pass
+
+| Path | Cost model |
+|---|---|
+| `Sudo_Session::is_active()` per gated request | 2–5 `get_user_meta()` reads. WP lazy-loads all meta for the user on first call in a request, so subsequent reads in the same request are free. With a persistent object cache: one DB hit per user per cache TTL. Without: one DB hit per admin request. ~1–5 ms cold, sub-millisecond warm. |
+| Admin-bar countdown | Piggybacks on the gate path's meta load — no additional DB cost. |
+| Widget active-sessions panel | 30 s per-site transient. Warm hit: ~5 ms. Cold rebuild: one `WP_User_Query` meta-join; ~10–30 ms at < 500 users carrying `_wp_sudo_*` meta. |
+| Users-list "Sudo Active" badge | Same cache as the widget. Filtered Users-list render on click is uncached but user-initiated, not on every page load. |
+| Event log prune | Daily cron, batched 1000 rows per `DELETE`. No lock contention. At ≤ 1 M rows in the 14-day window the full prune completes in well under a second. |
+| Audit write per gated action | Buffered in-memory, bulk-inserted on `shutdown`. One `INSERT` per request regardless of event count. |
+
+### Tier 1 — "Works comfortably as shipped"
+
+- Up to **~1,000 concurrently sudo-active users** per site.
+- Admin traffic up to **~200 req/s**.
+- Event table up to **~10 M rows** in the 14-day window.
+- Single site or small multisite (< 50 sites).
+
+No architectural change required. The 30 s transient caches absorb aggregate-read cost; gate-path user-meta reads scale per-request, not per-user.
+
+The plugin's overhead is not measurable against baseline WordPress admin at this tier. This is the expected operating envelope for essentially all production deployments.
+
+### Tier 2 — "Strained but livable with operational mitigations"
+
+- **1,000–10,000 sudo-active users** per site.
+- Admin bursts up to **~1,000 req/s**.
+- Event table **10 M – 100 M rows**.
+- Multisite 50–500 sites.
+
+What shows cost at this tier:
+
+- `wp_usermeta` for sudo keys grows proportionally; even with the `(meta_key, meta_value)` compound index, cold rebuilds of the `WP_User_Query` start taking 100+ ms.
+- 30-second cache-stampede windows: multiple admin users hit a cold cache simultaneously and all run the meta-query at once.
+- Without a persistent object cache, every admin request incurs a `get_user_meta()` DB round-trip on the gate path.
+
+Mitigations short of Option 1:
+
+- **Persistent object cache is effectively mandatory** at this tier. Flattens gate-path cost to ~0.1 ms per request.
+- **Cache-stampede prevention:** precompute the widget payload in a cron job rather than on cache miss, so admin requests never rebuild.
+- **Proactive meta cleanup:** a daily cron pass to `Sudo_Session::clear_session_data()` for users whose `_wp_sudo_expires` is more than a day past expiry. Cleanup currently runs only when the affected user next makes a request, so abandoned sessions accumulate usermeta rows indefinitely.
+- **Longer transient TTL** (30 s → 60–120 s) where operators accept coarser "active now" granularity.
+
+### Tier 3 — "Option 1 required"
+
+- **10,000+ sudo-active users** per site.
+- Admin traffic **≥ 1,000 req/s** sustained.
+- Multisite 500+ sites with network-admin aggregate dashboards.
+- Event table **> 100 M rows**.
+
+What breaks at this tier:
+
+- Gate-path reads on user meta are fundamentally per-request × per-user-meta-row-hydrate. Even with object cache, cold-cache reconstructions on eviction become visible as p99 latency spikes.
+- Network-admin aggregation (roadmap §11.1) cannot be built from transient caches. A super-admin dashboard querying sudo state across every subsite's user set requires a single indexed query, not a fan-out over N usermeta scans.
+- At 100 M+ event rows, prune durations grow; retention policy may need tightening or partitioning.
+
+At this point `docs/session-store-evaluation.md` Option 1 (authoritative session table + usermeta shadow) stops being "the right long-term direction" and becomes load-bearing. Schema shape for that phase is sketched under "Required Code Touchpoints for a Future Session-Table Phase" below and in Option 1's Candidate schema section above. Indexing targets:
+
+- `UNIQUE KEY (user_id, site_id)` for upsert-on-activation (no read-modify-write window).
+- `KEY (site_id, expires_at)` for the widget / Users-list active-count path (index-only scan).
+- `KEY (user_id, token_hash)` for gate-path verification (single point-select).
+
+Keep the 30 s transient pattern layered on top of the table even after Option 1 lands — table reads are fast, cached reads are free.
+
+### What is already right for Tier 3
+
+- **Event store architecture.** The only plausible future change is partitioning `wpsudo_events` by `created_at` (monthly partitions) if a single site sustains > 500 M rows, and only if prune becomes slow. Current batched-delete is index-friendly and avoids long locks.
+- **Cookie binding + grace window.** The existing token model (token in cookie, SHA-256 hash in DB, timing-safe compare) transfers unchanged to a session table.
+- **Audit-event buffering.** One bulk INSERT per request on `shutdown` is already write-optimal for high-volume gated traffic.
+
+---
+
 ## Option Comparison
 
 | Criterion | Option 1: authoritative table + shadow | Option 2: mirror table | Option 3: full cutover |
