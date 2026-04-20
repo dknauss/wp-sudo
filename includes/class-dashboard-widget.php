@@ -70,8 +70,8 @@ class Dashboard_Widget {
 	 */
 	public static function render(): void {
 		self::render_active_sessions();
-		self::render_recent_events();
 		self::render_policy_summary();
+		self::render_recent_events();
 		self::render_inline_styles();
 	}
 
@@ -81,6 +81,23 @@ class Dashboard_Widget {
 	 * @var int
 	 */
 	private const MAX_DISPLAY_USERS = 6;
+
+	/**
+	 * Maximum number of event rows visible in the widget before scrolling.
+	 *
+	 * @var int
+	 */
+	private const MAX_VISIBLE_EVENT_ROWS = 6;
+
+	/**
+	 * Number of events fetched for widget filtering/sorting buffer.
+	 *
+	 * Keep this bounded to avoid dashboard render overhead while still allowing
+	 * useful on-widget filtering without extra database round trips.
+	 *
+	 * @var int
+	 */
+	private const EVENT_BUFFER_LIMIT = 50;
 
 	/**
 	 * Default settings for display.
@@ -158,7 +175,7 @@ class Dashboard_Widget {
 
 			$user_id      = (int) $user->ID;
 			$expires      = (int) get_user_meta( $user_id, '_wp_sudo_expires', true );
-			$time_left    = human_time_diff( time(), $expires );
+			$time_left    = self::format_compact_duration( $expires - time() );
 			$user_login   = isset( $user->user_login ) && is_string( $user->user_login ) ? $user->user_login : 'User ' . $user_id;
 			$display_name = isset( $user->display_name ) && is_string( $user->display_name ) ? $user->display_name : '';
 			$first_name   = isset( $user->first_name ) && is_string( $user->first_name ) ? $user->first_name : '';
@@ -231,9 +248,49 @@ class Dashboard_Widget {
 	);
 
 	/**
+	 * High-risk rule IDs that should show the critical badge in activity views.
+	 *
+	 * @var array<int, string>
+	 */
+	private const CRITICAL_RULE_IDS = array(
+		'plugin.delete',
+		'theme.delete',
+		'user.delete',
+		'options.critical',
+		'editor.plugin',
+		'editor.theme',
+		'network.site_delete',
+		'network.super_admin',
+	);
+
+	/**
+	 * Cached rule metadata map keyed by rule ID.
+	 *
+	 * @var array<string, array{label: string, is_critical: bool}>|null
+	 */
+	private static ?array $rule_metadata_map = null;
+
+	/**
+	 * Surface label map for compact, code-like display in the events table.
+	 *
+	 * @var array<string, string>
+	 */
+	private const SURFACE_LABELS = array(
+		'admin'             => 'admin',
+		'ajax'              => 'ajax',
+		'rest'              => 'rest',
+		'rest_app_password' => 'app-pass',
+		'cli'               => 'wp-cli',
+		'cron'              => 'cron',
+		'xmlrpc'            => 'xml-rpc',
+		'wpgraphql'         => 'graphql',
+		'public_api'        => 'public-api',
+	);
+
+	/**
 	 * Render recent events section.
 	 *
-	 * Displays the last 10 events from Event_Store in a table with filters.
+	 * Displays recent events from Event_Store in a table with filters.
 	 *
 	 * @return void
 	 */
@@ -242,30 +299,25 @@ class Dashboard_Widget {
 
 		// Ensure the events table exists before querying.
 		Event_Store::maybe_create_table();
-		$events = Event_Store::recent_for_dashboard( 50 ); // Get more for client-side filtering.
+		$events              = Event_Store::recent_for_dashboard( self::EVENT_BUFFER_LIMIT );
+		$event_scroll_height = self::MAX_VISIBLE_EVENT_ROWS * 33;
 
-		echo '<h3>' . esc_html__( 'Recent Events', 'wp-sudo' ) . '</h3>';
+		echo '<div class="wp-sudo-events-header">';
+		echo '<h3 class="wp-sudo-events-heading">' . esc_html__( 'Recent Events', 'wp-sudo' ) . '</h3>';
 
-		// Code-override notice.
-		if ( ! $passed_event_logging_enabled ) {
-			echo '<p class="wp-sudo-filter-notice">';
-			echo esc_html__( 'Passed events are currently hidden by a code-level policy override.', 'wp-sudo' );
-			echo '</p>';
-		}
-
-		// Filter controls - all in a single row.
-		echo '<div class="wp-sudo-event-filters">';
+		// Filter controls in header row.
+		echo '<div class="wp-sudo-event-filters" aria-label="' . esc_attr__( 'Recent events filters', 'wp-sudo' ) . '">';
 
 		// Time dropdown.
 		echo '<select class="wp-sudo-filter-select" data-filter="time">';
-		echo '<option value="all">' . esc_html__( 'All time', 'wp-sudo' ) . '</option>';
-		echo '<option value="24h" selected>' . esc_html__( 'Last 24 hours', 'wp-sudo' ) . '</option>';
-		echo '<option value="7d">' . esc_html__( 'Last 7 days', 'wp-sudo' ) . '</option>';
+		echo '<option value="all">' . esc_html__( 'All Time', 'wp-sudo' ) . '</option>';
+		echo '<option value="24h" selected>' . esc_html__( 'Last 24 Hours', 'wp-sudo' ) . '</option>';
+		echo '<option value="7d">' . esc_html__( 'Last 7 Days', 'wp-sudo' ) . '</option>';
 		echo '</select>';
 
 		// Event type dropdown.
 		echo '<select class="wp-sudo-filter-select" data-filter="event">';
-		echo '<option value="all">' . esc_html__( 'All events', 'wp-sudo' ) . '</option>';
+		echo '<option value="all">' . esc_html__( 'All Sessions', 'wp-sudo' ) . '</option>';
 		echo '<option value="lockout">' . esc_html__( 'Lockout', 'wp-sudo' ) . '</option>';
 		echo '<option value="action_gated">' . esc_html__( 'Gated', 'wp-sudo' ) . '</option>';
 		echo '<option value="action_blocked">' . esc_html__( 'Blocked', 'wp-sudo' ) . '</option>';
@@ -278,18 +330,27 @@ class Dashboard_Widget {
 
 		// Surface dropdown.
 		echo '<select class="wp-sudo-filter-select" data-filter="surface">';
-		echo '<option value="all">' . esc_html__( 'All surfaces', 'wp-sudo' ) . '</option>';
+		echo '<option value="all">' . esc_html__( 'All Surfaces', 'wp-sudo' ) . '</option>';
 		echo '<option value="admin">' . esc_html__( 'Admin', 'wp-sudo' ) . '</option>';
 		echo '<option value="ajax">' . esc_html__( 'AJAX', 'wp-sudo' ) . '</option>';
 		echo '<option value="rest">' . esc_html__( 'REST', 'wp-sudo' ) . '</option>';
-		echo '<option value="rest_app_password">' . esc_html__( 'App Password', 'wp-sudo' ) . '</option>';
-		echo '<option value="cli">' . esc_html__( 'CLI', 'wp-sudo' ) . '</option>';
+		echo '<option value="rest_app_password">' . esc_html__( 'App Pass', 'wp-sudo' ) . '</option>';
+		echo '<option value="cli">' . esc_html__( 'WP-CLI', 'wp-sudo' ) . '</option>';
 		echo '<option value="cron">' . esc_html__( 'Cron', 'wp-sudo' ) . '</option>';
 		echo '<option value="xmlrpc">' . esc_html__( 'XML-RPC', 'wp-sudo' ) . '</option>';
-		echo '<option value="wpgraphql">' . esc_html__( 'WPGraphQL', 'wp-sudo' ) . '</option>';
+		echo '<option value="wpgraphql">' . esc_html__( 'GraphQL', 'wp-sudo' ) . '</option>';
+		echo '<option value="public_api">' . esc_html__( 'Public API', 'wp-sudo' ) . '</option>';
 		echo '</select>';
 
 		echo '</div>';
+		echo '</div>';
+
+		// Code-override notice.
+		if ( ! $passed_event_logging_enabled ) {
+			echo '<p class="wp-sudo-filter-notice">';
+			echo esc_html__( 'Passed events are currently hidden by a code-level policy override.', 'wp-sudo' );
+			echo '</p>';
+		}
 
 		if ( empty( $events ) ) {
 			echo '<p class="wp-sudo-empty">' . esc_html__( 'No recent activity', 'wp-sudo' ) . '</p>';
@@ -298,38 +359,60 @@ class Dashboard_Widget {
 
 		$user_logins = self::get_event_user_login_map( $events );
 
+		echo '<div class="wp-sudo-events-scroll" aria-label="' . esc_attr__( 'Recent event history', 'wp-sudo' ) . '" style="max-height:' . esc_attr( (string) $event_scroll_height ) . 'px">';
 		echo '<table class="widefat striped wp-sudo-events-table">';
 		echo '<caption class="screen-reader-text">' . esc_html__( 'Recent sudo session events', 'wp-sudo' ) . '</caption>';
 		echo '<thead><tr>';
-		echo '<th scope="col">' . esc_html__( 'Time', 'wp-sudo' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'User', 'wp-sudo' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Event', 'wp-sudo' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Action', 'wp-sudo' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Surface', 'wp-sudo' ) . '</th>';
+		echo '<th scope="col" data-sort-column="time" aria-sort="descending"><button type="button" class="wp-sudo-sort-button" data-sort-key="time" data-default-dir="desc"><span class="wp-sudo-sort-label">' . esc_html__( 'Time', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="user" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="user" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'User', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="event" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="event" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'Event', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="action" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="action" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'Action', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="surface" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="surface" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'Surface', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
 		echo '</tr></thead><tbody>';
 
+		$row_index = 0;
 		foreach ( $events as $event ) {
-			$event_obj   = is_array( $event ) ? (object) $event : $event;
-			$created_at  = isset( $event_obj->created_at ) ? strtotime( (string) $event_obj->created_at ) : 0;
-			$time_ago    = $created_at > 0 ? human_time_diff( $created_at, time() ) : '—';
-			$user_id     = isset( $event_obj->user_id ) ? (int) $event_obj->user_id : 0;
-			$username    = $user_id > 0 && isset( $user_logins[ $user_id ] ) ? $user_logins[ $user_id ] : '—';
-			$event_type  = isset( $event_obj->event ) ? (string) $event_obj->event : '';
-			$event_label = self::EVENT_LABELS[ $event_type ] ?? $event_type;
-			$rule_id     = isset( $event_obj->rule_id ) ? (string) $event_obj->rule_id : '';
-			$rule_label  = self::get_rule_label( $rule_id );
-			$surface     = isset( $event_obj->surface ) ? (string) $event_obj->surface : '';
+			$event_obj     = is_array( $event ) ? (object) $event : $event;
+			$created_at    = isset( $event_obj->created_at ) ? self::parse_created_at_timestamp( (string) $event_obj->created_at ) : 0;
+			$time_ago      = $created_at > 0 ? self::format_compact_duration( time() - $created_at ) : '—';
+			$time_title    = $created_at > 0 ? self::format_absolute_event_time( $created_at ) : '';
+			$user_id       = isset( $event_obj->user_id ) ? (int) $event_obj->user_id : 0;
+			$username      = $user_id > 0 && isset( $user_logins[ $user_id ] ) ? $user_logins[ $user_id ] : '—';
+			$event_type    = isset( $event_obj->event ) ? (string) $event_obj->event : '';
+			$event_label   = self::EVENT_LABELS[ $event_type ] ?? $event_type;
+			$event_class   = 'wp-sudo-event-pill wp-sudo-event-pill-' . str_replace( '_', '-', $event_type );
+			$rule_id       = isset( $event_obj->rule_id ) ? (string) $event_obj->rule_id : '';
+			$rule_metadata = self::get_rule_metadata( $rule_id );
+			$rule_label    = $rule_metadata['label'];
+			$is_critical   = $rule_metadata['is_critical'];
+			$surface       = isset( $event_obj->surface ) ? (string) $event_obj->surface : '';
+			$surface_label = self::SURFACE_LABELS[ $surface ] ?? $surface;
 
-			echo '<tr data-time="' . esc_attr( (string) $created_at ) . '" data-event="' . esc_attr( $event_type ) . '" data-surface="' . esc_attr( $surface ) . '">';
-			echo '<td>' . esc_html( $time_ago ) . '</td>';
-			echo '<td>' . esc_html( $username ) . '</td>';
-			echo '<td>' . esc_html( $event_label ) . '</td>';
-			echo '<td>' . esc_html( $rule_label ) . '</td>';
-			echo '<td>' . esc_html( '' !== $surface ? $surface : '—' ) . '</td>';
+			$cell_bg = 1 === ( $row_index % 2 ) ? '#eef1f5' : '#ffffff';
+
+			echo '<tr';
+			if ( 1 === ( $row_index % 2 ) ) {
+				echo ' class="alternate"';
+			}
+			echo ' data-time="' . esc_attr( (string) $created_at ) . '" data-event="' . esc_attr( $event_type ) . '" data-surface="' . esc_attr( $surface ) . '" data-sort-user="' . esc_attr( strtolower( $username ) ) . '" data-sort-event="' . esc_attr( strtolower( $event_label ) ) . '" data-sort-action="' . esc_attr( strtolower( $rule_label ) ) . '" data-sort-surface="' . esc_attr( strtolower( $surface_label ) ) . '">';
+			echo '<td style="background:' . esc_attr( $cell_bg ) . ';"' . ( '' !== $time_title ? ' title="' . esc_attr( $time_title ) . '"' : '' ) . '>' . esc_html( $time_ago ) . '</td>';
+			echo '<td style="background:' . esc_attr( $cell_bg ) . ';">' . esc_html( $username ) . '</td>';
+			echo '<td style="background:' . esc_attr( $cell_bg ) . ';"><span class="' . esc_attr( $event_class ) . '">' . esc_html( $event_label ) . '</span></td>';
+			echo '<td style="background:' . esc_attr( $cell_bg ) . ';"><span class="wp-sudo-action-label">' . esc_html( $rule_label ) . '</span>';
+			if ( $is_critical ) {
+				echo ' <span class="wp-sudo-critical-badge">' . esc_html__( 'Critical', 'wp-sudo' ) . '</span>';
+			}
+			if ( '' !== $rule_id ) {
+				echo ' <code class="wp-sudo-action-id" title="' . esc_attr__( 'Technical action ID', 'wp-sudo' ) . '">' . esc_html( $rule_id ) . '</code>';
+			}
+			echo '</td>';
+			echo '<td style="background:' . esc_attr( $cell_bg ) . ';">' . ( '' !== $surface_label ? '<code class="wp-sudo-surface-code">' . esc_html( $surface_label ) . '</code>' : '—' ) . '</td>';
 			echo '</tr>';
+			++$row_index;
 		}
 
 		echo '</tbody></table>';
+		echo '</div>';
 	}
 
 	/**
@@ -382,24 +465,149 @@ class Dashboard_Widget {
 	}
 
 	/**
-	 * Get human-readable label for a rule ID.
+	 * Get display metadata for a rule ID.
 	 *
 	 * @param string $rule_id Action Registry rule ID.
-	 * @return string
+	 * @return array{label: string, is_critical: bool}
 	 */
-	private static function get_rule_label( string $rule_id ): string {
+	private static function get_rule_metadata( string $rule_id ): array {
 		if ( '' === $rule_id ) {
-			return '—';
+			return array(
+				'label'       => '—',
+				'is_critical' => false,
+			);
 		}
 
-		$rules = Action_Registry::get_rules();
-		foreach ( $rules as $rule ) {
-			if ( isset( $rule['id'] ) && $rule['id'] === $rule_id ) {
-				return isset( $rule['label'] ) ? (string) $rule['label'] : $rule_id;
+		if ( null === self::$rule_metadata_map ) {
+			self::$rule_metadata_map = array();
+			$rules                   = Action_Registry::get_rules();
+
+			foreach ( $rules as $rule ) {
+				$id = isset( $rule['id'] ) ? (string) $rule['id'] : '';
+				if ( '' === $id ) {
+					continue;
+				}
+
+				$label = isset( $rule['label'] ) ? (string) $rule['label'] : self::humanize_rule_id( $id );
+
+				self::$rule_metadata_map[ $id ] = array(
+					'label'       => $label,
+					'is_critical' => self::is_critical_rule_id( $id ),
+				);
 			}
 		}
 
-		return $rule_id;
+		if ( isset( self::$rule_metadata_map[ $rule_id ] ) ) {
+			return self::$rule_metadata_map[ $rule_id ];
+		}
+
+		return array(
+			'label'       => self::humanize_rule_id( $rule_id ),
+			'is_critical' => self::is_critical_rule_id( $rule_id ),
+		);
+	}
+
+	/**
+	 * Determine whether a rule ID should be visually marked as critical.
+	 *
+	 * @param string $rule_id Rule ID.
+	 * @return bool
+	 */
+	private static function is_critical_rule_id( string $rule_id ): bool {
+		return in_array( $rule_id, self::CRITICAL_RULE_IDS, true );
+	}
+
+	/**
+	 * Humanize unknown technical rule IDs for primary UI display.
+	 *
+	 * @param string $rule_id Technical rule ID.
+	 * @return string
+	 */
+	private static function humanize_rule_id( string $rule_id ): string {
+		$parts = explode( '.', $rule_id );
+
+		if ( 2 === count( $parts ) ) {
+			return ucfirst( self::humanize_rule_token( $parts[1] ) . ' ' . self::humanize_rule_token( $parts[0] ) );
+		}
+
+		return ucwords( self::humanize_rule_token( str_replace( '.', ' ', $rule_id ) ) );
+	}
+
+	/**
+	 * Humanize one segment of a technical rule ID.
+	 *
+	 * @param string $value Rule token.
+	 * @return string
+	 */
+	private static function humanize_rule_token( string $value ): string {
+		return strtolower( trim( str_replace( array( '_', '-' ), ' ', $value ) ) );
+	}
+
+	/**
+	 * Parse a stored UTC datetime value to a UNIX timestamp.
+	 *
+	 * @param string $created_at Stored created_at value.
+	 * @return int
+	 */
+	private static function parse_created_at_timestamp( string $created_at ): int {
+		if ( '' === $created_at ) {
+			return 0;
+		}
+
+		$timestamp_utc = strtotime( $created_at . ' UTC' );
+		if ( false !== $timestamp_utc ) {
+			return $timestamp_utc;
+		}
+
+		$timestamp = strtotime( $created_at );
+
+		return false === $timestamp ? 0 : $timestamp;
+	}
+
+	/**
+	 * Format an absolute event timestamp for hover/title display.
+	 *
+	 * @param int $timestamp UTC timestamp.
+	 * @return string
+	 */
+	private static function format_absolute_event_time( int $timestamp ): string {
+		return gmdate( 'Y-m-d H:i:s', $timestamp ) . ' UTC';
+	}
+
+	/**
+	 * Format a duration as a compact unit string (s/m/h/d/w/mo/y).
+	 *
+	 * @param int $seconds Duration in seconds.
+	 * @return string
+	 */
+	private static function format_compact_duration( int $seconds ): string {
+		$seconds = max( 1, $seconds );
+
+		if ( $seconds < MINUTE_IN_SECONDS ) {
+			return (string) $seconds . 's';
+		}
+
+		if ( $seconds < HOUR_IN_SECONDS ) {
+			return (string) floor( $seconds / MINUTE_IN_SECONDS ) . 'm';
+		}
+
+		if ( $seconds < DAY_IN_SECONDS ) {
+			return (string) floor( $seconds / HOUR_IN_SECONDS ) . 'h';
+		}
+
+		if ( $seconds < WEEK_IN_SECONDS ) {
+			return (string) floor( $seconds / DAY_IN_SECONDS ) . 'd';
+		}
+
+		if ( $seconds < MONTH_IN_SECONDS ) {
+			return (string) floor( $seconds / WEEK_IN_SECONDS ) . 'w';
+		}
+
+		if ( $seconds < YEAR_IN_SECONDS ) {
+			return (string) floor( $seconds / MONTH_IN_SECONDS ) . 'mo';
+		}
+
+		return (string) floor( $seconds / YEAR_IN_SECONDS ) . 'y';
 	}
 
 	/**
@@ -426,9 +634,16 @@ class Dashboard_Widget {
 			$settings = array();
 		}
 
-		echo '<h3 class="wp-sudo-policy-heading">' . esc_html__( 'Policy Summary', 'wp-sudo' ) . '</h3>';
+		$mode_meta = self::get_active_policy_mode_meta( $settings );
 
-		echo '<table class="widefat striped">';
+		echo '<div class="wp-sudo-policy-wrap">';
+		echo '<div class="wp-sudo-policy-header">';
+		echo '<h3 class="wp-sudo-policy-heading">' . esc_html__( 'Policy Summary', 'wp-sudo' ) . '</h3>';
+		echo '<a class="button button-small wp-sudo-policy-mode' . esc_attr( $mode_meta['class'] ) . '" href="' . esc_url( $mode_meta['url'] ) . '"><span class="wp-sudo-policy-mode-label">' . esc_html__( 'Mode:', 'wp-sudo' ) . '</span> <span class="wp-sudo-policy-mode-value">' . esc_html( $mode_meta['label'] ) . '</span></a>';
+		echo '</div>';
+		echo '<details class="wp-sudo-policy-details">';
+		echo '<summary class="wp-sudo-policy-toggle">' . esc_html__( 'Policy details', 'wp-sudo' ) . '</summary>';
+		echo '<table class="widefat striped wp-sudo-policy-table">';
 		echo '<caption class="screen-reader-text">' . esc_html__( 'Entry-point surface policies', 'wp-sudo' ) . '</caption>';
 		echo '<thead><tr>';
 		echo '<th scope="col">' . esc_html__( 'Surface', 'wp-sudo' ) . '</th>';
@@ -436,28 +651,100 @@ class Dashboard_Widget {
 		echo '</tr></thead><tbody>';
 
 		$surfaces = array(
-			'rest_app_password_policy' => __( 'REST App Passwords', 'wp-sudo' ),
-			'cli_policy'               => __( 'CLI', 'wp-sudo' ),
+			'rest_app_password_policy' => __( 'App Passwords', 'wp-sudo' ),
+			'cli_policy'               => __( 'WP-CLI', 'wp-sudo' ),
 			'cron_policy'              => __( 'Cron', 'wp-sudo' ),
 			'xmlrpc_policy'            => __( 'XML-RPC', 'wp-sudo' ),
 		);
 
 		// Add WPGraphQL if active.
 		if ( class_exists( 'WPGraphQL' ) ) {
-			$surfaces['wpgraphql_policy'] = __( 'WPGraphQL', 'wp-sudo' );
+			$surfaces['wpgraphql_policy'] = __( 'GraphQL', 'wp-sudo' );
 		}
 
+		$row_index = 0;
 		foreach ( $surfaces as $key => $label ) {
 			$policy       = isset( $settings[ $key ] ) ? (string) $settings[ $key ] : (string) self::DEFAULTS[ $key ];
 			$policy_label = self::POLICY_LABELS[ $policy ] ?? $policy;
+			$cell_bg      = 1 === ( $row_index % 2 ) ? '#eef1f5' : '#ffffff';
 
-			echo '<tr>';
-			echo '<td>' . esc_html( $label ) . '</td>';
-			echo '<td>' . esc_html( $policy_label ) . '</td>';
+			echo '<tr';
+			if ( 1 === ( $row_index % 2 ) ) {
+				echo ' class="alternate"';
+			}
+			echo '>';
+			echo '<td style="background:' . esc_attr( $cell_bg ) . ';">' . esc_html( $label ) . '</td>';
+			echo '<td style="background:' . esc_attr( $cell_bg ) . ';">' . esc_html( $policy_label ) . '</td>';
 			echo '</tr>';
+			++$row_index;
 		}
 
 		echo '</tbody></table>';
+		echo '</details>';
+		echo '</div>';
+	}
+
+	/**
+	 * Resolve mode display metadata for the policy-summary badge.
+	 *
+	 * @param array<string, mixed> $settings Stored plugin settings.
+	 * @return array{key: string, label: string, url: string, class: string}
+	 */
+	private static function get_active_policy_mode_meta( array $settings ): array {
+		$presets    = Admin::policy_presets();
+		$preset_key = isset( $settings[ Admin::SETTING_POLICY_PRESET ] ) ? (string) $settings[ Admin::SETTING_POLICY_PRESET ] : '';
+
+		if ( '' !== $preset_key && isset( $presets[ $preset_key ]['label'] ) ) {
+			return self::build_mode_meta( $preset_key, (string) $presets[ $preset_key ]['label'] );
+		}
+
+		foreach ( $presets as $key => $preset ) {
+			if ( ! isset( $preset['policies'] ) || ! is_array( $preset['policies'] ) ) {
+				continue;
+			}
+
+			$matches = true;
+			foreach ( $preset['policies'] as $policy_key => $expected_value ) {
+				$current_value = isset( $settings[ $policy_key ] ) ? (string) $settings[ $policy_key ] : (string) ( self::DEFAULTS[ $policy_key ] ?? '' );
+				if ( $current_value !== (string) $expected_value ) {
+					$matches = false;
+					break;
+				}
+			}
+
+			if ( $matches && isset( $presets[ $key ]['label'] ) ) {
+				return self::build_mode_meta( $key, (string) $presets[ $key ]['label'] );
+			}
+		}
+
+		return self::build_mode_meta( Admin::POLICY_PRESET_CUSTOM, __( 'Custom', 'wp-sudo' ) );
+	}
+
+	/**
+	 * Build mode metadata for UI rendering.
+	 *
+	 * @param string $preset_key Policy preset key.
+	 * @param string $label      Human-readable preset label.
+	 * @return array{key: string, label: string, url: string, class: string}
+	 */
+	private static function build_mode_meta( string $preset_key, string $label ): array {
+		$anchor = Admin::POLICY_PRESET_CUSTOM === $preset_key
+			? Gate::SETTING_REST_APP_PASS_POLICY
+			: Admin::SETTING_POLICY_PRESET_SELECTION;
+
+		$url = admin_url( 'options-general.php?page=wp-sudo-settings&tab=settings#' . $anchor );
+
+		$class = ' is-' . str_replace( '_', '-', $preset_key );
+		if ( Admin::POLICY_PRESET_INCIDENT_LOCKDOWN === $preset_key ) {
+			$class .= ' is-lockdown';
+		}
+
+		return array(
+			'key'   => $preset_key,
+			'label' => $label,
+			'url'   => $url,
+			'class' => $class,
+		);
 	}
 
 	/**
@@ -612,36 +899,229 @@ class Dashboard_Widget {
 	text-decoration: none;
 }
 
+/* Recent events header row: title left, filters right. */
+#wp_sudo_activity .wp-sudo-events-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: 1.2em;
+	margin-bottom: 0.35em;
+}
+#wp_sudo_activity .wp-sudo-events-heading {
+	margin: 0;
+}
+
 /* Event filters — compact inline row matching WP dashboard patterns */
 #wp_sudo_activity .wp-sudo-event-filters {
 	display: flex;
 	flex-wrap: nowrap;
 	align-items: center;
 	gap: 4px;
-	margin-bottom: 0.5em;
+	margin: 0;
+	justify-content: flex-end;
 }
 #wp_sudo_activity .wp-sudo-event-filters select {
-	font-size: 12px;
-	padding: 0 4px;
-	height: 24px;
-	line-height: 22px;
+	font-size: 11px !important;
+	padding: 0 24px 0 6px !important;
+	height: 22px !important;
+	min-height: 22px !important;
+	line-height: 20px !important;
 	border: 1px solid #c3c4c7;
-	border-radius: 3px;
+	border-radius: 0;
 	background: #fff;
 	min-width: 0;
 	max-width: 100%;
+	text-align: center;
+	text-align-last: center;
+	-moz-text-align-last: center;
 }
 #wp_sudo_activity .wp-sudo-filter-notice {
 	font-size: 0.75em;
 	color: #646970;
-	margin: 0 0 0.5em;
+	margin: 0 0 0.45em;
+}
+#wp_sudo_activity .wp-sudo-events-scroll {
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+#wp_sudo_activity .wp-sudo-sort-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+#wp_sudo_activity .wp-sudo-sort-indicator {
+	font-size: 11px;
+	line-height: 1;
+	color: #646970;
+}
+#wp_sudo_activity th[aria-sort="ascending"] .wp-sudo-sort-indicator::before {
+	content: "▲";
+}
+#wp_sudo_activity th[aria-sort="descending"] .wp-sudo-sort-indicator::before {
+	content: "▼";
+}
+#wp_sudo_activity th[aria-sort="none"] .wp-sudo-sort-indicator::before {
+	content: "↕";
+}
+
+#wp_sudo_activity .wp-sudo-event-pill {
+	display: inline-block;
+	padding: 2px 6px;
+	border-radius: 999px;
+	font-size: 11px;
+	line-height: 1.35;
+	font-weight: 600;
+	border: 1px solid #dcdcde;
+	background: #f6f7f7;
+	color: #1d2327;
+}
+#wp_sudo_activity .wp-sudo-event-pill-lockout {
+	background: #fbeeee;
+	border-color: #efcfcf;
+	color: #8c2f2f;
+}
+#wp_sudo_activity .wp-sudo-event-pill-action-blocked {
+	background: #fff3ea;
+	border-color: #f4d8bd;
+	color: #8e5423;
+}
+#wp_sudo_activity .wp-sudo-event-pill-action-gated {
+	background: #fff9e8;
+	border-color: #f3e5b4;
+	color: #7a6115;
+}
+#wp_sudo_activity .wp-sudo-event-pill-action-allowed {
+	background: #e5f7e9;
+	border-color: #badfc5;
+	color: #1f6a39;
+}
+#wp_sudo_activity .wp-sudo-event-pill-action-passed {
+	background: #eaf9ef;
+	border-color: #c4e7cf;
+	color: #237544;
+}
+#wp_sudo_activity .wp-sudo-event-pill-action-replayed {
+	background: #e7f0ff;
+	border-color: #c2d5fb;
+	color: #2e5fa9;
+}
+#wp_sudo_activity .wp-sudo-surface-code {
+	display: inline-block;
+	padding: 1px 5px;
+	border-radius: 3px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	font-size: 11px;
+	line-height: 1.35;
+	color: #3c434a;
+}
+#wp_sudo_activity .wp-sudo-critical-badge {
+	display: inline-block;
+	margin-left: 4px;
+	padding: 1px 6px;
+	border-radius: 999px;
+	border: 1px solid #e6b8b8;
+	background: #fdf2f2;
+	color: #8a2424;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.3;
+	vertical-align: middle;
+}
+#wp_sudo_activity .wp-sudo-action-id {
+	margin-left: 4px;
+	padding: 1px 5px;
+	border-radius: 3px;
+	border: 1px solid #dcdcde;
+	background: #f6f7f7;
+	color: #646970;
+	font-size: 11px;
+	line-height: 1.35;
+	vertical-align: middle;
 }
 
 /* Policy Summary spacing */
+#wp_sudo_activity .wp-sudo-policy-wrap {
+	margin-top: 1.1em;
+	padding: 0;
+	border: 0;
+	background: transparent;
+}
+#wp_sudo_activity .wp-sudo-policy-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 0.35em;
+}
 #wp_sudo_activity .wp-sudo-policy-heading {
-	margin-top: 1.5em;
-	padding-top: 1em;
-	border-top: 1px solid #e0e0e0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+#wp_sudo_activity .wp-sudo-policy-mode.button {
+	padding: 0 8px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 20px;
+	height: 22px;
+	min-height: 22px;
+}
+#wp_sudo_activity .wp-sudo-policy-mode.button:hover,
+#wp_sudo_activity .wp-sudo-policy-mode.button:focus {
+	text-decoration: none;
+}
+#wp_sudo_activity .wp-sudo-policy-mode.button.is-normal {
+	border-color: #badfc5;
+	background: #eaf9ef;
+	color: #237544;
+}
+#wp_sudo_activity .wp-sudo-policy-mode.button.is-headless-friendly {
+	border-color: #c2d5fb;
+	background: #e7f0ff;
+	color: #2e5fa9;
+}
+#wp_sudo_activity .wp-sudo-policy-mode.button.is-custom {
+	border-color: #f3e5b4;
+	background: #fff9e8;
+	color: #7a6115;
+}
+#wp_sudo_activity .wp-sudo-policy-mode.button.is-lockdown {
+	border-color: #efcfcf;
+	background: #fbeeee;
+	color: #8c2f2f;
+}
+#wp_sudo_activity .wp-sudo-policy-table {
+	margin-top: 0.35em;
+}
+#wp_sudo_activity .wp-sudo-policy-table th,
+#wp_sudo_activity .wp-sudo-policy-table td {
+	padding: 4px 8px;
+	font-size: 12px;
+	line-height: 1.25;
+}
+#wp_sudo_activity .wp-sudo-policy-details {
+	margin: 0;
+}
+#wp_sudo_activity .wp-sudo-policy-toggle {
+	cursor: pointer;
+	color: #2271b1;
+	font-size: 12px;
+	font-weight: 500;
+	user-select: none;
+}
+#wp_sudo_activity .wp-sudo-policy-toggle:hover,
+#wp_sudo_activity .wp-sudo-policy-toggle:focus {
+	color: #135e96;
 }
 
 /* Mobile responsive */
@@ -655,6 +1135,13 @@ class Dashboard_Widget {
 	}
 	#wp_sudo_activity .wp-sudo-event-filters {
 		gap: 3px;
+		flex-wrap: wrap;
+		justify-content: flex-start;
+	}
+	#wp_sudo_activity .wp-sudo-events-header {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 6px;
 	}
 	#wp_sudo_activity .wp-sudo-empty-container {
 		grid-template-columns: 1fr;
@@ -682,6 +1169,59 @@ class Dashboard_Widget {
 	var timeSelect = widget.querySelector('select[data-filter="time"]');
 	var eventSelect = widget.querySelector('select[data-filter="event"]');
 	var surfaceSelect = widget.querySelector('select[data-filter="surface"]');
+	var sortButtons = widget.querySelectorAll('.wp-sudo-sort-button');
+	var sortKey = 'time';
+	var sortDir = 'desc';
+
+	function updateSortUi() {
+		for (var i = 0; i < sortButtons.length; i++) {
+			var btn = sortButtons[i];
+			var key = btn.getAttribute('data-sort-key') || '';
+			var th = btn.closest('th');
+			if (!th) continue;
+			if (key === sortKey) {
+				th.setAttribute('aria-sort', sortDir === 'asc' ? 'ascending' : 'descending');
+			} else {
+				th.setAttribute('aria-sort', 'none');
+			}
+		}
+	}
+
+	function compareRows(a, b) {
+		if (sortKey === 'time') {
+			var ta = parseInt(a.getAttribute('data-time') || '0', 10);
+			var tb = parseInt(b.getAttribute('data-time') || '0', 10);
+			return sortDir === 'asc' ? ta - tb : tb - ta;
+		}
+
+		var attr = 'data-sort-' + sortKey;
+		var va = (a.getAttribute(attr) || '').toLowerCase();
+		var vb = (b.getAttribute(attr) || '').toLowerCase();
+
+		if (va === vb) {
+			var fallbackA = parseInt(a.getAttribute('data-time') || '0', 10);
+			var fallbackB = parseInt(b.getAttribute('data-time') || '0', 10);
+			return fallbackB - fallbackA;
+		}
+
+		if (sortDir === 'asc') {
+			return va.localeCompare(vb);
+		}
+
+		return vb.localeCompare(va);
+	}
+
+	function sortRows() {
+		var sortedRows = rows.slice().sort(compareRows);
+		for (var i = 0; i < sortedRows.length; i++) {
+			tbody.appendChild(sortedRows[i]);
+		}
+
+		var noMatch = tbody.querySelector('.wp-sudo-no-match');
+		if (noMatch) {
+			tbody.appendChild(noMatch);
+		}
+	}
 
 	function filterRows() {
 		var now = Math.floor(Date.now() / 1000);
@@ -727,13 +1267,32 @@ class Dashboard_Widget {
 		} else if (noMatch) {
 			noMatch.style.display = 'none';
 		}
+
+		sortRows();
 	}
 
 	if (timeSelect) timeSelect.addEventListener('change', filterRows);
 	if (eventSelect) eventSelect.addEventListener('change', filterRows);
 	if (surfaceSelect) surfaceSelect.addEventListener('change', filterRows);
+	for (var i = 0; i < sortButtons.length; i++) {
+		sortButtons[i].addEventListener('click', function() {
+			var clickedKey = this.getAttribute('data-sort-key') || '';
+			var defaultDir = this.getAttribute('data-default-dir') || 'asc';
+
+			if (clickedKey === sortKey) {
+				sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+			} else {
+				sortKey = clickedKey;
+				sortDir = defaultDir;
+			}
+
+			updateSortUi();
+			sortRows();
+		});
+	}
 
 	/* Initial filter application. */
+	updateSortUi();
 	filterRows();
 })();
 </script>

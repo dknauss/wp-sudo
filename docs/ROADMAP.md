@@ -461,8 +461,34 @@ Use this default order after the v3.0.0 release unless a real user need override
 
 - **Do next:** Network Dashboard Widget + Super Admin Visibility Controls
 - **Plan next:** Gutenberg Block Editor Integration
-- **Do later if demand exists:** Network Policy Hierarchy for Multisite, Cross-Site Session Revocation, network-enforced Passed-event logging policy (super admins can require immutable Passed-event audit visibility across subsites)
+- **Do later if demand exists:** Network Policy Hierarchy for Multisite, Cross-Site Session Revocation, network-enforced Passed-event logging policy (super admins can require immutable Passed-event audit visibility across subsites), Security Administrator governance mode (dedicated `manage_wp_sudo` capability, settings/widget visibility scoped to that capability, optional strict-mode assignee workflow, and documented recovery path for misconfiguration)
 - **Keep as design backlog:** client-side modal challenge, per-session sudo isolation, REST sudo grant endpoint, SSO/SAML/OIDC framework
+
+### Activity UX follow-up (easy-first execution order)
+
+To keep shipping velocity high after v3.0.0, execute the Activity UX slice in this order:
+
+1. **Widget quick wins (low risk, same data model)**
+   - Add Recent Events header sort toggles (Time/User/Event/Action/Surface) with sensible defaults (Time desc).
+   - Keep client-side filtering + sorting bounded to the existing 50-row fetch cap to avoid widget-query expansion.
+   - Preserve the widget’s current “at-a-glance” role; do not add pagination into the widget itself.
+2. **Action-label clarity pass**
+   - Use plain-English primary action labels in UI.
+   - Keep technical IDs available as secondary metadata (`<code>` suffix or tooltip) for operator debugging.
+   - Auto-humanize unknown technical IDs so entries like `options.update` render as readable text.
+3. **Risk signaling pass**
+   - Add a subtle, accessible `Critical` badge (text + color, not color-only) for high-risk actions.
+   - Initial badge scope: delete user/plugin/theme, critical settings changes, code/file editor actions, and equivalent network-destructive actions.
+4. **Dedicated Sudo Activity screen (list-table style)**
+   - Add a full Activity admin screen for longer history and analysis beyond the widget.
+   - Use server-side `WP_List_Table` patterns: pagination, search, sortable columns, filter controls, and reset filters.
+   - Add CSV export for the current filtered set with capability + nonce checks.
+   - Keep widget linked to this screen (“View full activity log”) once the screen ships.
+
+**Performance constraints for all four steps**
+- Keep Event_Store query shape lean (avoid `SELECT *`; avoid reading `context`/`ip` unless explicitly requested).
+- Keep count/list queries split and indexed for list-table pagination.
+- Keep widget-side JS O(n log n) over bounded rows only; do not move full-log workloads into dashboard render.
 
 ---
 
@@ -1310,6 +1336,46 @@ To avoid scope creep, this multisite expansion does **not** include:
 - Site grouping or tagging for partial network views
 - Integration with third-party network management plugins
 - Cross-network federation (multiple WordPress networks)
+
+---
+
+## 11.2 Security Administrator Capability + Visibility Scope
+
+*Backlog candidate added April 20, 2026*
+
+Introduce an explicit WP Sudo governance model that decouples plugin control
+from broad `manage_options` access.
+
+### Goal
+
+Allow site/network owners to scope WP Sudo control and visibility to a smaller,
+explicit set of users without requiring custom code.
+
+### Proposed rollout
+
+1. **Dedicated capability**
+   - Add `manage_wp_sudo` capability.
+   - Gate WP Sudo settings and dashboard widget visibility by this capability.
+
+2. **Safe default mapping**
+   - Default-map `manage_wp_sudo` to administrators on single-site and super admins on multisite.
+   - Preserve current behavior unless the owner explicitly opts into stricter governance.
+
+3. **Optional strict mode**
+   - Add an opt-in mode where only explicitly assigned users can access WP Sudo controls.
+   - Include a guided assignment workflow to reduce accidental lockout risk.
+
+4. **Recovery path**
+   - Provide documented recovery via WP-CLI and/or constant-based override when no valid assignee remains.
+
+5. **Multisite semantics**
+   - Define how network vs subsite visibility works under this model.
+   - Ensure network admins can enforce floors while allowing controlled subsite delegation where appropriate.
+
+### Notes
+
+- This should be treated as a governance/security-hardening feature, not a cosmetic UX change.
+- Initial implementation should avoid mandatory first-install assignment flow to limit lockout/support burden.
 
 ---
 

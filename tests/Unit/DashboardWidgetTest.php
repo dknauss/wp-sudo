@@ -111,7 +111,7 @@ class DashboardWidgetFakeWpdbWithEvents {
 					'id'         => 1,
 					'user_id'    => 1,
 					'event'      => 'action_gated',
-					'rule_id'    => 'plugins.activate',
+					'rule_id'    => 'options.update',
 					'surface'    => 'admin',
 					'created_at' => gmdate( 'Y-m-d H:i:s', time() - 120 ),
 				],
@@ -160,6 +160,85 @@ class DashboardWidgetFakeWpdbWithEvents {
 		// No-op.
 	}
 
+}
+
+/**
+ * Fake wpdb that returns a critical event for badge rendering tests.
+ */
+class DashboardWidgetFakeWpdbWithCriticalEvent {
+
+	/** @var string */
+	public string $prefix = 'wp_';
+
+	/** @var string */
+	public string $base_prefix = 'wp_';
+
+	/** @var string|null */
+	public ?string $last_get_results_query = null;
+
+	/**
+	 * Mock get_results() - returns one critical event row.
+	 *
+	 * @param string $query SQL query.
+	 * @return array<int, object>
+	 */
+	public function get_results( string $query ): array {
+		$this->last_get_results_query = $query;
+		if ( strpos( $query, 'wpsudo_events' ) !== false ) {
+			return [
+				(object) [
+					'id'         => 2,
+					'user_id'    => 1,
+					'event'      => 'action_gated',
+					'rule_id'    => 'user.delete',
+					'surface'    => 'admin',
+					'created_at' => gmdate( 'Y-m-d H:i:s', time() - 60 ),
+				],
+			];
+		}
+
+		return [];
+	}
+
+	/**
+	 * Mock prepare().
+	 *
+	 * @param string $query  Query.
+	 * @param mixed  ...$args Arguments.
+	 * @return string
+	 */
+	public function prepare( string $query, ...$args ): string {
+		return $query;
+	}
+
+	/**
+	 * Mock get_charset_collate().
+	 *
+	 * @return string
+	 */
+	public function get_charset_collate(): string {
+		return '';
+	}
+
+	/**
+	 * Mock get_var().
+	 *
+	 * @param string $query SQL query.
+	 * @return string|null
+	 */
+	public function get_var( string $query ): ?string {
+		return null;
+	}
+
+	/**
+	 * Mock suppress_errors().
+	 *
+	 * @param bool $suppress True to suppress.
+	 * @return void
+	 */
+	public function suppress_errors( bool $suppress = false ): void {
+		// No-op.
+	}
 }
 
 /**
@@ -214,6 +293,7 @@ class DashboardWidgetTest extends TestCase {
 	 */
 	private function setUpRenderStubs(): void {
 		Functions\when( 'esc_html__' )->returnArg( 1 );
+		Functions\when( 'esc_attr__' )->returnArg( 1 );
 		Functions\when( 'esc_html' )->returnArg( 1 );
 		Functions\when( 'esc_attr' )->returnArg( 1 );
 		Functions\when( 'esc_url' )->returnArg( 1 );
@@ -532,6 +612,86 @@ class DashboardWidgetTest extends TestCase {
 		// Should contain table structure.
 		$this->assertStringContainsString( '<table', $output );
 		$this->assertStringContainsString( 'Gated', $output ); // Human-readable label.
+		$this->assertStringContainsString( 'title="', $output );
+		$this->assertStringContainsString( 'UTC', $output );
+		$this->assertStringContainsString( 'Update options', $output );
+		$this->assertStringContainsString( '<code class="wp-sudo-action-id" title="Technical action ID">options.update</code>', $output );
+
+		$this->restoreWpdb();
+	}
+
+	/**
+	 * Test recent events table renders sortable column toggles.
+	 *
+	 * @return void
+	 */
+	public function testRecentEventsRendersSortableHeaderToggles(): void {
+		$this->setUpRenderStubs();
+		\WP_User_Query::$mock_total   = 0;
+		\WP_User_Query::$mock_results = [];
+		Functions\when( 'get_option' )->justReturn( [] );
+		Functions\when( 'get_users' )->alias(
+			function ( array $args ): array {
+				if ( isset( $args['include'] ) ) {
+					$user             = (object) array();
+					$user->ID         = 1;
+					$user->user_login = 'testuser';
+					return array( $user );
+				}
+
+				return array();
+			}
+		);
+
+		$GLOBALS['wpdb'] = new DashboardWidgetFakeWpdbWithEvents();
+
+		ob_start();
+		Dashboard_Widget::render();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'data-sort-key="time"', $output );
+		$this->assertStringContainsString( 'data-sort-key="user"', $output );
+		$this->assertStringContainsString( 'data-sort-key="event"', $output );
+		$this->assertStringContainsString( 'data-sort-key="action"', $output );
+		$this->assertStringContainsString( 'data-sort-key="surface"', $output );
+		$this->assertStringContainsString( 'aria-sort="descending"', $output );
+
+		$this->restoreWpdb();
+	}
+
+	/**
+	 * Test critical actions render a visible badge in the action column.
+	 *
+	 * @return void
+	 */
+	public function testRecentEventsRenderCriticalBadgeForCriticalAction(): void {
+		$this->setUpRenderStubs();
+		\WP_User_Query::$mock_total   = 0;
+		\WP_User_Query::$mock_results = [];
+		Functions\when( 'get_option' )->justReturn( [] );
+		Functions\when( 'get_users' )->alias(
+			function ( array $args ): array {
+				if ( isset( $args['include'] ) ) {
+					$user             = (object) array();
+					$user->ID         = 1;
+					$user->user_login = 'admin';
+					return array( $user );
+				}
+
+				return array();
+			}
+		);
+
+		$GLOBALS['wpdb'] = new DashboardWidgetFakeWpdbWithCriticalEvent();
+
+		ob_start();
+		Dashboard_Widget::render();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Delete user', $output );
+		$this->assertStringContainsString( 'wp-sudo-critical-badge', $output );
+		$this->assertStringContainsString( 'Critical', $output );
+		$this->assertStringContainsString( '<code class="wp-sudo-action-id" title="Technical action ID">user.delete</code>', $output );
 
 		$this->restoreWpdb();
 	}
@@ -587,6 +747,7 @@ class DashboardWidgetTest extends TestCase {
 		Functions\when( 'esc_html__' )->returnArg( 1 );
 		Functions\when( 'esc_html' )->returnArg( 1 );
 		Functions\when( 'esc_attr' )->returnArg( 1 );
+		Functions\when( 'esc_attr__' )->returnArg( 1 );
 		Functions\when( 'esc_url' )->returnArg( 1 );
 		Functions\when( 'admin_url' )->returnArg( 1 );
 		Functions\when( 'wp_kses' )->returnArg( 1 );
@@ -624,6 +785,7 @@ class DashboardWidgetTest extends TestCase {
 		Functions\when( 'esc_html__' )->returnArg( 1 );
 		Functions\when( 'esc_html' )->returnArg( 1 );
 		Functions\when( 'esc_attr' )->returnArg( 1 );
+		Functions\when( 'esc_attr__' )->returnArg( 1 );
 		Functions\when( 'esc_url' )->returnArg( 1 );
 		Functions\when( 'admin_url' )->returnArg( 1 );
 		Functions\when( 'wp_kses' )->returnArg( 1 );
@@ -660,6 +822,100 @@ class DashboardWidgetTest extends TestCase {
 	}
 
 	/**
+	 * Test policy summary displays mode badge for active named preset.
+	 *
+	 * @return void
+	 */
+	public function testPolicySummaryDisplaysActivePresetLabel(): void {
+		\WP_User_Query::$mock_total   = 0;
+		\WP_User_Query::$mock_results = [];
+		Functions\when( 'esc_html__' )->returnArg( 1 );
+		Functions\when( 'esc_html' )->returnArg( 1 );
+		Functions\when( 'esc_attr' )->returnArg( 1 );
+		Functions\when( 'esc_attr__' )->returnArg( 1 );
+		Functions\when( 'esc_url' )->returnArg( 1 );
+		Functions\when( 'admin_url' )->returnArg( 1 );
+		Functions\when( 'wp_kses' )->returnArg( 1 );
+		Functions\when( '_n' )->returnArg( 2 );
+		Functions\when( 'get_users' )->justReturn( [] );
+		Functions\when( 'get_option' )->alias(
+			function ( $name, $default = [] ) {
+				if ( 'wp_sudo_settings' === $name ) {
+					return [
+						'policy_preset'            => 'incident_lockdown',
+						'rest_app_password_policy' => 'disabled',
+						'cli_policy'               => 'disabled',
+						'cron_policy'              => 'limited',
+						'xmlrpc_policy'            => 'disabled',
+						'wpgraphql_policy'         => 'disabled',
+					];
+				}
+				return $default;
+			}
+		);
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		$this->setUpFakeWpdb();
+
+		ob_start();
+		Dashboard_Widget::render();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Mode:', $output );
+		$this->assertStringContainsString( 'Incident Lockdown', $output );
+		$this->assertStringContainsString( 'wp-sudo-policy-mode', $output );
+		$this->assertStringContainsString( 'is-lockdown', $output );
+		$this->assertStringContainsString( '#policy_preset_selection', $output );
+
+		$this->restoreWpdb();
+	}
+
+	/**
+	 * Test policy summary links to custom settings when mode is custom.
+	 *
+	 * @return void
+	 */
+	public function testPolicySummaryLinksToCustomSettingsWhenModeIsCustom(): void {
+		\WP_User_Query::$mock_total   = 0;
+		\WP_User_Query::$mock_results = [];
+		Functions\when( 'esc_html__' )->returnArg( 1 );
+		Functions\when( 'esc_html' )->returnArg( 1 );
+		Functions\when( 'esc_attr' )->returnArg( 1 );
+		Functions\when( 'esc_attr__' )->returnArg( 1 );
+		Functions\when( 'esc_url' )->returnArg( 1 );
+		Functions\when( 'admin_url' )->returnArg( 1 );
+		Functions\when( 'wp_kses' )->returnArg( 1 );
+		Functions\when( '_n' )->returnArg( 2 );
+		Functions\when( 'get_users' )->justReturn( [] );
+		Functions\when( 'get_option' )->alias(
+			function ( $name, $default = [] ) {
+				if ( 'wp_sudo_settings' === $name ) {
+					return [
+						'policy_preset'            => 'custom',
+						'rest_app_password_policy' => 'limited',
+						'cli_policy'               => 'disabled',
+						'cron_policy'              => 'limited',
+						'xmlrpc_policy'            => 'disabled',
+					];
+				}
+				return $default;
+			}
+		);
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		$this->setUpFakeWpdb();
+
+		ob_start();
+		Dashboard_Widget::render();
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'Mode:', $output );
+		$this->assertStringContainsString( 'Custom', $output );
+		$this->assertStringContainsString( 'is-custom', $output );
+		$this->assertStringContainsString( '#rest_app_password_policy', $output );
+
+		$this->restoreWpdb();
+	}
+
+	/**
 	 * Test policy summary uses defaults when option missing.
 	 *
 	 * @return void
@@ -670,6 +926,7 @@ class DashboardWidgetTest extends TestCase {
 		Functions\when( 'esc_html__' )->returnArg( 1 );
 		Functions\when( 'esc_html' )->returnArg( 1 );
 		Functions\when( 'esc_attr' )->returnArg( 1 );
+		Functions\when( 'esc_attr__' )->returnArg( 1 );
 		Functions\when( 'esc_url' )->returnArg( 1 );
 		Functions\when( 'admin_url' )->returnArg( 1 );
 		Functions\when( 'wp_kses' )->returnArg( 1 );

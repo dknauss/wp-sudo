@@ -163,6 +163,10 @@ Yes. After 5 failed password attempts on the reauthentication form, the user is 
 
 Install [WP Activity Log](https://wordpress.org/plugins/wp-security-audit-log/) or [Stream](https://wordpress.org/plugins/stream/). Sudo fires 10 action hooks covering session lifecycle, gated actions, policy decisions, preset application, lockouts, and tamper detection. See [Developer Reference](developer-reference.md) for hook signatures.
 
+## How long are dashboard events retained, and when are they purged?
+
+WP Sudo keeps dashboard event rows for **14 days** by default. A daily WP-Cron task (`wp_sudo_prune_events`) removes older rows. Pruning runs in bounded batches (`Event_Store::PRUNE_BATCH_SIZE`, currently 1000 rows per batch) to avoid long table locks on busy sites.
+
 ## Does it support two-factor authentication?
 
 Yes. If the [Two Factor](https://wordpress.org/plugins/two-factor/) plugin is installed and the user has 2FA enabled, the sudo challenge becomes a two-step process: password first, then the configured 2FA method (TOTP, email code, backup codes, etc.). For passkey and security key support, add the [WebAuthn Provider for Two Factor](https://wordpress.org/plugins/two-factor-provider-webauthn/) plugin. A visible countdown timer shows how long the user has to enter their code. Third-party 2FA plugins can integrate via filter hooks — see [Developer Reference](developer-reference.md).
