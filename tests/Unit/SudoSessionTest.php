@@ -960,6 +960,24 @@ class SudoSessionTest extends TestCase
 	}
 
 	/**
+	 * is_within_grace() short-circuits without reading user meta when no sudo cookie is set.
+	 *
+	 * Grace requires a cookie-bound token to verify session ownership. Cookie-less surfaces
+	 * (REST with app passwords, WPGraphQL, XML-RPC) can never satisfy grace, so the meta
+	 * read must be skipped — this is a hot-path optimization for headless workloads where
+	 * gated integrations fire thousands of requests per second.
+	 */
+	public function test_is_within_grace_skips_meta_read_when_no_cookie(): void
+	{
+		unset($_COOKIE[Sudo_Session::TOKEN_COOKIE]);
+
+		// Perf guarantee: no meta lookup may happen when the cookie is absent.
+		Functions\expect('get_user_meta')->never();
+
+		$this->assertFalse(Sudo_Session::is_within_grace(1));
+	}
+
+	/**
 	 * is_within_grace() returns false when the cookie token does not match.
 	 *
 	 * Grace does not relax session binding — a mismatched or absent cookie means

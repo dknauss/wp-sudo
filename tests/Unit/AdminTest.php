@@ -2285,6 +2285,9 @@ class AdminTest extends TestCase {
 	public function test_filter_user_views_adds_sudo_active_link(): void {
 		Functions\when( 'esc_url' )->returnArg( 1 );
 		Functions\when( 'admin_url' )->returnArg( 1 );
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn( true );
 		Functions\expect( 'get_users' )->never();
 
 		\WP_User_Query::$mock_total = 3;
@@ -2306,6 +2309,9 @@ class AdminTest extends TestCase {
 	 * @return void
 	 */
 	public function test_filter_user_views_omitted_when_zero(): void {
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn( true );
 		\WP_User_Query::$mock_total = 0;
 
 		$admin = new Admin();
@@ -2322,6 +2328,9 @@ class AdminTest extends TestCase {
 	public function test_filter_user_views_current_class_when_active(): void {
 		Functions\when( 'esc_url' )->returnArg( 1 );
 		Functions\when( 'admin_url' )->returnArg( 1 );
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn( true );
 		\WP_User_Query::$mock_total = 1;
 
 		$_GET['sudo_active'] = '1';
@@ -2342,6 +2351,9 @@ class AdminTest extends TestCase {
 	public function test_filter_user_views_not_current_for_non_matching_value(): void {
 		Functions\when( 'esc_url' )->returnArg( 1 );
 		Functions\when( 'admin_url' )->returnArg( 1 );
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		Functions\when( 'get_transient' )->justReturn( false );
+		Functions\when( 'set_transient' )->justReturn( true );
 		\WP_User_Query::$mock_total = 1;
 
 		$_GET['sudo_active'] = '2';
@@ -2352,6 +2364,61 @@ class AdminTest extends TestCase {
 		$this->assertStringNotContainsString( 'current', $views['sudo_active'] );
 
 		unset( $_GET['sudo_active'] );
+	}
+
+	/**
+	 * Test filter_user_views uses the cached count when transient is available.
+	 *
+	 * @return void
+	 */
+	public function test_filter_user_views_uses_cached_count_when_present(): void {
+		Functions\when( 'esc_url' )->returnArg( 1 );
+		Functions\when( 'admin_url' )->returnArg( 1 );
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		Functions\when( 'get_transient' )->justReturn( 9 );
+		$set_transient_called = false;
+		Functions\when( 'set_transient' )->alias(
+			static function () use ( &$set_transient_called ) {
+				$set_transient_called = true;
+				return true;
+			}
+		);
+
+		$admin = new Admin();
+		$views = $admin->filter_user_views( array( 'all' => '<a>All</a>' ) );
+
+		$this->assertArrayHasKey( 'sudo_active', $views );
+		$this->assertStringContainsString( '9', $views['sudo_active'] );
+		$this->assertSame( array(), \WP_User_Query::$last_query_vars );
+		$this->assertFalse( $set_transient_called );
+	}
+
+	/**
+	 * Test filter_user_views stores the computed count in transient cache.
+	 *
+	 * @return void
+	 */
+	public function test_filter_user_views_caches_computed_count(): void {
+		Functions\when( 'esc_url' )->returnArg( 1 );
+		Functions\when( 'admin_url' )->returnArg( 1 );
+		Functions\when( 'get_current_blog_id' )->justReturn( 1 );
+		Functions\when( 'get_transient' )->justReturn( false );
+		$cached_value = null;
+		Functions\when( 'set_transient' )->alias(
+			static function ( string $key, int $value, int $ttl ) use ( &$cached_value ) {
+				$cached_value = array( $key, $value, $ttl );
+				return true;
+			}
+		);
+
+		\WP_User_Query::$mock_total = 4;
+
+		$admin = new Admin();
+		$views = $admin->filter_user_views( array( 'all' => '<a>All</a>' ) );
+
+		$this->assertArrayHasKey( 'sudo_active', $views );
+		$this->assertStringContainsString( '4', $views['sudo_active'] );
+		$this->assertSame( array( 'wp_sudo_active_count_1', 4, 30 ), $cached_value );
 	}
 
 	/**

@@ -183,6 +183,34 @@ class EventStoreTest extends TestCase {
 		$this->assertCount( 0, $this->wpdb->insert_calls );
 	}
 
+	public function test_insert_reuses_cached_table_exists_result_within_request(): void {
+		$this->wpdb->insert_return      = 1;
+		$this->wpdb->get_results_return = array(
+			(object) array(
+				'Field' => 'id',
+			),
+		);
+
+		$result_one = Event_Store::insert(
+			array(
+				'user_id' => 10,
+				'event'   => 'action_gated',
+			)
+		);
+
+		$result_two = Event_Store::insert(
+			array(
+				'user_id' => 11,
+				'event'   => 'action_allowed',
+			)
+		);
+
+		$this->assertTrue( $result_one );
+		$this->assertTrue( $result_two );
+		$this->assertCount( 1, $this->wpdb->get_results_calls );
+		$this->assertCount( 2, $this->wpdb->insert_calls );
+	}
+
 	public function test_recent_queries_current_site_and_orders_descending(): void {
 		Functions\when( 'get_current_blog_id' )->justReturn( 11 );
 		$this->wpdb->get_results_return = array(

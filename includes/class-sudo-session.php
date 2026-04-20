@@ -219,6 +219,14 @@ class Sudo_Session {
 	 * @return bool True only when the session has expired within the last GRACE_SECONDS.
 	 */
 	public static function is_within_grace( int $user_id ): bool {
+		// Grace requires a cookie-bound token to prove session ownership. Cookie-less
+		// surfaces (REST with app passwords, WPGraphQL, XML-RPC) can never satisfy
+		// grace, so short-circuit before the user-meta read. On a busy headless site
+		// this removes two meta lookups per matched gated request on those surfaces.
+		if ( empty( $_COOKIE[ self::TOKEN_COOKIE ] ) ) { // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___COOKIE
+			return false;
+		}
+
 		$expires = (int) get_user_meta( $user_id, self::META_KEY, true );
 
 		if ( ! $expires ) {

@@ -23,6 +23,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Event_Store {
 
 	/**
+	 * Per-request cache of events-table existence.
+	 *
+	 * Null = unknown for current request, true/false = cached result.
+	 *
+	 * @var bool|null
+	 */
+	private static ?bool $table_exists_cache = null;
+
+	/**
 	 * Return the shared events table name.
 	 *
 	 * Uses base_prefix so multisite can share one event table while still
@@ -62,6 +71,10 @@ class Event_Store {
 	public static function maybe_create_table(): void {
 		global $wpdb;
 
+		if ( true === self::$table_exists_cache ) {
+			return;
+		}
+
 		if ( self::is_sqlite() ) {
 			self::create_table();
 			return;
@@ -71,9 +84,13 @@ class Event_Store {
 			return;
 		}
 
-		$wpdb->suppress_errors( true );
+		if ( is_object( $wpdb ) && method_exists( $wpdb, 'suppress_errors' ) ) {
+			$wpdb->suppress_errors( true );
+		}
 		self::create_table();
-		$wpdb->suppress_errors( false );
+		if ( is_object( $wpdb ) && method_exists( $wpdb, 'suppress_errors' ) ) {
+			$wpdb->suppress_errors( false );
+		}
 	}
 
 	/**
@@ -121,6 +138,7 @@ class Event_Store {
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_event_created ON {$table}(event, created_at)" );
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_site_created ON {$table}(site_id, created_at)" );
 			$wpdb->query( "CREATE INDEX IF NOT EXISTS idx_user_created ON {$table}(user_id, created_at)" );
+			self::$table_exists_cache = true;
 			// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.DirectDatabaseQuery.NoCaching
 			return;
 		}
@@ -143,6 +161,8 @@ KEY user_created_at (user_id, created_at)
 
 		if ( function_exists( 'dbDelta' ) ) {
 			dbDelta( $sql );
+			self::$table_exists_cache = null;
+			self::table_exists();
 		}
 	}
 
@@ -276,6 +296,18 @@ KEY user_created_at (user_id, created_at)
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.NotPrepared -- table_name() is safe, DROP is idempotent.
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table_name() );
+		self::$table_exists_cache = false;
+	}
+
+	/**
+	 * Reset runtime cache values.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return void
+	 */
+	public static function reset_runtime_cache(): void {
+		self::$table_exists_cache = null;
 	}
 
 	/**
@@ -291,25 +323,47 @@ KEY user_created_at (user_id, created_at)
 	private static function table_exists(): bool {
 		global $wpdb;
 
+		if ( null !== self::$table_exists_cache ) {
+			return self::$table_exists_cache;
+		}
+
 		// SQLite: use sqlite_master.
 		if ( self::is_sqlite() ) {
+			if ( ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+				self::$table_exists_cache = false;
+				return false;
+			}
+
 			$table = self::table_name();
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- table_name() is safe.
-			$result = $wpdb->get_var(
+			$result                   = $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT name FROM sqlite_master WHERE type='table' AND name=%s",
 					$table
 				)
 			);
-			return is_string( $result ) && $table === $result;
+			self::$table_exists_cache = is_string( $result ) && $table === $result;
+
+			return self::$table_exists_cache;
 		}
 
-		$wpdb->suppress_errors( true );
+		if ( ! method_exists( $wpdb, 'get_results' ) ) {
+			self::$table_exists_cache = false;
+			return false;
+		}
+
+		if ( is_object( $wpdb ) && method_exists( $wpdb, 'suppress_errors' ) ) {
+			$wpdb->suppress_errors( true );
+		}
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- table_name() is a safe identifier assembled from the configured prefix.
 		$columns = $wpdb->get_results( 'DESCRIBE ' . self::table_name() );
-		$wpdb->suppress_errors( false );
+		if ( is_object( $wpdb ) && method_exists( $wpdb, 'suppress_errors' ) ) {
+			$wpdb->suppress_errors( false );
+		}
 
-		return is_array( $columns ) && ! empty( $columns );
+		self::$table_exists_cache = is_array( $columns ) && ! empty( $columns );
+
+		return self::$table_exists_cache;
 	}
 
 	/**

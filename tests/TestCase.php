@@ -64,6 +64,7 @@ abstract class TestCase extends PHPUnitTestCase {
 
 		if ( class_exists( 'WP_User_Query' ) && property_exists( 'WP_User_Query', 'mock_total' ) ) {
 			\WP_User_Query::$mock_total      = 0;
+			\WP_User_Query::$mock_results    = array();
 			\WP_User_Query::$last_query_vars = array();
 		}
 
@@ -71,6 +72,7 @@ abstract class TestCase extends PHPUnitTestCase {
 		\WP_Sudo\Action_Registry::reset_cache();
 		\WP_Sudo\Sudo_Session::reset_cache();
 		\WP_Sudo\Admin::reset_cache();
+		\WP_Sudo\Event_Store::reset_runtime_cache();
 
 		Monkey\tearDown();
 		parent::tearDown();

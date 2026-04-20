@@ -193,6 +193,7 @@ if ( ! class_exists( 'WP_Screen' ) ) {
 if ( ! class_exists( 'WP_User_Query' ) ) {
 	class WP_User_Query {
 		public static int   $mock_total      = 0;
+		public static array $mock_results    = array();
 		public static array $last_query_vars = array();
 
 		private array $query_vars = array();
@@ -204,6 +205,15 @@ if ( ! class_exists( 'WP_User_Query' ) ) {
 
 		public function get_total(): int {
 			return self::$mock_total;
+		}
+
+		/**
+		 * Return mocked query results.
+		 *
+		 * @return array<int, mixed>
+		 */
+		public function get_results(): array {
+			return self::$mock_results;
 		}
 
 		public function get( string $query_var ) {

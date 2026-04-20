@@ -126,6 +126,20 @@ class Admin {
 	private const PRESET_NOTICE_TRANSIENT_PREFIX = 'wp_sudo_preset_notice_';
 
 	/**
+	 * Transient prefix for cached active sudo-session user counts.
+	 *
+	 * @var string
+	 */
+	private const SUDO_ACTIVE_COUNT_TRANSIENT_PREFIX = 'wp_sudo_active_count_';
+
+	/**
+	 * Cache TTL (seconds) for the Users-list active session count badge.
+	 *
+	 * @var int
+	 */
+	private const SUDO_ACTIVE_COUNT_CACHE_TTL = 30;
+
+	/**
 	 * Per-request cache for the full settings array.
 	 *
 	 * Prevents redundant is_multisite() + get_option/get_site_option
@@ -1034,6 +1048,13 @@ class Admin {
 	 * @return int
 	 */
 	private function get_sudo_active_user_count(): int {
+		$cache_key = self::SUDO_ACTIVE_COUNT_TRANSIENT_PREFIX . $this->get_current_site_id();
+
+		$cached_count = get_transient( $cache_key );
+		if ( is_numeric( $cached_count ) ) {
+			return (int) $cached_count;
+		}
+
 		$query = new \WP_User_Query(
 			array(
 				'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
@@ -1045,7 +1066,11 @@ class Admin {
 			)
 		);
 
-		return (int) $query->get_total();
+		$total = (int) $query->get_total();
+
+		set_transient( $cache_key, $total, self::SUDO_ACTIVE_COUNT_CACHE_TTL );
+
+		return $total;
 	}
 
 	/**
@@ -1103,6 +1128,21 @@ class Admin {
 			'compare' => '>',
 			'type'    => 'NUMERIC',
 		);
+	}
+
+	/**
+	 * Resolve the current site ID for per-site cache keys.
+	 *
+	 * @since 3.0.0
+	 *
+	 * @return int
+	 */
+	private function get_current_site_id(): int {
+		if ( function_exists( 'get_current_blog_id' ) ) {
+			return (int) get_current_blog_id();
+		}
+
+		return 1;
 	}
 
 	// -------------------------------------------------------------------------
