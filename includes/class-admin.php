@@ -429,11 +429,11 @@ class Admin {
 
 		$screen->set_help_sidebar(
 			'<p><strong>' . __( 'For more information:', 'wp-sudo' ) . '</strong></p>'
-			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/FAQ.md" target="_blank">' . __( 'FAQ', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/security-model.md" target="_blank">' . __( 'Security Model', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/developer-reference.md" target="_blank">' . __( 'Developer Reference', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/connectors-api-reference.md" target="_blank">' . __( 'Connectors Reference', 'wp-sudo' ) . '</a></p>'
-			. '<p><a href="https://github.com/dknauss/wp-sudo/blob/main/docs/two-factor-integration.md" target="_blank">' . __( 'Two-Factor Integration', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/Sudo/blob/main/docs/FAQ.md" target="_blank">' . __( 'FAQ', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/Sudo/blob/main/docs/security-model.md" target="_blank">' . __( 'Security Model', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/Sudo/blob/main/docs/developer-reference.md" target="_blank">' . __( 'Developer Reference', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/Sudo/blob/main/docs/connectors-api-reference.md" target="_blank">' . __( 'Connectors Reference', 'wp-sudo' ) . '</a></p>'
+			. '<p><a href="https://github.com/dknauss/Sudo/blob/main/docs/two-factor-integration.md" target="_blank">' . __( 'Two-Factor Integration', 'wp-sudo' ) . '</a></p>'
 		);
 	}
 

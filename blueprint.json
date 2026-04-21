@@ -10,7 +10,7 @@
       "step": "installPlugin",
       "pluginZipFile": {
         "resource": "url",
-        "url": "https://github.com/dknauss/wp-sudo/archive/refs/heads/main.zip"
+        "url": "https://github.com/dknauss/Sudo/archive/refs/heads/main.zip"
       },
       "options": { "activate": true }
     },
