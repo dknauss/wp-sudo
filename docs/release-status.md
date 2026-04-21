@@ -1,6 +1,6 @@
 # Release Status (Canonical Current State)
 
-Last verified: 2026-04-20
+Last verified: 2026-04-21
 
 This file is the canonical source for **current release state** in this repository:
 
@@ -12,30 +12,24 @@ This file is the canonical source for **current release state** in this reposito
 
 ## Latest public/tagged release
 
-- **Latest tagged release:** `2.14.0`
-- **Latest git tag observed:** `v2.14.0`
+- **Latest tagged release:** `3.0.0`
+- **Latest git tag observed:** `v3.0.0`
 
 ## Current `main` release target
 
-- **Next planned release:** `3.0.0`
-- **Current `main` runtime version constant:** `3.0.0`
+- **Next planned release:** `3.1.0` (planning lane)
+- **Current `main` runtime version constant:** `3.0.0` (post-release bump to `3.1.0` pending)
 - **Current `main` metadata should match:** `readme.txt` stable tag, `wp-sudo.php`, `tests/bootstrap.php`, `phpstan-bootstrap.php`
-- **Release execution checklist:** `docs/release-3.0.0-checklist.md`
+- **Last completed release checklist:** `docs/release-3.0.0-checklist.md`
 
 ## Unreleased work already on `main`
 
-These items are implemented on `main` and currently grouped into the planned `3.0.0` release:
+Current commits ahead of `v3.0.0`:
 
-- Lockdown policy presets
-- Connectors API credential-write gating
-- Challenge/lockout recovery hardening
-- Request / Rule Tester diagnostic tool
-- Event_Store persistence layer with cron-based pruning
-- Session Activity Dashboard Widget (Active Sessions, Recent Events, Policy Summary)
-- Accessibility improvements (table scope/caption attributes)
-- Additional local/CI/browser testing workflow improvements
+- Repository URL/name cleanup from `wp-sudo` to `Sudo` references.
+- Draft governance spec for External Audit Mode (`v3.2` planning).
 
-Canonical source for this list: `CHANGELOG.md` → `## 3.0.0`
+Canonical source for post-tag drift: `git log v3.0.0..main --oneline`
 
 ## WordPress release posture
 
