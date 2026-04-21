@@ -720,6 +720,7 @@ class AdminTest extends TestCase {
 
 		$this->assertStringContainsString( 'nav-tab-wrapper', $output );
 		$this->assertStringContainsString( 'aria-current="page"', $output );
+		$this->assertStringContainsString( 'aria-label="Sudo settings sections"', $output );
 		$this->assertStringContainsString( '>Settings</a>', $output );
 		$this->assertStringContainsString( '>Gated Actions</a>', $output );
 		$this->assertStringContainsString( '>Rule Tester</a>', $output );
@@ -1066,6 +1067,9 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'Delete plugin', $output );
 		$this->assertStringContainsString( 'hard-block', $output );
 		$this->assertStringContainsString( 'REST Application Password policy is Limited', $output );
+		$this->assertStringContainsString( 'id="wp-sudo-tester-result"', $output );
+		$this->assertStringContainsString( 'role="status"', $output );
+		$this->assertStringContainsString( 'aria-live="polite"', $output );
 
 		unset( $_POST['wp_sudo_request_tester_submit'], $_POST['wp_sudo_request_tester'], $_SERVER['REQUEST_METHOD'], $_GET['tab'] );
 	}
@@ -1925,6 +1929,8 @@ class AdminTest extends TestCase {
 		$output = ob_get_clean();
 
 		$this->assertStringContainsString( 'id="wp-sudo-preset-description"', $output );
+		$this->assertStringContainsString( 'aria-describedby="wp-sudo-preset-description"', $output );
+		$this->assertStringContainsString( 'aria-live="polite"', $output );
 	}
 
 	// -----------------------------------------------------------------
@@ -2056,6 +2062,8 @@ class AdminTest extends TestCase {
 		// Normal is the default, its description should appear.
 		$this->assertStringContainsString( 'id="wp-sudo-preset-description"', $output );
 		$this->assertStringContainsString( 'recommended baseline', $output );
+		$this->assertStringContainsString( 'aria-describedby="wp-sudo-preset-description"', $output );
+		$this->assertStringContainsString( 'aria-live="polite"', $output );
 	}
 
 	public function test_render_field_policy_presets_shows_custom_when_no_match(): void {
@@ -2082,6 +2090,32 @@ class AdminTest extends TestCase {
 		$this->assertStringContainsString( 'Custom', $output );
 		$this->assertStringContainsString( 'disabled', $output );
 		$this->assertStringContainsString( 'do not match any preset', $output );
+	}
+
+	public function test_render_field_policy_associates_select_with_description_text(): void {
+		Functions\when( '__' )->returnArg();
+		Functions\when( 'esc_attr' )->returnArg();
+		Functions\when( 'esc_html' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'selected' )->alias( fn( $a, $b, $echo = false ) => (string) ( $a === $b ? 'selected="selected"' : '' ) );
+		Functions\when( 'is_multisite' )->justReturn( false );
+		Functions\when( 'get_option' )->justReturn( Admin::defaults() );
+
+		$admin = new Admin();
+
+		ob_start();
+		$admin->render_field_policy(
+			array(
+				'key'         => Gate::SETTING_CLI_POLICY,
+				'description' => 'CLI policy description.',
+			)
+		);
+		$output = ob_get_clean();
+
+		$this->assertStringContainsString( 'id="cli_policy"', $output );
+		$this->assertStringContainsString( 'aria-describedby="cli_policy-description"', $output );
+		$this->assertStringContainsString( 'id="cli_policy-description"', $output );
+		$this->assertStringContainsString( 'CLI policy description.', $output );
 	}
 
 	// =================================================================

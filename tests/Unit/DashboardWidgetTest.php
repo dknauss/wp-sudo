@@ -833,6 +833,12 @@ class DashboardWidgetTest extends TestCase {
 		$this->assertStringContainsString( 'aria-label="Filter events by time range"', $output );
 		$this->assertStringContainsString( 'aria-label="Filter events by session event type"', $output );
 		$this->assertStringContainsString( 'aria-label="Filter events by request surface"', $output );
+		$this->assertStringContainsString( 'class="screen-reader-text wp-sudo-events-live"', $output );
+		$this->assertStringContainsString( 'aria-label="Sort by Time"', $output );
+		$this->assertStringContainsString( 'aria-label="Sort by User"', $output );
+		$this->assertStringContainsString( 'aria-label="Sort by Event"', $output );
+		$this->assertStringContainsString( 'aria-label="Sort by Action"', $output );
+		$this->assertStringContainsString( 'aria-label="Sort by Surface"', $output );
 		$this->assertStringContainsString( 'title="testuser"', $output );
 		$this->assertStringContainsString( 'title="Gated"', $output );
 		$this->assertStringContainsString( 'title="Update options"', $output );

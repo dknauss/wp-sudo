@@ -414,6 +414,8 @@ class Dashboard_Widget {
 			echo '</p>';
 		}
 
+		echo '<p class="screen-reader-text wp-sudo-events-live" aria-live="polite" aria-atomic="true"></p>';
+
 		if ( empty( $events ) ) {
 			echo '<p class="wp-sudo-empty">' . esc_html__( 'No recent activity', 'wp-sudo' ) . '</p>';
 			return;
@@ -426,11 +428,11 @@ class Dashboard_Widget {
 		echo '<table class="widefat striped wp-sudo-events-table">';
 		echo '<caption class="screen-reader-text">' . esc_html__( 'Recent sudo session events', 'wp-sudo' ) . '</caption>';
 		echo '<thead><tr>';
-		echo '<th scope="col" data-sort-column="time" aria-sort="descending"><button type="button" class="wp-sudo-sort-button" data-sort-key="time" data-default-dir="desc"><span class="wp-sudo-sort-label">' . esc_html__( 'Time', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
-		echo '<th scope="col" data-sort-column="user" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="user" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'User', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
-		echo '<th scope="col" data-sort-column="event" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="event" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'Event', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
-		echo '<th scope="col" data-sort-column="action" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="action" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'Action', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
-		echo '<th scope="col" data-sort-column="surface" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="surface" data-default-dir="asc"><span class="wp-sudo-sort-label">' . esc_html__( 'Surface', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="time" aria-sort="descending"><button type="button" class="wp-sudo-sort-button" data-sort-key="time" data-default-dir="desc" aria-label="' . esc_attr__( 'Sort by Time', 'wp-sudo' ) . '"><span class="wp-sudo-sort-label">' . esc_html__( 'Time', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="user" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="user" data-default-dir="asc" aria-label="' . esc_attr__( 'Sort by User', 'wp-sudo' ) . '"><span class="wp-sudo-sort-label">' . esc_html__( 'User', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="event" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="event" data-default-dir="asc" aria-label="' . esc_attr__( 'Sort by Event', 'wp-sudo' ) . '"><span class="wp-sudo-sort-label">' . esc_html__( 'Event', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="action" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="action" data-default-dir="asc" aria-label="' . esc_attr__( 'Sort by Action', 'wp-sudo' ) . '"><span class="wp-sudo-sort-label">' . esc_html__( 'Action', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
+		echo '<th scope="col" data-sort-column="surface" aria-sort="none"><button type="button" class="wp-sudo-sort-button" data-sort-key="surface" data-default-dir="asc" aria-label="' . esc_attr__( 'Sort by Surface', 'wp-sudo' ) . '"><span class="wp-sudo-sort-label">' . esc_html__( 'Surface', 'wp-sudo' ) . '</span><span class="wp-sudo-sort-indicator" aria-hidden="true"></span></button></th>';
 		echo '</tr></thead><tbody>';
 
 		$row_index = 0;
@@ -870,6 +872,18 @@ class Dashboard_Widget {
 	 * @return void
 	 */
 	private static function render_inline_styles(): void {
+		$widget_i18n      = array(
+			'noMatchingEvents' => __( 'No matching events', 'wp-sudo' ),
+			'filtersUpdated'   => __( 'Event filters updated.', 'wp-sudo' ),
+			/* translators: 1: sort column label (for example, Time), 2: direction (ascending/descending). */
+			'sortedBy'         => __( 'Sorted by %1$s (%2$s).', 'wp-sudo' ),
+			'ascending'        => __( 'ascending', 'wp-sudo' ),
+			'descending'       => __( 'descending', 'wp-sudo' ),
+		);
+		$widget_i18n_json = wp_json_encode( $widget_i18n );
+		if ( ! is_string( $widget_i18n_json ) ) {
+			$widget_i18n_json = '{}';
+		}
 		?>
 <style>
 #wp_sudo_activity .wp-sudo-session-duration {
@@ -1307,6 +1321,7 @@ class Dashboard_Widget {
 (function() {
 	var widget = document.getElementById('wp_sudo_activity');
 	if (!widget) return;
+	var i18n = <?php echo $widget_i18n_json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Safe JSON for inline script. ?> || {};
 
 	var table = widget.querySelector('.wp-sudo-events-table');
 	if (!table) return;
@@ -1320,9 +1335,22 @@ class Dashboard_Widget {
 	var timeSelect = widget.querySelector('select[data-filter="time"]');
 	var eventSelect = widget.querySelector('select[data-filter="event"]');
 	var surfaceSelect = widget.querySelector('select[data-filter="surface"]');
+	var liveRegion = widget.querySelector('.wp-sudo-events-live');
 	var sortButtons = widget.querySelectorAll('.wp-sudo-sort-button');
 	var sortKey = 'time';
 	var sortDir = 'desc';
+
+	function announce(message) {
+		if (liveRegion && message) {
+			liveRegion.textContent = message;
+		}
+	}
+
+	function format(template, first, second) {
+		return String(template || '')
+			.replace('%1$s', first || '')
+			.replace('%2$s', second || '');
+	}
 
 	function updateSortUi() {
 		for (var i = 0; i < sortButtons.length; i++) {
@@ -1374,7 +1402,7 @@ class Dashboard_Widget {
 		}
 	}
 
-	function filterRows() {
+	function filterRows(announceChanges) {
 		var now = Math.floor(Date.now() / 1000);
 		var periods = { 'all': 0, '24h': 86400, '7d': 604800 };
 		var filterTime = timeSelect ? timeSelect.value : 'all';
@@ -1411,7 +1439,12 @@ class Dashboard_Widget {
 			if (!noMatch) {
 				noMatch = document.createElement('tr');
 				noMatch.className = 'wp-sudo-no-match';
-				noMatch.innerHTML = '<td colspan="5" style="text-align:center;color:#646970;">No matching events</td>';
+				var cell = document.createElement('td');
+				cell.colSpan = 5;
+				cell.style.textAlign = 'center';
+				cell.style.color = '#646970';
+				cell.textContent = i18n.noMatchingEvents || 'No matching events';
+				noMatch.appendChild(cell);
 				tbody.appendChild(noMatch);
 			}
 			noMatch.style.display = '';
@@ -1420,11 +1453,19 @@ class Dashboard_Widget {
 		}
 
 		sortRows();
+
+		if (announceChanges) {
+			if (visible === 0) {
+				announce(i18n.noMatchingEvents || 'No matching events');
+			} else {
+				announce(i18n.filtersUpdated || 'Event filters updated.');
+			}
+		}
 	}
 
-	if (timeSelect) timeSelect.addEventListener('change', filterRows);
-	if (eventSelect) eventSelect.addEventListener('change', filterRows);
-	if (surfaceSelect) surfaceSelect.addEventListener('change', filterRows);
+	if (timeSelect) timeSelect.addEventListener('change', function () { filterRows(true); });
+	if (eventSelect) eventSelect.addEventListener('change', function () { filterRows(true); });
+	if (surfaceSelect) surfaceSelect.addEventListener('change', function () { filterRows(true); });
 	for (var i = 0; i < sortButtons.length; i++) {
 		sortButtons[i].addEventListener('click', function() {
 			var clickedKey = this.getAttribute('data-sort-key') || '';
@@ -1439,12 +1480,17 @@ class Dashboard_Widget {
 
 			updateSortUi();
 			sortRows();
+
+			var labelEl = this.querySelector('.wp-sudo-sort-label');
+			var label = labelEl ? labelEl.textContent.trim() : clickedKey;
+			var direction = sortDir === 'asc' ? (i18n.ascending || 'ascending') : (i18n.descending || 'descending');
+			announce(format(i18n.sortedBy || 'Sorted by %1$s (%2$s).', label, direction));
 		});
 	}
 
 	/* Initial filter application. */
 	updateSortUi();
-	filterRows();
+	filterRows(false);
 })();
 </script>
 		<?php

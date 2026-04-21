@@ -1134,7 +1134,7 @@ class Admin {
 				<?php esc_html_e( 'Sudo adds a reauthentication step before dangerous operations like activating plugins, deleting users, or changing critical settings. Any user who attempts a gated action must re-enter their password — and complete two-factor authentication if enabled — before proceeding.', 'wp-sudo' ); ?>
 			</p>
 
-			<h2 class="nav-tab-wrapper">
+			<h2 class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Sudo settings sections', 'wp-sudo' ); ?>">
 				<?php
 				$tabs = array(
 					'settings' => __( 'Settings', 'wp-sudo' ),
@@ -1343,7 +1343,7 @@ class Admin {
 			<?php submit_button( __( 'Evaluate Request', 'wp-sudo' ), 'secondary', 'wp_sudo_request_tester_submit', false ); ?>
 		</form>
 		<?php if ( is_array( $result ) ) : ?>
-			<div id="wp-sudo-tester-result" class="notice notice-info inline" style="margin-top: 1em;">
+			<div id="wp-sudo-tester-result" class="notice notice-info inline" style="margin-top: 1em;" role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
 				<p>
 					<strong><?php esc_html_e( 'Matched rule:', 'wp-sudo' ); ?></strong>
 					<?php echo esc_html( (string) ( $result['matched_rule_label'] ?? '—' ) ); ?>
@@ -1629,7 +1629,7 @@ class Admin {
 
 		$select_name = self::OPTION_KEY . '[' . self::SETTING_POLICY_PRESET_SELECTION . ']';
 
-		echo '<select id="' . esc_attr( self::SETTING_POLICY_PRESET_SELECTION ) . '" name="' . esc_attr( $select_name ) . '">';
+		echo '<select id="' . esc_attr( self::SETTING_POLICY_PRESET_SELECTION ) . '" name="' . esc_attr( $select_name ) . '" aria-describedby="wp-sudo-preset-description">';
 
 		foreach ( $presets as $preset_key => $preset ) {
 			printf(
@@ -1653,9 +1653,9 @@ class Admin {
 
 		// Show the selected preset's description.
 		if ( self::POLICY_PRESET_CUSTOM !== $current_preset && isset( $presets[ $current_preset ] ) ) {
-			echo '<p class="description" id="wp-sudo-preset-description">' . esc_html( $presets[ $current_preset ]['description'] ) . '</p>';
+			echo '<p class="description" id="wp-sudo-preset-description" aria-live="polite" aria-atomic="true">' . esc_html( $presets[ $current_preset ]['description'] ) . '</p>';
 		} else {
-			echo '<p class="description" id="wp-sudo-preset-description">' . esc_html__( 'Current settings do not match any preset. Selecting a preset will overwrite the entry-point policy fields below.', 'wp-sudo' ) . '</p>';
+			echo '<p class="description" id="wp-sudo-preset-description" aria-live="polite" aria-atomic="true">' . esc_html__( 'Current settings do not match any preset. Selecting a preset will overwrite the entry-point policy fields below.', 'wp-sudo' ) . '</p>';
 		}
 	}
 
@@ -1666,13 +1666,18 @@ class Admin {
 	 * @return void
 	 */
 	public function render_field_policy( array $args ): void {
-		$key   = $args['key'] ?? '';
-		$value = self::get( $key, Gate::POLICY_LIMITED );
+		$key            = $args['key'] ?? '';
+		$value          = self::get( $key, Gate::POLICY_LIMITED );
+		$description_id = '';
+		if ( ! empty( $args['description'] ) ) {
+			$description_id = $key . '-description';
+		}
 
 		printf(
-			'<select id="%1$s" name="%2$s[%1$s]">',
+			'<select id="%1$s" name="%2$s[%1$s]"%3$s>',
 			esc_attr( $key ),
-			esc_attr( self::OPTION_KEY )
+			esc_attr( self::OPTION_KEY ),
+			'' !== $description_id ? ' aria-describedby="' . esc_attr( $description_id ) . '"' : ''
 		);
 		printf(
 			'<option value="disabled" %s>%s</option>',
@@ -1692,7 +1697,7 @@ class Admin {
 		echo '</select>';
 
 		if ( ! empty( $args['description'] ) ) {
-			echo '<p class="description">' . esc_html( $args['description'] ) . '</p>';
+			echo '<p class="description" id="' . esc_attr( $description_id ) . '">' . esc_html( $args['description'] ) . '</p>';
 		}
 	}
 
