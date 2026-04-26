@@ -164,6 +164,20 @@ behavior that the model cannot hold in working memory.
 - Always run tests and PHPStan before committing.
 - Use conventional commit format.
 
+## Design Intent Review
+
+- Before writing or substantially changing code, briefly restate the problem and name the intended approach in 2–4 sentences.
+- Ask whether new code is necessary before implementing. Prefer deletion, simplification, configuration, or reuse when they solve the problem cleanly.
+- After implementation, explain whether the intended approach was followed. If the implementation changed, explain why.
+- Call out key tradeoffs, likely failure modes, and why this approach is better than the most obvious naive alternative.
+
+## Simplicity First
+
+- Always ask: Is this the simplest solution?
+- Prefer fewer moving parts, less abstraction, and less code when they satisfy the requirement.
+- If no code is the best code, say so explicitly and prefer that outcome.
+- Do not add indirection, generic abstraction, or framework machinery unless it clearly earns its cost.
+
 ## Architecture
 
 **Entry point:** `wp-sudo.php` — defines constants, registers an SPL autoloader (maps `WP_Sudo\Class_Name` to `includes/class-class-name.php`), and wires lifecycle hooks. The `wp_sudo()` function returns the singleton Plugin instance.
