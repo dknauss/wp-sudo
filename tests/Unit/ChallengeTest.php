@@ -1122,6 +1122,9 @@ class ChallengeTest extends TestCase
 		Actions\expectDone('wp_sudo_action_replayed')->never();
 
 		$method = new \ReflectionMethod($this->challenge, 'build_replay_response_data');
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible(true);
+		}
 		$data = $method->invoke($this->challenge, 42, 'redacted-stash-key', 'https://example.com/wp-admin/');
 
 		$this->assertSame('success', $data['code']);

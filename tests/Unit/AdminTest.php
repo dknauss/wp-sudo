@@ -1508,6 +1508,9 @@ class AdminTest extends TestCase {
 		$loader   = "/var/www/html/wp-content/plugins/sudo-renamed/mu-plugin/wp-sudo-loader.php";
 
 		$method = new \ReflectionMethod( Admin::class, 'personalize_mu_shim_contents' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
 
 		$result = $method->invoke( null, $template, $loader );
 
