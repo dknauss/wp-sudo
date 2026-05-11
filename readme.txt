@@ -13,7 +13,7 @@ Tested up to:      6.9
 Requires PHP:      8.0
 Stable tag:        3.1.1
 License:           GPL-2.0-or-later
-License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+License URI:       https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 
 WordPress security plugins guard the door. Sudo governs what can happen inside the house.
 
