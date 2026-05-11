@@ -1,6 +1,6 @@
 # Release Status (Canonical Current State)
 
-Last verified: 2026-05-09
+Last verified: 2026-05-11
 
 This file is the canonical source for **current release state** in this repository:
 
@@ -17,9 +17,10 @@ This file is the canonical source for **current release state** in this reposito
 
 ## Current `main` release target
 
-- **Next planned release:** `3.1.0` (planning lane)
-- **Current `main` runtime version constant:** `3.0.0` (post-release bump to `3.1.0` pending)
-- **Current `main` metadata should match:** `readme.txt` stable tag, `wp-sudo.php`, `tests/bootstrap.php`, `phpstan-bootstrap.php`
+- **Next planned release:** `3.1.0` (development lane)
+- **Current `main` runtime version constant:** `3.1.0`
+- **Current `main` development metadata should match:** `wp-sudo.php`, `tests/bootstrap.php`, `phpstan-bootstrap.php`
+- **Current public stable metadata remains:** `readme.txt` stable tag `3.0.0`
 - **Last completed release checklist:** `docs/release-3.0.0-checklist.md`
 
 ## Unreleased work already on `main`
@@ -29,7 +30,10 @@ Current commits ahead of `v3.0.0`:
 - Repository URL/name cleanup from `wp-sudo` to `Sudo` references.
 - Draft governance spec for External Audit Mode (`v3.2` planning).
 - Multisite smoke test fixes following the repository rename.
-- Development dependency updates from Dependabot.
+- WordPress 7.0 schedule/release-date documentation refresh.
+- Security hardening for pre-write role-change gating, sensitive request replay, MU-plugin shim path resilience, and audit bridge passed-event parity.
+- PHP 8.0 reflection compatibility fix for unit tests.
+- Development dependency security updates, including the `fast-xml-parser` Dependabot alert fixed on 2026-05-11.
 
 Canonical source for post-tag drift: `git log v3.0.0..main --oneline`
 
@@ -38,7 +42,7 @@ Canonical source for post-tag drift: `git log v3.0.0..main --oneline`
 ### Latest stable WordPress release
 
 - **Latest stable major/minor branch:** `6.9`
-- **Latest stable patch release observed:** `6.9.4` (released March 11, 2026; verified as latest stable on May 9, 2026)
+- **Latest stable patch release observed:** `6.9.4` (released March 11, 2026; verified as latest stable on May 11, 2026)
 
 ### Forward lane used by this repository
 
@@ -50,7 +54,7 @@ Canonical source for post-tag drift: `git log v3.0.0..main --oneline`
 - The previously scheduled **April 9, 2026** WordPress 7.0 final release was delayed on **March 31, 2026**.
 - The updated Make/Core schedule published on **April 22, 2026** sets the new WordPress 7.0 final release date at **May 20, 2026**.
 - Current final-stretch checkpoints are **RC3 on May 8, 2026**, **RC4 on May 14, 2026**, **dry run/code freeze on May 19, 2026**, and **general release on May 20, 2026**.
-- As of **May 9, 2026**, WordPress 7.0 is still unreleased; the latest stable public release remains **6.9.4**.
+- As of **May 11, 2026**, WordPress 7.0 is still unreleased; the latest stable public release remains **6.9.4**.
 
 ## Public metadata rule
 

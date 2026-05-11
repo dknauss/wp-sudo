@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.1.0 - Unreleased
+
+### Security hardening
+
+- **Role-change interception:** role and capability metadata writes are now blocked before mutation when they require an active sudo session, closing the gap where non-interactive role changes could be detected only after the write path.
+- **Sensitive request replay safety:** intercepted requests that include password/secret fields no longer replay partial POST data after those fields are omitted from the stash; users are returned with a warning instead.
+- **MU-plugin loader resilience:** copied MU shims now preserve the actual plugin loader path, and the static shim can recover when the plugin directory is renamed.
+- **Audit bridge parity:** Stream and WP Activity Log bridges now include `wp_sudo_action_passed` events, keeping active-session approvals visible in downstream audit logs.
+
+### Compatibility and tooling
+
+- **PHP 8.0 test compatibility:** reflection-based unit tests now avoid PHP 8.1-only reflection behavior when running under PHP 8.0.
+- **NPM security audit cleanup:** updated vulnerable transitive development dependencies, including `fast-xml-parser` via the repo override, and cleared the npm audit report.
+
+### Documentation
+
+- **Release posture:** refreshed WordPress 7.0 schedule references and kept public metadata aligned with WordPress 6.9 as the latest stable line until 7.0 final ships.
+
 ## 3.0.0
 
 ### Headline changes
