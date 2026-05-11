@@ -18,8 +18,10 @@
     {
       "step": "installPlugin",
       "pluginData": {
-        "resource": "url",
-        "url": "https://github.com/dknauss/Sudo/archive/refs/tags/v3.1.1.zip"
+        "resource": "git:directory",
+        "url": "https://github.com/dknauss/Sudo",
+        "ref": "main",
+        "refType": "branch"
       },
       "options": { "activate": true }
     },
