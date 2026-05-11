@@ -10,7 +10,7 @@
       "step": "installPlugin",
       "pluginZipFile": {
         "resource": "url",
-        "url": "https://github.com/dknauss/Sudo/archive/refs/heads/main.zip"
+        "url": "https://github.com/dknauss/Sudo/archive/refs/tags/v3.1.1.zip"
       },
       "options": { "activate": true }
     },
